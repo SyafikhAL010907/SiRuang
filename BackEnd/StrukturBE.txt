@@ -1,0 +1,18 @@
+BackEnd/
+├── cmd/
+│   └── api/
+│       └── main.go         (File utama buat jalanin server)
+├── internal/
+│   ├── handlers/           (Tempat naruh logika API)
+│   │   ├── auth.go        (Login & Register)
+│   │   ├── admin.go       (Khusus fitur-fitur Admin)
+│   │   └── user.go        (Khusus fitur-fitur User)
+│   ├── models/             (Struktur data/database)
+│   │   └── user.go
+│   ├── middleware/         (Cek login & hak akses/role)
+│   │   └── auth.go
+│   └── database/           (Koneksi MySQL)
+│       └── mysql.go
+├── help_desk_admisi.sql    (Udah gua pindahin kesini juga)
+├── go.mod
+└── go.sum

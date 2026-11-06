@@ -1,0 +1,155 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { Undo2, ArrowUpRight } from 'lucide-react';
+
+// Aset: public/PilihLantaiSFD/  (background + foto lantai), logo di root public/
+const BASE = '/PilihLantaiSFD';
+const BACKGROUND = `${BASE}/BackgroundPilan.png`;
+const LOGO = '/LogoSiRuangDatar.png';
+
+const FLOORS = [
+  { label: 3, img: `${BASE}/Lantai1.png`, href: '/denah-sfd/lantai3' },
+  { label: 8, img: `${BASE}/Lantai2.png`, href: '/denah-sfd/lantai8' },
+];
+
+// ---- Ukuran kartu & bentuk lekukan (px) ----
+const W = 280;   // lebar kartu
+const H = 372;   // tinggi kartu
+const R = 20;    // corner radius 4 sudut kartu
+
+// Tombol
+const BTN = 44;  // diameter tombol (w-11 h-11)
+
+// Subtract: lingkaran pengurang (Figma: 69 x 69)
+const SUB = 69;
+const SR = SUB / 2;          // radius lingkaran subtract = 34.5
+
+// Pusat lingkaran subtract = pusat tombol (nempel di pojok kanan bawah)
+const CX = W - BTN / 2;
+const CY = H - BTN / 2;
+
+// Radius penghalus di titik pertemuan card x lingkaran (ujung lekukan).
+// 0.01 = tajam seperti Subtract murni di Figma, naikin kalau mau lebih tumpul.
+const F = 12;
+
+const f = (n: number) => n.toFixed(2);
+
+// Titik tengah fillet (lingkaran kecil yang menyinggung sisi card & lingkaran subtract)
+const dOff = Math.sqrt((SR + F) ** 2 - (BTN / 2 - F) ** 2);
+
+// Fillet atas (nempel di sisi kanan card)
+const tFcx = W - F;
+const tFcy = CY - dOff;
+const tP1x = CX + ((tFcx - CX) * SR) / (SR + F);
+const tP1y = CY + ((tFcy - CY) * SR) / (SR + F);
+
+// Fillet kiri (nempel di sisi bawah card)
+const lFcx = CX - dOff;
+const lFcy = H - F;
+const lP2x = CX + ((lFcx - CX) * SR) / (SR + F);
+const lP2y = CY + ((lFcy - CY) * SR) / (SR + F);
+
+const CARD_PATH = [
+  `M ${R} 0`,
+  `H ${W - R}`,
+  `A ${R} ${R} 0 0 1 ${W} ${R}`,
+  `V ${f(tFcy)}`,                                   // turun sampai awal lekukan
+  `A ${F} ${F} 0 0 1 ${f(tP1x)} ${f(tP1y)}`,        // penghalus atas
+  `A ${SR} ${SR} 0 0 0 ${f(lP2x)} ${f(lP2y)}`,      // lengkung Subtract (lingkaran 69)
+  `A ${F} ${F} 0 0 1 ${f(lFcx)} ${H}`,              // penghalus kiri
+  `H ${R}`,
+  `A ${R} ${R} 0 0 1 0 ${H - R}`,
+  `V ${R}`,
+  `A ${R} ${R} 0 0 1 ${R} 0`,
+  'Z',
+].join(' ');
+
+export default function MainGedungSFD() {
+  return (
+    <div
+      className="min-h-screen w-full bg-white bg-cover bg-center flex flex-col items-center px-6 py-8"
+      style={{ backgroundImage: `url('${BACKGROUND}')` }}
+    >
+      {/* Header: Kembali + Logo */}
+      <header className="w-full max-w-5xl flex items-center justify-between">
+        <Link
+          href="/"
+          prefetch={true}
+          className="inline-flex items-center gap-3 text-sm font-medium text-black hover:opacity-70 transition-opacity"
+        >
+          <Undo2 size={18} />
+          Kembali ke beranda
+        </Link>
+
+        {/* Logo diperbesar: ubah h-20 / md:h-28 kalau mau lebih besar/kecil */}
+        <img
+          src={LOGO}
+          alt="SiRuang"
+          className="h-20 md:h-28 w-auto object-contain -my-4"
+        />
+      </header>
+
+      {/* Judul */}
+      <div className="text-center mt-10 md:mt-14 mb-14">
+        <h1 className="text-3xl md:text-4xl text-black leading-snug">
+          <span className="font-normal">Pilih Lantai </span>
+          <span className="font-bold">dan Temukan</span>
+          <br />
+          <span className="font-bold">
+            Ruang Kelas yang tersedia di Gedung SFD
+          </span>
+        </h1>
+        <p className="mt-6 max-w-2xl mx-auto text-sm md:text-base text-black leading-relaxed">
+          Temukan ruang kelas yang tersedia di setiap lantai Gedung SFD dan
+          pantau status ketersediaannya untuk kebutuhan akademik Anda.
+        </p>
+      </div>
+
+      {/* 2 Kartu Lantai (di tengah) */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-8">
+        {FLOORS.map((floor) => (
+          <Link
+            key={floor.label}
+            href={floor.href}
+            prefetch={true}
+            className="group relative block cursor-pointer shrink-0"
+            style={{ width: W, height: H }}
+          >
+            {/* Kartu dengan lekukan hasil Subtract */}
+            <div
+              className="absolute inset-0 bg-gray-300 overflow-hidden"
+              style={{ clipPath: `path('${CARD_PATH}')` }}
+            >
+              <img
+                src={floor.img}
+                alt={`Lantai ${floor.label}`}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+
+              <div className="absolute left-5 bottom-5 right-20 text-white">
+                <h2 className="text-xl font-bold leading-tight">
+                  Lantai {floor.label}
+                </h2>
+                <p className="text-xs leading-snug mt-1 text-white/90">
+                  Lihat denah visual dan cek status ketersediaannya
+                </p>
+              </div>
+            </div>
+
+            {/* Tombol panah: hitam -> kuning saat hover */}
+            <span
+              className="absolute right-0 bottom-0 rounded-full bg-black text-white flex items-center justify-center transition-colors duration-300 group-hover:bg-[#FFC61A] group-hover:text-black"
+              style={{ width: BTN, height: BTN }}
+            >
+              <ArrowUpRight size={18} />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}

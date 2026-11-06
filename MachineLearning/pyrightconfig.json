@@ -1,0 +1,9 @@
+{
+  "include": ["app/**"],
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Windows",
+  "extraPaths": ["."],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "venvPath": "."
+}

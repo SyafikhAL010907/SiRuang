@@ -1,0 +1,9 @@
+# Konfigurasi Pyrefly — Python type checker untuk MachineLearning service
+# File ini memberitahu Pyrefly di mana mencari modul-modul project
+
+[python]
+python_version = "3.11"
+
+[search_paths]
+# Tambahkan root folder agar `from app.core.templates import ...` bisa dikenali
+extra_paths = ["."]
