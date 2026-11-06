@@ -3,14 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Plus_Jakarta_Sans, Fasthand } from 'next/font/google';
+import { jakarta, fasthand } from '@/lib/fonts';
 import { ArrowLeft, ArrowUpRight, Building2, Layers } from 'lucide-react';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-});
-const fasthand = Fasthand({ subsets: ['latin'], weight: '400' });
 
 /* ------------------------------------------------------------------ */
 /*  DATA                                                               */
@@ -55,7 +49,7 @@ export default function MainGedungLE() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="relative overflow-hidden rounded-[28px] px-7 py-10 text-white sm:px-10 lg:rounded-[40px] lg:px-[56px] lg:py-[64px]"
+          className="relative overflow-hidden rounded-[28px] px-7 py-10 text-white sm:px-10 lg:rounded-[40px] lg:px-14 lg:py-16"
           style={{ background: 'linear-gradient(90deg, #183449 0%, #588CBC 100%)' }}
         >
           {/* huruf besar sebagai elemen tipografi, bukan hiasan blur */}
@@ -66,7 +60,7 @@ export default function MainGedungLE() {
             {GEDUNG.kode}
           </span>
 
-          <div className="relative z-10 max-w-[640px]">
+          <div className="relative z-10 max-w-160">
             <p className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/70">
               <Building2 size={15} />
               {GEDUNG.nama}
@@ -79,7 +73,7 @@ export default function MainGedungLE() {
               </span>
             </h1>
 
-            <p className="mt-5 max-w-[520px] text-[15px] leading-[26px] text-white/85 sm:text-[17px] sm:leading-[28px]">
+            <p className="mt-5 max-w-130 text-[15px] leading-6.5 text-white/85 sm:text-[17px] sm:leading-7">
               Pilih salah satu lantai untuk membuka denah. Di dalamnya kamu bisa cek status
               ruangan, fasilitas, dan mengajukan booking.
             </p>
@@ -125,10 +119,10 @@ export default function MainGedungLE() {
                 href={`${GEDUNG.base}/lantai${f.lantai}`}
                 prefetch={true}
                 aria-label={`Buka denah Lantai ${f.lantai} ${GEDUNG.nama}`}
-                className="group relative flex h-full flex-col rounded-[24px] border border-[#E8E8E5] bg-white p-4 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#333333] hover:shadow-[0_20px_44px_rgba(0,0,0,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F6F6F4]"
+                className="group relative flex h-full flex-col rounded-3xl border border-[#E8E8E5] bg-white p-4 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#333333] hover:shadow-[0_20px_44px_rgba(0,0,0,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F6F6F4]"
               >
                 {/* preview */}
-                <div className="relative flex h-[190px] items-center justify-center overflow-hidden rounded-[16px] bg-[#F3F3F0]">
+                <div className="relative flex h-47.5 items-center justify-center overflow-hidden rounded-2xl bg-[#F3F3F0]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={f.preview}
@@ -149,7 +143,7 @@ export default function MainGedungLE() {
                 <div className="flex flex-1 items-end justify-between gap-3 px-1 pb-1 pt-5">
                   <div>
                     <h3 className="text-[22px] font-bold leading-[1.2]">Lantai {f.lantai}</h3>
-                    <span className="my-2 block h-[4px] w-[32px] rounded-full bg-[#C2AC72]" />
+                    <span className="my-2 block h-1 w-8 rounded-full bg-[#C2AC72]" />
                     <p className="text-[13px] font-medium text-[#9A9A96]">{GEDUNG.nama}</p>
                   </div>
 

@@ -5,15 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { motion, MotionConfig, useInView, type HTMLMotionProps } from 'framer-motion';
-import { Plus_Jakarta_Sans, Fasthand } from 'next/font/google';
+import { jakarta, fasthand } from '@/lib/fonts';
 import Navbar from '@/components/LandingPage/Navbar';
 import Footer from '@/components/LandingPage/Footer';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
-const fasthand = Fasthand({ subsets: ['latin'], weight: '400' });
 
 /* ------------------------------------------------------------------ */
 /*  ANIMASI MASUK (ringan: hanya opacity + transform, GPU-friendly)    */

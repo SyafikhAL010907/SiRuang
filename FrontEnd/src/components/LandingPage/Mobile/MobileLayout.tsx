@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, MotionConfig } from 'framer-motion';
-import { Plus_Jakarta_Sans, Fasthand } from 'next/font/google';
+import { jakarta, fasthand } from '@/lib/fonts';
 import {
   FLOOR_MAPS_REGISTRY,
   DotIndicator,
@@ -15,12 +15,6 @@ import {
 } from '../Web&Tab/WebTabLayout';
 import Navbar from '@/components/LandingPage/Navbar';
 import Footer from '@/components/LandingPage/Footer';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
-const fasthand = Fasthand({ subsets: ['latin'], weight: '400' });
 
 /* ------------------------------------------------------------------ */
 /*  DATA                                                               */

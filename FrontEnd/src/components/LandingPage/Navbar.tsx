@@ -2,12 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Montserrat } from 'next/font/google';
-
-const montserrat = Montserrat({
-    subsets: ['latin'],
-    weight: ['500', '600', '700'],
-});
+import { montserrat } from '@/lib/fonts';
 
 /* ------------------------------------------------------------------ */
 /*  DATA                                                               */

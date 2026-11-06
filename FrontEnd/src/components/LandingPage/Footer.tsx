@@ -2,14 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Plus_Jakarta_Sans, Fasthand } from 'next/font/google';
+import { jakarta, fasthand } from '@/lib/fonts';
 import { NAV_LINKS, handleNavClick } from './Navbar';
-
-const jakarta = Plus_Jakarta_Sans({
-    subsets: ['latin'],
-    weight: ['400', '500', '600', '700', '800'],
-});
-const fasthand = Fasthand({ subsets: ['latin'], weight: '400' });
 
 const CONTACT = {
     email: 'siruang@unj.ac.id',
