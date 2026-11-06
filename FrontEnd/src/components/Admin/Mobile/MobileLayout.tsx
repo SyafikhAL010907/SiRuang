@@ -141,15 +141,15 @@ const MobileLayout = () => {
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    if (storedUser && selectedChat && view === 'ROOM' && adminGmail) {
+    if (storedUser && selectedChat && view === 'ROOM') {
       const { token } = JSON.parse(storedUser);
       fetchMessages(selectedChat.id, token);
       markAsRead(selectedChat.id);
 
-      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 3000);
+      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 1500);
       return () => clearInterval(interval);
     }
-  }, [selectedChat?.id, view, adminGmail, fetchMessages, markAsRead]);
+  }, [selectedChat?.id, view, fetchMessages, markAsRead]);
 
   useEffect(() => {
     if (selectedChat && messages.length > 0 && view === 'ROOM') {

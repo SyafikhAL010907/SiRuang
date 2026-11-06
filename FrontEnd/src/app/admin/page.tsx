@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MainAdmin from '@/components/Admin/MainAdmin';
+import { AdminDashboardSkeleton } from '@/components/Skeletons';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function AdminPage() {
     }
   }, [router]);
 
-  if (!mounted || !authorized) return null;
+  if (!mounted || !authorized) return <AdminDashboardSkeleton />;
 
   return (
     <main className="min-h-screen">

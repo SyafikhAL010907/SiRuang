@@ -55,8 +55,45 @@ export function useAdminChat(options: UseAdminChatOptions) {
     }
   }, [selectedChat]);
 
-  // ── Messages ──
-  const [messages, setMessages] = useState<Message[]>([]);
+  // ── Messages (persisted to sessionStorage per room for instant 0ms load on refresh) ──
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('adminActiveChat');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.id) {
+            const cached = sessionStorage.getItem(`admin_chat_messages_${parsed.id}`);
+            return cached ? JSON.parse(cached) : [];
+          }
+        } catch {}
+      }
+    }
+    return [];
+  });
+
+  // Saat selectedChat berganti, langsung ambil cache lokal pesan room tersebut (0ms delay)
+  useEffect(() => {
+    if (selectedChat?.id) {
+      try {
+        const cached = sessionStorage.getItem(`admin_chat_messages_${selectedChat.id}`);
+        if (cached) {
+          setMessages(JSON.parse(cached));
+        }
+      } catch {}
+    } else {
+      setMessages([]);
+    }
+  }, [selectedChat?.id]);
+
+  // Simpan update pesan ke cache lokal sessionStorage
+  useEffect(() => {
+    if (selectedChatRef.current?.id && messages.length > 0) {
+      try {
+        sessionStorage.setItem(`admin_chat_messages_${selectedChatRef.current.id}`, JSON.stringify(messages));
+      } catch {}
+    }
+  }, [messages]);
 
   // ── Send Message State ──
   const [selectedResponse, setSelectedResponse] = useState<CannedResponse | null>(null);
@@ -143,8 +180,9 @@ export function useAdminChat(options: UseAdminChatOptions) {
 
   const fetchMessages = useCallback(async (roomId: number, token: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${roomId}`, {
-        headers: { 'Authorization': token }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${roomId}&_t=${Date.now()}`, {
+        headers: { 'Authorization': token },
+        cache: 'no-store',
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {

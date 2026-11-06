@@ -91,7 +91,33 @@ const NotchedBackground = () => (
 const MobileLayout = () => {
   const [userName, setUserName] = useState('User');
   const [userGmail, setUserGmail] = useState('');
-  const [roomId, setRoomId] = useState<number | null>(null);
+  const [roomId, setRoomId] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('user_chat_room_id');
+      return stored ? parseInt(stored, 10) : null;
+    }
+    return null;
+  });
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('user_chat_messages');
+      return stored ? JSON.parse(stored) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (roomId) {
+      sessionStorage.setItem('user_chat_room_id', roomId.toString());
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem('user_chat_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
   const [activeTab, setActiveTab] = useState('home');
   const [chatView, setChatView] = useState<'LIST' | 'ROOM'>('LIST');
   const activeTabRef = useRef(activeTab);
@@ -114,7 +140,6 @@ const MobileLayout = () => {
     }
   }, [chatView, activeTab, roomId]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isChatStarted, setIsChatStarted] = useState(false);

@@ -138,15 +138,15 @@ const WebTabLayout = () => {
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    if (storedUser && selectedChat && adminGmail) {
+    if (storedUser && selectedChat) {
       const { token } = JSON.parse(storedUser);
       fetchMessages(selectedChat.id, token);
       markAsRead(selectedChat.id);
 
-      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 3000);
+      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 1500);
       return () => clearInterval(interval);
     }
-  }, [selectedChat?.id, adminGmail, fetchMessages, markAsRead]);
+  }, [selectedChat?.id, fetchMessages, markAsRead]);
 
   // Efek pintar buat scroll
   useEffect(() => {

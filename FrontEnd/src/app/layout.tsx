@@ -48,7 +48,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <NextTopLoader color="#588CBC" showSpinner={false} height={3} />
+        <NextTopLoader
+          color="#588CBC"
+          height={3}
+          showSpinner={false}
+          crawl={true}
+          crawlSpeed={200}
+          speed={200}
+          shadow="0 0 10px #588CBC,0 0 5px #588CBC"
+        />
         {children}
       </body>
     </html>

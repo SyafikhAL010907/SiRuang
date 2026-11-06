@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MainUser from '@/components/User/MainUser';
+import { UserDashboardSkeleton } from '@/components/Skeletons';
 
 export default function UserPage() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function UserPage() {
     }
   }, [router]);
 
-  if (!mounted || !authorized) return null;
+  if (!mounted || !authorized) return <UserDashboardSkeleton />;
 
   return (
     <main className="min-h-screen">
