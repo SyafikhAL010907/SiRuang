@@ -1,7 +1,8 @@
 http://localhost:3000/denah-sfd
 http://localhost:3000/denah-le
 
-
+198501012010121001 pw AdminDev1
+1512625004 PW 123
 # Cara Running Aplikasi HelpDesk Admisi (Lokal & Cloudflare Tunnel)
 
 Dokumen ini berisi panduan cepat untuk menjalankan seluruh service (Backend, Frontend, Machine Learning) beserta Cloudflare Tunnel jika ingin diakses dari internet.

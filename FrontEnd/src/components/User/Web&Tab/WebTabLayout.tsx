@@ -39,6 +39,7 @@ import FilePreviewModal from '@/components/Shared/FilePreviewModal';
 import FileChatBubble, { isFileMessage } from '@/components/Shared/FileChatBubble';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { supabase } from '@/lib/supabaseClient';
 
 const toLocalTime = (dateStr: string) => {
     if (!dateStr) return '--:--';
@@ -105,19 +106,17 @@ const WebTabLayout = () => {
       </span>
     );
   };
-  const [isChatOpen, setIsChatOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('userActiveChat') === 'true';
-    }
-    return false;
-  });
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const isChatOpenRef = useRef(isChatOpen);
+  useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
 
   useEffect(() => {
-    sessionStorage.setItem('userActiveChat', isChatOpen.toString());
-    if (isChatOpen) {
+    if (isChatOpen && roomId) {
       setUnreadCount(0);
       const storedUser = localStorage.getItem('user');
-      if (storedUser && roomId) {
+      if (storedUser) {
         try {
           const { token } = JSON.parse(storedUser);
           markAsRead(roomId, token);
@@ -190,8 +189,8 @@ const WebTabLayout = () => {
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
       setUserName(parsed.username || parsed.Username || 'User');
-      // Ambil gmail dengan berbagai kemungkinan penulisan
-      const email = parsed.gmail || parsed.Gmail || parsed.email || parsed.Email || '';
+      // Ambil identifier (NIM/NIP) atau fallback gmail
+      const email = parsed.identifier || parsed.gmail || parsed.Gmail || parsed.email || parsed.Email || '';
       setUserGmail(email);
       
       if (email) {
@@ -211,10 +210,6 @@ const WebTabLayout = () => {
         setRoomId(roomData.id);
         setUnreadCount(roomData.unread_count || 0);
         fetchMessages(roomData.id, token, gmail);
-        
-        // Polling setiap 3 detik
-        const interval = setInterval(() => fetchMessages(roomData.id, token, gmail), 3000);
-        return () => clearInterval(interval);
       }
     } catch (err) {
       console.error("Gagal inisialisasi chat:", err);
@@ -226,32 +221,85 @@ const WebTabLayout = () => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             const { token } = JSON.parse(storedUser);
-            const interval = setInterval(() => fetchMessages(roomId, token, userGmail), 3000);
-            return () => clearInterval(interval);
+
+            // 1. Supabase Realtime WebSocket listener (0 ms delay instan)
+            const channel = supabase
+              .channel(`realtime_chat_user_${roomId}`)
+              .on(
+                'postgres_changes',
+                {
+                  event: '*',
+                  schema: 'public',
+                  table: 'chat_messages',
+                  filter: `room_id=eq.${roomId}`,
+                },
+                () => {
+                  fetchMessages(roomId, token, userGmail);
+                }
+              )
+              .subscribe();
+
+            // 2. Polling cepat tanpa cache setiap 1.5 detik
+            const interval = setInterval(() => fetchMessages(roomId, token, userGmail), 1500);
+
+            return () => {
+              channel.unsubscribe();
+              clearInterval(interval);
+            };
         }
     }
   }, [roomId, userGmail]);
 
   const fetchMessages = async (id: number, token: string, currentGmail: string) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${id}`, {
-        headers: { 'Authorization': token }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${id}&_t=${Date.now()}`, {
+        headers: { 'Authorization': token },
+        cache: 'no-store'
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
-        setMessages(data.map((m: any) => ({
+        const serverMessages: Message[] = data.map((m: any) => ({
           id: m.id.toString(),
           sender: m.sender_gmail.toLowerCase() === currentGmail.toLowerCase() ? 'user' : 'admin',
           text: m.message,
           timestamp: toLocalTime(m.created_at),
           type: m.message_type
-        })));
+        }));
 
-        if (isChatOpen) {
+        setMessages((prevMessages) => {
+          const serverIds = new Set(serverMessages.map((m) => m.id));
+          const localPending = prevMessages.filter((p) => {
+            if (serverIds.has(p.id)) return false;
+            if (p.id.startsWith('temp-')) {
+              return !serverMessages.some(
+                (s) => s.sender === p.sender && s.text === p.text && s.type === p.type
+              );
+            }
+            return true;
+          });
+
+          const merged = [...serverMessages, ...localPending];
+
+          if (
+            prevMessages.length === merged.length &&
+            prevMessages.every((p, idx) => p.id === merged[idx]?.id && p.text === merged[idx]?.text)
+          ) {
+            return prevMessages; // Hindari re-render berulang agar tidak berkedip
+          }
+
+          return merged;
+        });
+
+        if (isChatOpenRef.current) {
           markAsRead(id, token);
           setUnreadCount(0);
         } else {
-          const unreadAdminCount = data.filter((m: any) => m.sender_gmail.toLowerCase() !== currentGmail.toLowerCase() && m.is_read === 0).length;
+          const unreadAdminCount = data.filter((m: any) => {
+            const senderId = (m.sender_gmail || m.sender_identifier || '').toLowerCase();
+            const isFromUser = senderId === currentGmail.toLowerCase();
+            const isUnread = !m.is_read || m.is_read === 0 || m.is_read === 'false';
+            return !isFromUser && isUnread;
+          }).length;
           setUnreadCount(unreadAdminCount);
         }
       }
@@ -275,9 +323,13 @@ const WebTabLayout = () => {
 
   const markAsRead = async (id: number, token: string) => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/mark-read/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/mark-read?room_id=${id}`, {
         method: 'POST',
-        headers: { 'Authorization': token }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token 
+        },
+        body: JSON.stringify({ room_id: id })
       });
     } catch (err) {
       console.error("Gagal mark read user:", err);
@@ -296,72 +348,72 @@ const WebTabLayout = () => {
 
     const storedUser = localStorage.getItem('user');
     if (!storedUser) return;
-    const { token, gmail } = JSON.parse(storedUser);
+    const parsed = JSON.parse(storedUser);
+    const token = parsed.token;
+    const gmail = parsed.identifier || parsed.gmail || userGmail;
+
+    // Hitung isi teks dan tipe pesan sebelum optimistic update
+    let messageText = combinedText.trim();
+    let messageType: 'text' | 'image' | 'file' | 'multi_file' = 'text';
+
+    if (pendingFiles.length === 1) {
+      const pf = pendingFiles[0];
+      messageType = pf.type;
+      messageText = combinedText.trim()
+        ? `${pf.name}|${pf.data}|${combinedText.trim()}`
+        : `${pf.name}|${pf.data}`;
+    } else if (pendingFiles.length > 1) {
+      messageType = 'multi_file';
+      const payload = {
+        files: pendingFiles.map(pf => ({ name: pf.name, data: pf.data, type: pf.type })),
+        caption: combinedText.trim() || undefined
+      };
+      messageText = JSON.stringify(payload);
+    }
+
+    // OPTIMISTIC UPDATE: Tampilkan bubble chat secara instan (0 ms delay)
+    const tempId = 'temp-' + Date.now();
+    const optimisticMsg: Message = {
+      id: tempId,
+      sender: 'user',
+      text: messageText,
+      timestamp: format(new Date(), 'HH:mm'),
+      type: messageType,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setManualNote('');
+    setSelectedResponse(null);
+    setPendingFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    const el = document.getElementById('user-web-message-input');
+    if (el) el.style.height = 'auto';
+    scrollToBottom('smooth');
 
     try {
-      if (pendingFiles.length > 0) {
-        if (pendingFiles.length === 1) {
-          const pf = pendingFiles[0];
-          let msgText = `${pf.name}|${pf.data}`;
-          if (combinedText.trim()) {
-            msgText = `${pf.name}|${pf.data}|${combinedText.trim()}`;
-          }
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': token
-            },
-            body: JSON.stringify({
-              room_id: roomId,
-              sender_gmail: gmail,
-              message: msgText,
-              message_type: pf.type
-            })
-          });
-        } else {
-          // Multi-file: Kirim sekaligus dalam 1 bubble tunggal
-          const payload = {
-            files: pendingFiles.map(pf => ({ name: pf.name, data: pf.data, type: pf.type })),
-            caption: combinedText.trim() || undefined
-          };
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': token
-            },
-            body: JSON.stringify({
-              room_id: roomId,
-              sender_gmail: gmail,
-              message: JSON.stringify(payload),
-              message_type: 'multi_file'
-            })
-          });
-        }
-      } else {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': token
-          },
-          body: JSON.stringify({
-            room_id: roomId,
-            sender_gmail: gmail,
-            message: combinedText.trim(),
-            message_type: 'text'
-          })
-        });
-      }
+      const sendRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+        body: JSON.stringify({
+          room_id: roomId,
+          sender_gmail: gmail,
+          message: messageText,
+          message_type: messageType
+        })
+      });
 
-      setManualNote('');
-      setSelectedResponse(null);
-      setPendingFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      const el = document.getElementById('user-web-message-input');
-      if (el) el.style.height = 'auto';
-      fetchMessages(roomId, token, gmail);
+      if (sendRes && sendRes.ok) {
+        const savedMsg = await sendRes.json();
+        if (savedMsg?.id) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempId ? { ...m, id: savedMsg.id.toString() } : m))
+          );
+        }
+      }
+      scrollToBottom('smooth');
     } catch (err) {
       console.error("Gagal kirim pesan:", err);
     }
@@ -690,17 +742,22 @@ const WebTabLayout = () => {
                           const parts = msg.text.split('|');
                           const imgData = parts.length > 1 ? parts[1] : msg.text;
                           const caption = parts.length > 2 ? parts.slice(2).join('|') : null;
+                          const isValidImg = Boolean(imgData && (imgData.startsWith('data:image') || imgData.startsWith('http') || imgData.startsWith('/')));
                           return (
                             <>
-                              <img 
-                                src={imgData} 
-                                alt="Sent image" 
-                                onClick={() => viewFile(imgData, "Gambar_Lampiran.png")}
-                                className="rounded-2xl max-w-60 h-auto shadow-sm border border-slate-100 cursor-zoom-in hover:opacity-90 transition-all"
-                              />
-                               {caption && (
-                                 <FormattedText text={caption} className="text-sm font-medium leading-relaxed mt-1 px-1" />
-                               )}
+                              {isValidImg ? (
+                                <img 
+                                  src={imgData} 
+                                  alt="Sent image" 
+                                  onClick={() => viewFile(imgData, "Gambar_Lampiran.png")}
+                                  className="rounded-2xl max-w-60 h-auto shadow-sm border border-slate-100 cursor-zoom-in hover:opacity-90 transition-all"
+                                />
+                              ) : (
+                                renderHighlightedText(msg.text, localSearchQuery)
+                              )}
+                              {caption && (
+                                <FormattedText text={caption} className="text-sm font-medium leading-relaxed mt-1 px-1" />
+                              )}
                             </>
                           );
                         })()}
@@ -917,7 +974,19 @@ const WebTabLayout = () => {
                     Klik tombol dibawah ini untuk  mulai berkonsultasi dengan petugas kami.
                   </p>
                   <button 
-                    onClick={() => setIsChatOpen(true)}
+                    onClick={() => {
+                      setIsChatOpen(true);
+                      if (roomId) {
+                        const storedUser = localStorage.getItem('user');
+                        if (storedUser) {
+                          try {
+                            const { token } = JSON.parse(storedUser);
+                            markAsRead(roomId, token);
+                          } catch {}
+                        }
+                        setUnreadCount(0);
+                      }
+                    }}
                     className="px-8 py-3.5 bg-[#183449] text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-[#183449]/20 hover:bg-[#588CBC] hover:scale-105 active:scale-95 transition-all relative w-full mb-4"
                   >
                     BUKA CHAT SEKARANG

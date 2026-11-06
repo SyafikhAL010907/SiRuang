@@ -79,14 +79,19 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                         const parts = msg.text.split('|');
                         const imgData = parts.length > 1 ? parts[1] : msg.text;
                         const caption = parts.length > 2 ? parts.slice(2).join('|') : null;
+                        const isValidImg = Boolean(imgData && (imgData.startsWith('data:image') || imgData.startsWith('http') || imgData.startsWith('/')));
                         return (
                           <>
-                            <img
-                              src={imgData}
-                              alt="Sent image"
-                              onClick={() => viewFile(imgData, "Gambar_Lampiran.png")}
-                              className="rounded-2xl max-w-60 h-auto shadow-sm border border-slate-100 cursor-zoom-in hover:opacity-90 transition-all"
-                            />
+                            {isValidImg ? (
+                              <img
+                                src={imgData}
+                                alt="Sent image"
+                                onClick={() => viewFile(imgData, "Gambar_Lampiran.png")}
+                                className="rounded-2xl max-w-60 h-auto shadow-sm border border-slate-100 cursor-zoom-in hover:opacity-90 transition-all"
+                              />
+                            ) : (
+                              renderHighlightedText(msg.text, localSearchQuery)
+                            )}
                             {caption && (
                               <FormattedText text={caption} className="text-sm font-medium leading-relaxed mt-1 px-1" />
                             )}
@@ -101,6 +106,11 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                     "flex items-center gap-2 mt-2.5 justify-end",
                     isMe ? "text-slate-300" : "text-[#848484]"
                   )}>
+                    {msg.isAI && (
+                      <span className="text-[9px] font-black tracking-wider uppercase bg-[#588CBC]/40 text-sky-200 border border-[#588CBC]/60 px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                        🤖 AI Assistant
+                      </span>
+                    )}
                     <span className="text-[10px] font-bold">{msg.timestamp}</span>
                     {isMe && <CheckCheck size={14} className="text-[#588CBC]" />}
                   </div>

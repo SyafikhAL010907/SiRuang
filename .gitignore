@@ -1,0 +1,29 @@
+# Node.js & Next.js
+node_modules/
+FrontEnd/node_modules/
+.next/
+FrontEnd/.next/
+FrontEnd/out/
+FrontEnd/build/
+
+# Environment files
+.env
+.env*.local
+FrontEnd/.env*
+!FrontEnd/.env.example
+
+# Python / MachineLearning
+venv/
+__pycache__/
+*.pyc
+MachineLearning/venv/
+MachineLearning/__pycache__/
+
+# Binaries & OS
+*.exe
+*.dll
+*.so
+*.dylib
+.DS_Store
+Thumbs.db
+

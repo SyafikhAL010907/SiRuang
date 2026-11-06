@@ -37,7 +37,7 @@ const MobileLayout = () => {
   const {
     adminName, setAdminName,
     adminGmail, setAdminGmail,
-    rooms,
+    rooms, setRooms,
     fetchRooms,
     selectedChat, setSelectedChat,
     messages, setMessages,
@@ -113,6 +113,7 @@ const MobileLayout = () => {
     showAlert,
     fetchRooms,
     rooms,
+    setRooms,
     selectedChat,
     setSelectedChat,
     setMessages,
@@ -123,7 +124,7 @@ const MobileLayout = () => {
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
       setAdminName(parsed.username || parsed.Username || 'Admin');
-      setAdminGmail(parsed.gmail);
+      setAdminGmail(parsed.identifier || parsed.gmail || '');
       fetchRooms(parsed.token);
       fetchStats(parsed.token);
       fetchAllUsers(parsed.token);
@@ -143,11 +144,12 @@ const MobileLayout = () => {
     if (storedUser && selectedChat && view === 'ROOM' && adminGmail) {
       const { token } = JSON.parse(storedUser);
       fetchMessages(selectedChat.id, token);
+      markAsRead(selectedChat.id);
 
       const interval = setInterval(() => fetchMessages(selectedChat.id, token), 3000);
       return () => clearInterval(interval);
     }
-  }, [selectedChat?.id, view, adminGmail, fetchMessages]);
+  }, [selectedChat?.id, view, adminGmail, fetchMessages, markAsRead]);
 
   useEffect(() => {
     if (selectedChat && messages.length > 0 && view === 'ROOM') {

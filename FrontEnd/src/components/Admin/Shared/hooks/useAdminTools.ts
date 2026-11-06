@@ -10,13 +10,14 @@ export interface UseAdminToolsOptions {
   setAlertConfig?: React.Dispatch<React.SetStateAction<{ show: boolean, type: 'alert' | 'confirm', message: string, title?: string, onConfirm?: () => void }>>;
   fetchRooms: (token: string) => Promise<void>;
   rooms: any[];
+  setRooms?: React.Dispatch<React.SetStateAction<any[]>>;
   selectedChat: any | null;
   setSelectedChat: (chat: any | null) => void;
   setMessages: (messages: any[]) => void;
 }
 
 export function useAdminTools(options: UseAdminToolsOptions) {
-  const { platform, showAlert, fetchRooms, selectedChat, setSelectedChat, setMessages } = options;
+  const { platform, showAlert, fetchRooms, selectedChat, setSelectedChat, setMessages, setRooms } = options;
 
   // ── Stats ──
   const [totalUsersCount, setTotalUsersCount] = useState<number>(12540);
@@ -193,36 +194,35 @@ export function useAdminTools(options: UseAdminToolsOptions) {
         if (!storedUser) return;
         const { token } = JSON.parse(storedUser);
 
+        const idsToDelete = [...selectedRooms];
+        // 1. INSTAN OPTIMISTIC UPDATE: Langsung bersihkan dari state UI detik itu juga!
+        setSelectedRooms([]);
+        setIsDeleteMode(false);
+        if (platform === 'web' && selectedChat && idsToDelete.includes(selectedChat.id)) {
+          setSelectedChat(null);
+          setMessages([]);
+        }
+        if (setRooms) {
+          setRooms((prev) => prev.filter((r) => !idsToDelete.includes(r.id)));
+        }
+        showAlert('Mantap! Room chat pilihan lu udah bersih dari database.', 'Sukses');
+
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/delete-bulk`, {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/delete-bulk`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': token
             },
-            body: JSON.stringify({ room_ids: selectedRooms })
+            body: JSON.stringify({ room_ids: idsToDelete })
           });
-
-          if (res.ok) {
-            showAlert('Mantap! Room chat pilihan lu udah bersih dari database.', 'Sukses');
-            setSelectedRooms([]);
-            setIsDeleteMode(false);
-            if (platform === 'web' && selectedChat && selectedRooms.includes(selectedChat.id)) {
-              setSelectedChat(null);
-              setMessages([]);
-            }
-            fetchRooms(token);
-          } else {
-            const data = await res.json();
-            showAlert('Gagal hapus: ' + data.error, 'Gagal');
-          }
+          fetchRooms(token);
         } catch (err) {
           console.error("Gagal bulk delete:", err);
-          showAlert('Ada kendala koneksi pas mau hapus data bro.', 'Error Koneksi');
         }
       }
     });
-  }, [selectedRooms, platform, selectedChat, setSelectedChat, setMessages, showAlert, fetchRooms, setAlertConfig]);
+  }, [selectedRooms, platform, selectedChat, setSelectedChat, setMessages, setRooms, showAlert, fetchRooms, setAlertConfig]);
 
   const toggleSelectRoom = useCallback((id: number) => {
     setSelectedRooms(prev =>

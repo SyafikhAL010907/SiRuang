@@ -64,10 +64,21 @@ const MainAuth = ({ initialMode, onLoginSuccess }: MainAuthProps) => {
             const data = await res.json();
             if (res.ok) {
                 localStorage.setItem('user', JSON.stringify(data));
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('identifier', data.identifier);
+                localStorage.setItem('role', data.role);
+                localStorage.setItem('username', data.username);
+                // Backward-compat fallback
+                localStorage.setItem('gmail', data.identifier);
+
                 if (onLoginSuccess) {
                     onLoginSuccess(data);
                 } else {
-                    router.push('/');
+                    if (data.role === 'admin') {
+                        router.push('/admin');
+                    } else {
+                        router.push('/user');
+                    }
                 }
             } else {
                 showAlert(data.error || 'Login Gagal', 'Gagal');
@@ -91,7 +102,7 @@ const MainAuth = ({ initialMode, onLoginSuccess }: MainAuthProps) => {
 
             const data = await res.json();
             if (res.ok) {
-                showAlert('Pendaftaran Berhasil! Silakan Login.', 'Sukses');
+                showAlert('Pendaftaran Berhasil! Silakan Login menggunakan NIM/NIP Anda.', 'Sukses');
                 setMode('login');
             } else {
                 showAlert(data.error || 'Pendaftaran Gagal', 'Gagal');
@@ -111,7 +122,6 @@ const MainAuth = ({ initialMode, onLoginSuccess }: MainAuthProps) => {
         );
     }
 
-    // HP: tetap ganti halaman seperti sebelumnya
     if (isMobile) {
         return (
             <>
@@ -135,7 +145,6 @@ const MainAuth = ({ initialMode, onLoginSuccess }: MainAuthProps) => {
         );
     }
 
-    // Web & Tab: satu komponen, overlay geser
     return (
         <>
             <AuthSlider

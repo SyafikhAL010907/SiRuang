@@ -24,9 +24,9 @@ const Avatar: React.FC<AvatarProps> = ({ src, alt = 'User', size = 'md', status,
       <div className={cn(
         sizeClasses[size], 
         "rounded-full overflow-hidden flex items-center justify-center",
-        !src && "bg-slate-100 border border-slate-200"
+        !(src && src.trim()) && "bg-slate-100 border border-slate-200"
       )}>
-        {src ? (
+        {src && src.trim() ? (
           <Image 
             src={src} 
             alt={alt} 

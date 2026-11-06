@@ -5,6 +5,7 @@ export interface Message {
   timestamp: string;
   type: 'text' | 'image' | 'file' | 'multi_file';
   attachmentUrl?: string;
+  isAI?: boolean;
 }
 
 export interface ChatSession {

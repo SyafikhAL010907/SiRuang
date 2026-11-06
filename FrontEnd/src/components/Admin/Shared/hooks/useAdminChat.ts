@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
 import { Message, CannedResponse } from '@/constants/chatTypes';
 import { toLocalTime } from '../utils';
 
@@ -15,7 +16,22 @@ export function useAdminChat(options: UseAdminChatOptions) {
 
   // ── Auth State ──
   const [adminName, setAdminName] = useState('Admin');
-  const [adminGmail, setAdminGmail] = useState('');
+  const [adminGmail, setAdminGmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          return parsed.identifier || parsed.gmail || '';
+        } catch {}
+      }
+    }
+    return '';
+  });
+  const adminGmailRef = useRef(adminGmail);
+  useEffect(() => {
+    adminGmailRef.current = adminGmail;
+  }, [adminGmail]);
 
   // ── Rooms ──
   const [rooms, setRooms] = useState<any[]>([]);
@@ -29,7 +45,9 @@ export function useAdminChat(options: UseAdminChatOptions) {
     return null;
   });
 
+  const selectedChatRef = useRef(selectedChat);
   useEffect(() => {
+    selectedChatRef.current = selectedChat;
     if (selectedChat) {
       sessionStorage.setItem('adminActiveChat', JSON.stringify(selectedChat));
     } else {
@@ -80,76 +98,112 @@ export function useAdminChat(options: UseAdminChatOptions) {
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
-        if (platform === 'web') {
-          setRooms(data.map((r: any) => ({
-            ...r,
-            user: r.user_name || r.user_gmail.split('@')[0],
-            lastMessage: r.last_message,
-            time: toLocalTime(r.updated_at),
-            unread: r.unread_count,
-            is_online: r.is_online,
-            is_marked_unread: r.is_marked_unread
-          })));
-        } else {
-          setRooms(data.map((r: any) => ({
-            ...r,
-            is_online: r.is_online,
-            is_marked_unread: r.is_marked_unread
-          })));
-        }
-      } else if (platform === 'web') {
-        setRooms([]);
-      } else {
-        if (res.ok) {
-          setRooms([]);
-        }
+        setRooms(data.map((r: any) => ({
+          ...r,
+          user: r.user_name || r.user_gmail?.split('@')[0] || r.user_identifier,
+          lastMessage: r.last_message,
+          time: toLocalTime(r.updated_at),
+          unread: r.unread_count || 0,
+          unread_count: r.unread_count || 0,
+          is_online: r.is_online,
+          is_marked_unread: r.is_marked_unread
+        })));
       }
     } catch (err) {
       console.error("Gagal ambil room:", err);
-      setRooms([]);
     }
-  }, [platform]);
-
-  const fetchMessages = useCallback(async (roomId: number, token: string) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${roomId}`, {
-        headers: { 'Authorization': token }
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setMessages(data.map((m: any) => ({
-          id: m.id.toString(),
-          sender: m.sender_gmail.toLowerCase() === adminGmail.toLowerCase() ? 'admin' : 'user',
-          text: m.message,
-          timestamp: toLocalTime(m.created_at),
-          type: m.message_type
-        })));
-      } else if (platform === 'web') {
-        setMessages([]);
-      }
-    } catch (err) {
-      console.error("Gagal ambil pesan:", err);
-      if (platform === 'web') {
-        setMessages([]);
-      }
-    }
-  }, [adminGmail, platform]);
+  }, []);
 
   const markAsRead = useCallback(async (id: number) => {
+    // 1. Instan Optimistic Update di UI: hilangkan notif badge dan set unread = 0 seketika
+    setRooms((prevRooms) =>
+      prevRooms.map((r) =>
+        r.id === id ? { ...r, unread: 0, unread_count: 0, is_marked_unread: false } : r
+      )
+    );
+
     const storedUser = localStorage.getItem('user');
     if (!storedUser) return;
     const { token } = JSON.parse(storedUser);
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/mark-read/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/mark-read?room_id=${id}`, {
         method: 'POST',
-        headers: { 'Authorization': token }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token 
+        },
+        body: JSON.stringify({ room_id: id })
       });
       fetchRooms(token);
     } catch (err) {
       console.error("Gagal mark read:", err);
     }
   }, [fetchRooms]);
+
+  const fetchMessages = useCallback(async (roomId: number, token: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${roomId}`, {
+        headers: { 'Authorization': token }
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        const currentAdminId = (adminGmailRef.current || adminGmail || '').toLowerCase();
+        const serverMessages: Message[] = data.map((m: any) => {
+          const sId = (m.sender_gmail || m.sender_identifier || '').toLowerCase();
+          const isAI = sId === 'admin_ai';
+          const isAdmin =
+            isAI ||
+            sId === currentAdminId ||
+            sId.startsWith('admin') ||
+            (selectedChatRef.current?.user_identifier && sId !== selectedChatRef.current.user_identifier.toLowerCase());
+          return {
+            id: m.id.toString(),
+            sender: (isAdmin ? 'admin' : 'user') as 'admin' | 'user',
+            text: m.message,
+            timestamp: toLocalTime(m.created_at),
+            type: m.message_type,
+            isAI,
+          };
+        });
+
+        setMessages((prevMessages) => {
+          const serverIds = new Set(serverMessages.map((m) => m.id));
+          const localPending = prevMessages.filter((p) => {
+            if (serverIds.has(p.id)) return false;
+            if (p.id.startsWith('temp-')) {
+              return !serverMessages.some(
+                (s) => s.sender === p.sender && s.text === p.text && s.type === p.type
+              );
+            }
+            return true;
+          });
+
+          const merged = [...serverMessages, ...localPending];
+
+          if (
+            prevMessages.length === merged.length &&
+            prevMessages.every((p, idx) => p.id === merged[idx]?.id && p.text === merged[idx]?.text)
+          ) {
+            return prevMessages;
+          }
+
+          return merged;
+        });
+
+        // Jika admin sedang membuka room ini dan ada pesan user yang belum terbaca, tandai sudah dibaca otomatis
+        const hasUnreadFromUser = data.some((m: any) => {
+          const sId = (m.sender_gmail || m.sender_identifier || '').toLowerCase();
+          return !m.is_read && sId !== currentAdminId && sId !== 'admin_ai' && !sId.startsWith('admin');
+        });
+        if (hasUnreadFromUser && selectedChatRef.current?.id === roomId) {
+          markAsRead(roomId);
+        }
+      }
+    } catch (err) {
+      console.error("Gagal ambil pesan:", err);
+    }
+  }, [adminGmail, markAsRead]);
 
   const handleMarkAsUnread = useCallback(async () => {
     if (!selectedChat) return;
@@ -158,9 +212,13 @@ export function useAdminChat(options: UseAdminChatOptions) {
     const { token } = JSON.parse(storedUser);
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/mark-unread/${selectedChat.id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/mark-unread?room_id=${selectedChat.id}`, {
         method: 'POST',
-        headers: { 'Authorization': token }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token 
+        },
+        body: JSON.stringify({ room_id: selectedChat.id })
       });
       setIsRoomMenuOpen(false);
       setSelectedChat(null);
@@ -190,75 +248,77 @@ export function useAdminChat(options: UseAdminChatOptions) {
 
     const storedUser = localStorage.getItem('user');
     if (!storedUser) return;
-    const { token, gmail } = JSON.parse(storedUser);
+    const parsed = JSON.parse(storedUser);
+    const token = parsed.token;
+    const adminIdentifier = parsed.identifier || parsed.gmail || 'admin';
+
+    // Hitung isi pesan dan tipe pesan sebelum optimistic update
+    let messageText = combinedText.trim();
+    let messageType: 'text' | 'image' | 'file' | 'multi_file' = 'text';
+
+    if (pendingFiles.length === 1) {
+      const pf = pendingFiles[0];
+      messageType = pf.type;
+      messageText = (combinedText.trim())
+        ? `${pf.name}|${pf.data}|${combinedText.trim()}`
+        : `${pf.name}|${pf.data}`;
+    } else if (pendingFiles.length > 1) {
+      messageType = 'multi_file';
+      const payload = {
+        files: pendingFiles.map(pf => ({ name: pf.name, data: pf.data, type: pf.type })),
+        caption: combinedText.trim() || undefined
+      };
+      messageText = JSON.stringify(payload);
+    }
+
+    // OPTIMISTIC UPDATE: Tampilkan bubble chat admin seketika tanpa delay
+    const tempId = 'temp-' + Date.now();
+    const optimisticMsg: Message = {
+      id: tempId,
+      sender: 'admin',
+      text: messageText,
+      timestamp: format(new Date(), 'HH:mm'),
+      type: messageType,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setManualNote('');
+    setSelectedResponse(null);
+    setPendingFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    const inputId = platform === 'web' ? 'admin-web-message-input' : 'admin-message-input';
+    const el = document.getElementById(inputId);
+    if (el) el.style.height = 'auto';
+    scrollToBottom('smooth');
 
     try {
-      if (pendingFiles.length === 1) {
-        const pf = pendingFiles[0];
-        const fileMsg = (combinedText.trim())
-          ? `${pf.name}|${pf.data}|${combinedText.trim()}`
-          : `${pf.name}|${pf.data}`;
+      const sendRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+        body: JSON.stringify({
+          room_id: selectedChat.id,
+          sender_gmail: adminIdentifier,
+          message: messageText,
+          message_type: messageType
+        })
+      });
 
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-          },
-          body: JSON.stringify({
-            room_id: selectedChat.id,
-            sender_gmail: gmail,
-            message: fileMsg,
-            message_type: pf.type
-          })
-        });
-      } else if (pendingFiles.length > 1) {
-        // Multi-file: Kirim sekaligus dalam 1 bubble tunggal
-        const payload = {
-          files: pendingFiles.map(pf => ({ name: pf.name, data: pf.data, type: pf.type })),
-          caption: combinedText.trim() || undefined
-        };
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-          },
-          body: JSON.stringify({
-            room_id: selectedChat.id,
-            sender_gmail: gmail,
-            message: JSON.stringify(payload),
-            message_type: 'multi_file'
-          })
-        });
-      } else {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-          },
-          body: JSON.stringify({
-            room_id: selectedChat.id,
-            sender_gmail: gmail,
-            message: combinedText.trim(),
-            message_type: 'text'
-          })
-        });
+      if (sendRes && sendRes.ok) {
+        const saved = await sendRes.json();
+        if (saved?.id) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempId ? { ...m, id: saved.id.toString() } : m))
+          );
+        }
       }
 
-      setManualNote('');
-      setSelectedResponse(null);
-      setPendingFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      const inputId = platform === 'web' ? 'admin-web-message-input' : 'admin-message-input';
-      const el = document.getElementById(inputId);
-      if (el) el.style.height = 'auto';
-      fetchMessages(selectedChat.id, token);
       if (platform === 'web') {
         fetchRooms(token);
       }
-      scrollToBottom();
+      scrollToBottom('smooth');
     } catch (err) {
       console.error("Gagal kirim pesan:", err);
     }

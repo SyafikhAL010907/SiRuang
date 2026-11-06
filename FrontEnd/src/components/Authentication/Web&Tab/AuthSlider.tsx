@@ -1,13 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, Mail, Lock, RefreshCw, ArrowRight, User } from 'lucide-react';
+import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, User, GraduationCap, Briefcase } from 'lucide-react';
 import Logo from '@/components/Shared/Logo';
 import { cn } from '@/lib/utils';
-
-/* ------------------------------------------------------------------ */
-/*  TYPES                                                              */
-/* ------------------------------------------------------------------ */
 
 type Mode = 'login' | 'signup';
 
@@ -27,16 +23,11 @@ export interface AuthSliderProps {
     onRefreshCaptcha: () => void;
 }
 
-// transition-colors / box-shadow saja (bukan transition-all) biar ringan
 const inputCls =
     'w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-3xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-[border-color,box-shadow] shadow-sm';
 const labelCls = 'text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1';
 const iconCls =
     'absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors';
-
-/* ------------------------------------------------------------------ */
-/*  FORMS (di luar komponen utama supaya tidak ke-remount)             */
-/* ------------------------------------------------------------------ */
 
 function LoginForm({
     onLogin,
@@ -44,7 +35,7 @@ function LoginForm({
     captcha,
     onRefreshCaptcha,
 }: Pick<AuthSliderProps, 'onLogin' | 'loading' | 'captcha' | 'onRefreshCaptcha'>) {
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [userAnswer, setUserAnswer] = useState('');
 
@@ -53,27 +44,28 @@ function LoginForm({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!isCaptchaSolved) return;
-        onLogin({ gmail: email, password });
+        onLogin({ identifier: identifier.trim(), password });
     };
 
     return (
         <div className="mx-auto w-full max-w-md">
             <div className="mb-8">
                 <h2 className="text-3xl font-black tracking-tight text-slate-800">Selamat Datang</h2>
-                <p className="mt-2 font-medium text-slate-500">Masuk ke akun admin Anda untuk melanjutkan.</p>
+                <p className="mt-2 font-medium text-slate-500">Masuk menggunakan NIM atau NIP Anda.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                    <label className={labelCls}>Email Komersial</label>
+                    <label className={labelCls}>NIM / NIP</label>
                     <div className="group relative">
-                        <Mail className={iconCls} size={20} />
+                        <Hash className={iconCls} size={20} />
                         <input
-                            type="email"
+                            type="text"
+                            inputMode="numeric"
                             required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="admin@unj.ac.id"
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder="Masukkan NIM atau NIP"
                             className={inputCls}
                         />
                     </div>
@@ -165,7 +157,7 @@ function LoginForm({
                         <RefreshCw className="animate-spin" size={20} />
                     ) : (
                         <>
-                            MASUK KE DASHBOARD
+                            MASUK KE SISTEM
                             <ArrowRight size={20} className="opacity-50" />
                         </>
                     )}
@@ -180,24 +172,63 @@ function SignUpForm({
     loading,
 }: Pick<AuthSliderProps, 'onRegister' | 'loading'>) {
     const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
+    const [identifierType, setIdentifierType] = useState<'nim' | 'nip'>('nim');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onRegister({ username, gmail: email, password, role: 'user' });
+        onRegister({
+            username: username.trim(),
+            identifier: identifier.trim(),
+            identifier_type: identifierType,
+            password,
+            role: identifierType === 'nip' ? 'dosen' : 'user',
+        });
     };
 
     return (
         <div className="mx-auto w-full max-w-md">
-            <div className="mb-8">
+            <div className="mb-6">
                 <h2 className="text-3xl font-black tracking-tight text-slate-800">Buat Akun Baru</h2>
-                <p className="mt-2 font-medium text-slate-500">Daftar sebagai pengguna untuk mengakses layanan.</p>
+                <p className="mt-1 font-medium text-slate-500 text-sm">Daftar sebagai Mahasiswa atau Dosen.</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                    <label className={labelCls}>Username</label>
+                    <label className={labelCls}>Daftar Sebagai</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIdentifierType('nim')}
+                            className={cn(
+                                'flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-black uppercase tracking-wider transition-all',
+                                identifierType === 'nim'
+                                    ? 'bg-[#183449] text-white shadow-md'
+                                    : 'border border-slate-200 bg-white text-slate-500 hover:border-[#588CBC]'
+                            )}
+                        >
+                            <GraduationCap size={15} />
+                            <span>Mahasiswa</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIdentifierType('nip')}
+                            className={cn(
+                                'flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-black uppercase tracking-wider transition-all',
+                                identifierType === 'nip'
+                                    ? 'bg-[#183449] text-white shadow-md'
+                                    : 'border border-slate-200 bg-white text-slate-500 hover:border-[#588CBC]'
+                            )}
+                        >
+                            <Briefcase size={15} />
+                            <span>Dosen</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className={labelCls}>Nama Lengkap</label>
                     <div className="group relative">
                         <User className={iconCls} size={20} />
                         <input
@@ -205,22 +236,25 @@ function SignUpForm({
                             required
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder="syafikh_unj"
+                            placeholder={identifierType === 'nim' ? 'Nama Mahasiswa' : 'Nama Lengkap & Gelar'}
                             className={inputCls}
                         />
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <label className={labelCls}>Alamat Email</label>
+                    <label className={labelCls}>
+                        {identifierType === 'nim' ? 'NIM (Nomor Induk Mahasiswa)' : 'NIP (Nomor Induk Pegawai)'}
+                    </label>
                     <div className="group relative">
-                        <Mail className={iconCls} size={20} />
+                        <Hash className={iconCls} size={20} />
                         <input
-                            type="email"
+                            type="text"
+                            inputMode="numeric"
                             required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="syafikh@gmail.com"
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder={identifierType === 'nim' ? 'Contoh: 1313620001' : 'Contoh: 198501012010121001'}
                             className={inputCls}
                         />
                     </div>
@@ -253,10 +287,6 @@ function SignUpForm({
         </div>
     );
 }
-
-/* ------------------------------------------------------------------ */
-/*  OVERLAY PANEL                                                      */
-/* ------------------------------------------------------------------ */
 
 function OverlayPanel({
     className,
@@ -295,10 +325,6 @@ function OverlayPanel({
     );
 }
 
-/* ------------------------------------------------------------------ */
-/*  MAIN SLIDER                                                        */
-/* ------------------------------------------------------------------ */
-
 const AuthSlider = ({
     mode,
     onModeChange,
@@ -308,8 +334,6 @@ const AuthSlider = ({
     captcha,
     onRefreshCaptcha,
 }: AuthSliderProps) => {
-    // true  => overlay di kiri, form Register tampil di kanan
-    // false => overlay di kanan, form Login tampil di kiri
     const isRightPanelActive = mode === 'signup';
 
     const handleSignIn = () => onModeChange('login');
@@ -320,7 +344,6 @@ const AuthSlider = ({
 
     return (
         <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#07111E] p-6 font-sans selection:bg-[#588CBC]/20 selection:text-[#183449]">
-            {/* BACKGROUND (statis) */}
             <div
                 className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
                 style={{
@@ -328,9 +351,7 @@ const AuthSlider = ({
                     filter: 'brightness(0.6) contrast(1.15)',
                 }}
             />
-            {/* Dark Overlay Layer - Clean Deep Dark */}
             <div className="pointer-events-none absolute inset-0 z-0 bg-slate-950/75" />
-            {/* Ambient Soft Glow (Clean tanpa dot grid pattern) */}
             <div
                 className="pointer-events-none absolute inset-0 z-0"
                 style={{
@@ -339,15 +360,12 @@ const AuthSlider = ({
                 }}
             />
 
-            {/* KARTU UTAMA. Tanpa backdrop-blur karena bikin lag saat anak-anaknya bergerak */}
             <div className="relative z-10 h-180 w-full max-w-5xl overflow-hidden rounded-[48px] border border-white bg-white/90 shadow-[0_32px_80px_rgba(24,52,73,0.12)]">
-                {/* batik watermark statis di bawah semua form */}
                 <div
                     className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-80"
                     style={{ backgroundImage: `url('/Batik.png')` }}
                 />
 
-                {/* ===== FORM LOGIN: kiri, geser ke kanan waktu Register aktif ===== */}
                 <div
                     className={cn(
                         formPane,
@@ -368,7 +386,6 @@ const AuthSlider = ({
                     </div>
                 </div>
 
-                {/* ===== FORM REGISTER: numpuk di kiri (tersembunyi), geser ke kanan waktu aktif ===== */}
                 <div
                     className={cn(
                         formPane,
@@ -384,14 +401,12 @@ const AuthSlider = ({
                     </div>
                 </div>
 
-                {/* ===== OVERLAY CONTAINER: separuh kanan, geser ke kiri ===== */}
                 <div
                     className={cn(
                         'absolute left-1/2 top-0 z-30 h-full w-1/2 overflow-hidden transition-transform duration-700 ease-in-out will-change-transform motion-reduce:transition-none',
                         isRightPanelActive ? '-translate-x-full' : 'translate-x-0'
                     )}
                 >
-                    {/* overlay 2x lebar, geser berlawanan arah biar isinya "kelihatan diam" */}
                     <div
                         className={cn(
                             'relative -left-full h-full w-[200%] transition-transform duration-700 ease-in-out will-change-transform motion-reduce:transition-none',
@@ -402,14 +417,12 @@ const AuthSlider = ({
                                 'radial-gradient(circle at 15% 10%, rgba(88,140,188,0.18), transparent 35%), linear-gradient(135deg, #0F2238 0%, #07111E 100%)',
                         }}
                     >
-                        {/* panel kiri overlay: kelihatan saat Register aktif */}
                         <OverlayPanel
                             className={cn('left-0', isRightPanelActive ? 'translate-x-0' : 'translate-x-[-20%]')}
                             question="Sudah memiliki akun?"
                             cta="Masuk ke Akun"
                             onClick={handleSignIn}
                         />
-                        {/* panel kanan overlay: kelihatan saat Login aktif */}
                         <OverlayPanel
                             className={cn('right-0', isRightPanelActive ? 'translate-x-[20%]' : 'translate-x-0')}
                             question="Belum memiliki akun?"

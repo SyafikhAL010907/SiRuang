@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Logo from '@/components/Shared/Logo';
-import { ShieldCheck, Mail, Lock, RefreshCw, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoginProps {
@@ -15,7 +15,7 @@ interface LoginProps {
 }
 
 const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: LoginProps) => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [userAnswer, setUserAnswer] = useState('');
 
@@ -24,18 +24,16 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isCaptchaSolved) return;
-    onLogin({ gmail: email, password });
+    onLogin({ identifier: identifier.trim(), password });
   };
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-hidden font-sans selection:bg-[#588CBC]/20 selection:text-[#183449]">
-      {/* NAVY & LIGHT BLUE GRADIENT BACKGROUND */}
       <div className="absolute top-0 left-0 w-full h-[50vh] bg-linear-to-b from-[#588CBC]/15 via-[#183449]/5 to-transparent z-0" />
       <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#588CBC]/15 rounded-full blur-3xl z-0" />
       <div className="absolute bottom-[10%] left-[-10%] w-64 h-64 bg-[#183449]/10 rounded-full blur-3xl z-0" />
 
       <div className="flex-1 flex flex-col relative z-10 px-8 pt-10 pb-8">
-        {/* HEADER SECTION */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -48,10 +46,9 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
             </div>
           </div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">Masuk Akun</h2>
-          <p className="text-[10px] font-black text-[#183449] mt-2 uppercase tracking-[0.2em] bg-[#588CBC]/10 px-3 py-1 rounded-full">SiRuang</p>
+          <p className="text-[10px] font-black text-[#183449] mt-2 uppercase tracking-[0.2em] bg-[#588CBC]/10 px-3 py-1 rounded-full">SiRuang UNJ</p>
         </motion.div>
 
-        {/* LOGIN FORM */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -60,15 +57,16 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
         >
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">NIM / NIP</label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={18} />
+                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={18} />
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@email.com"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Masukkan NIM atau NIP"
                   className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-all shadow-sm"
                 />
               </div>
@@ -92,9 +90,8 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
               </div>
             </div>
 
-            {/* NAVY & LIGHT BLUE CAPTCHA */}
+            {/* CAPTCHA */}
             <div className="bg-linear-to-br from-[#183449] to-[#2B5474] rounded-4xl p-5 shadow-xl shadow-[#183449]/20 relative overflow-hidden">
-              {/* Decorative Shine */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#588CBC]/15 rounded-full blur-2xl -mr-16 -mt-16" />
 
               <div className="flex items-center justify-between mb-4 relative z-10">
@@ -167,7 +164,6 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
           </form>
         </motion.div>
 
-        {/* FOOTER */}
         <div className="mt-auto pt-8 text-center relative z-10">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
             Belum punya akun?{' '}

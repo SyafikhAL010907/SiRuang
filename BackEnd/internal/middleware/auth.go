@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"helpdesk-backend/internal/database"
 	"helpdesk-backend/internal/models"
 
 	"github.com/dgrijalva/jwt-go"
@@ -16,7 +17,7 @@ var JwtKey []byte
 func init() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "helpdesk_secret_key"
+		secret = "siruang_default_secret_key"
 	}
 	JwtKey = []byte(secret)
 }
@@ -43,20 +44,45 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("gmail", claims.Gmail)
+		// Validasi apakah sesi masih aktif di database PostgreSQL ($1, $2)
+		if database.DB != nil {
+			var sessionExists bool
+			err = database.DB.QueryRow(
+				"SELECT EXISTS(SELECT 1 FROM active_sessions WHERE identifier = $1 AND session_id = $2)",
+				claims.Identifier, tokenString,
+			).Scan(&sessionExists)
+
+			if err != nil || !sessionExists {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi telah berakhir atau login di perangkat lain"})
+				c.Abort()
+				return
+			}
+		}
+
+		c.Set("identifier", claims.Identifier)
+		c.Set("identifier_type", claims.IdentifierType)
 		c.Set("role", claims.Role)
+		c.Set("username", claims.Username)
 		c.Next()
 	}
 }
 
-func RoleMiddleware(requiredRole string) gin.HandlerFunc {
+func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
-		if !exists || role != requiredRole {
+		if !exists {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 			c.Abort()
 			return
 		}
-		c.Next()
+		roleStr := role.(string)
+		for _, allowed := range allowedRoles {
+			if roleStr == allowed {
+				c.Next()
+				return
+			}
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		c.Abort()
 	}
 }

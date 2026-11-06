@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Logo from '@/components/Shared/Logo';
-import { ShieldCheck, Mail, Lock, RefreshCw, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoginProps {
@@ -15,7 +15,7 @@ interface LoginProps {
 }
 
 const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: LoginProps) => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [userAnswer, setUserAnswer] = useState('');
 
@@ -24,7 +24,7 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isCaptchaSolved) return;
-    onLogin({ gmail: email, password });
+    onLogin({ identifier: identifier.trim(), password });
   };
 
   return (
@@ -49,10 +49,8 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
 
       <div className="w-full max-w-5xl flex bg-white/60 backdrop-blur-3xl rounded-[48px] shadow-[0_32px_80px_rgba(24,52,73,0.12)] border border-white relative z-10 overflow-hidden">
 
-
-        {/* LEFT PANEL - LOGIN FORM WITH SUBTLE BATIK WATERMARK */}
+        {/* LEFT PANEL - LOGIN FORM */}
         <div className="flex-[0.8] p-12 lg:p-20 flex flex-col justify-center bg-slate-50/60 relative overflow-hidden">
-          {/* Subtle Batik Watermark Background */}
           <div
             className="absolute inset-0 z-0 pointer-events-none opacity-80"
             style={{
@@ -70,20 +68,21 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
           >
             <div className="mb-12">
               <h2 className="text-3xl font-black text-slate-800 tracking-tight">Selamat Datang</h2>
-              <p className="text-slate-500 font-medium mt-2">Masuk ke akun admin Anda untuk melanjutkan.</p>
+              <p className="text-slate-500 font-medium mt-2">Masuk menggunakan NIM atau NIP Anda.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Komersial</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">NIM / NIP</label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
+                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
                   <input
-                    type="email"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@unj.ac.id"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="Masukkan NIM atau NIP"
                     className="w-full pl-14 pr-6 py-5 bg-white border border-slate-100 rounded-3xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-all shadow-sm"
                   />
                 </div>
@@ -107,7 +106,7 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
                 </div>
               </div>
 
-              {/* NAVY & LIGHT BLUE CAPTCHA */}
+              {/* CAPTCHA */}
               <div className="pt-4">
                 <div className="p-6 bg-linear-to-br from-slate-50 to-[#588CBC]/10 border border-[#B3B3B3] rounded-4xl shadow-xl shadow-slate-200/50 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full blur-3xl -mr-16 -mt-16" />
@@ -180,7 +179,7 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
                   <RefreshCw className="animate-spin" size={20} />
                 ) : (
                   <>
-                    MASUK KE DASHBOARD
+                    MASUK KE SISTEM
                     <ArrowRight size={20} className="opacity-50" />
                   </>
                 )}
@@ -189,12 +188,11 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
           </motion.div>
         </div>
 
-        {/* RIGHT PANEL - LIGHT BLUE/GREYISH TO DARK NAVY BRANDING */}
+        {/* RIGHT PANEL - BRANDING */}
         <div
           className="hidden lg:flex flex-1 bg-linear-to-br from-[#07111E] to-[#0F2238] p-16 flex-col justify-center items-center relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #0F2238 0%, #07111E 100%)' }}
         >
-          {/* Decorative Circles - Soft blue glow */}
           <div className="absolute top-0 left-0 w-96 h-96 bg-[#588CBC]/15 rounded-full blur-[100px] -ml-32 -mt-32 pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#0d1d2a]/50 rounded-full blur-[90px] -mr-20 -mb-20 pointer-events-none" />
 

@@ -3,14 +3,6 @@ package handlers
 // =============================================================================
 // FILE: BackEnd/internal/handlers/ai.go
 // DESKRIPSI: Handler untuk fitur AI Auto-Response HelpDesk Admisi UNJ
-//
-// ⚠️  CARA DISABLE FITUR AI INI SEPENUHNYA (tanpa hapus code):
-//   Di file BackEnd/cmd/api/main.go, comment baris:
-//     handlers.StartAIWorker(os.Getenv("ML_SERVICE_URL"))  // ← comment ini
-//   Dan comment route-nya:
-//     admin.POST("/ai/toggle", handlers.ToggleAI)          // ← comment ini
-//     admin.GET("/ai/status", handlers.GetAIStatus)        // ← comment ini
-//   Detail lengkap: MachineLearning/DISABLE_GUIDE.md
 // =============================================================================
 
 import (
@@ -32,12 +24,10 @@ import (
 // STATE GLOBAL AI — Dilindungi mutex agar aman untuk concurrent access
 // =============================================================================
 var (
-	aiEnabled    bool          // Status AI ON/OFF
-	aiAdminGmail string        // Gmail admin yang mengaktifkan AI
-	aiMutex      sync.RWMutex // Mutex untuk concurrent safety
+	aiEnabled         bool
+	aiAdminIdentifier string
+	aiMutex           sync.RWMutex
 
-	// Anti-spam: simpan waktu terakhir AI auto-reply per room
-	// Key: room_id, Value: waktu terakhir reply
 	lastReplied   = make(map[int]time.Time)
 	lastRepliedMu sync.Mutex
 )
@@ -60,25 +50,23 @@ type mlResponse struct {
 
 // =============================================================================
 // ENDPOINT: GET /api/admin/ai/status
-// Kembalikan status AI aktif/non-aktif ke frontend
 // =============================================================================
 func GetAIStatus(c *gin.Context) {
 	aiMutex.RLock()
 	enabled := aiEnabled
-	gmail := aiAdminGmail
+	identifier := aiAdminIdentifier
 	aiMutex.RUnlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"enabled":       enabled,
-		"admin_gmail":   gmail,
-		"message":       map[bool]string{true: "AI Auto-Response Aktif", false: "AI Auto-Response Non-Aktif"}[enabled],
+		"enabled":          enabled,
+		"admin_identifier": identifier,
+		"admin_gmail":      identifier, // Backward-compat
+		"message":          map[bool]string{true: "AI Auto-Response Aktif", false: "AI Auto-Response Non-Aktif"}[enabled],
 	})
 }
 
 // =============================================================================
 // ENDPOINT: POST /api/admin/ai/toggle
-// Toggle AI ON/OFF dari dashboard admin
-// Body: { "enabled": true/false }
 // =============================================================================
 func ToggleAI(c *gin.Context) {
 	var req struct {
@@ -89,23 +77,20 @@ func ToggleAI(c *gin.Context) {
 		return
 	}
 
-	// Ambil gmail admin dari context JWT (di-set oleh middleware)
-	gmailRaw, exists := c.Get("gmail")
+	identifierRaw, exists := c.Get("identifier")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin gmail tidak ditemukan"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin identifier tidak ditemukan"})
 		return
 	}
-	adminGmail := fmt.Sprintf("%v", gmailRaw)
+	adminIdentifier := fmt.Sprintf("%v", identifierRaw)
 
-	// Update state AI
 	aiMutex.Lock()
 	aiEnabled = req.Enabled
 	if req.Enabled {
-		aiAdminGmail = adminGmail
+		aiAdminIdentifier = adminIdentifier
 	}
 	aiMutex.Unlock()
 
-	// Reset anti-spam tracker saat AI dinyalakan ulang
 	if req.Enabled {
 		lastRepliedMu.Lock()
 		lastReplied = make(map[int]time.Time)
@@ -116,7 +101,7 @@ func ToggleAI(c *gin.Context) {
 	if req.Enabled {
 		status = "Aktif"
 	}
-	log.Printf("[AI] Status diubah menjadi: %s oleh %s", status, adminGmail)
+	log.Printf("[AI] Status diubah menjadi: %s oleh %s", status, adminIdentifier)
 
 	c.JSON(http.StatusOK, gin.H{
 		"enabled": req.Enabled,
@@ -126,9 +111,6 @@ func ToggleAI(c *gin.Context) {
 
 // =============================================================================
 // BACKGROUND WORKER — Polling otomatis setiap 5 detik
-//
-// ⚠️  DISABLE: Comment baris `handlers.StartAIWorker(...)` di main.go
-//    Fungsi ini TIDAK AKAN JALAN jika tidak dipanggil dari main.go
 // =============================================================================
 func StartAIWorker(mlServiceURL string) {
 	if mlServiceURL == "" {
@@ -138,46 +120,44 @@ func StartAIWorker(mlServiceURL string) {
 	log.Printf("[AI Worker] Dimulai, akan polling setiap 5 detik ke: %s", mlServiceURL)
 
 	go func() {
-		// Tunggu 3 detik biar server Go fully ready dulu
 		time.Sleep(3 * time.Second)
 
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			// Cek apakah AI aktif
 			aiMutex.RLock()
 			enabled := aiEnabled
 			aiMutex.RUnlock()
 
 			if !enabled {
-				continue // AI mati, skip poll
+				continue
 			}
 
-			// Proses semua room yang ada pesan baru dari user
+			if database.DB == nil {
+				continue
+			}
+
 			processAllRooms(mlServiceURL)
 		}
 	}()
 }
 
 // =============================================================================
-// PROCESS ALL ROOMS — Cek semua room, cari yang perlu auto-reply
+// PROCESS ALL ROOMS
 // =============================================================================
 func processAllRooms(mlServiceURL string) {
-	// ── Hybrid Mode: Cek Jam Kerja WIB (UTC+7) ───────────────────────────────
 	loc := time.FixedZone("WIB", 7*3600)
 	now := time.Now().In(loc)
 
-	// Jam Kerja: Senin (1) - Jumat (5), pukul 09:00 sampai 15:59 WIB
 	isWorkDay := now.Weekday() >= time.Monday && now.Weekday() <= time.Friday
 	isWorkHour := now.Hour() >= 9 && now.Hour() < 16
 
-	query := "SELECT id FROM chat_rooms" // Mode Patroli (Luar Jam Kerja)
+	query := "SELECT id FROM chat_rooms"
 
 	if isWorkDay && isWorkHour {
-		// Mode Efisien (Jam Kerja): Cuma ambil yang aktif 1 menit terakhir
-		// Supaya server UNJ tetep enteng pas pendaftar lagi rame-ramenya
-		query = "SELECT id FROM chat_rooms WHERE updated_at > NOW() - INTERVAL 1 MINUTE"
+		// PostgreSQL interval syntax
+		query = "SELECT id FROM chat_rooms WHERE updated_at > NOW() - INTERVAL '1 MINUTE'"
 		log.Printf("[AI Worker] Jam Kerja WIB: Menggunakan Mode Efisien (Filter 1 Menit)")
 	} else {
 		log.Printf("[AI Worker] Luar Jam Kerja: Menggunakan Mode Patroli (Cek Semua)")
@@ -198,17 +178,15 @@ func processAllRooms(mlServiceURL string) {
 		}
 	}
 
-	// Proses setiap room secara paralel dengan Goroutine
 	for _, roomID := range roomIDs {
 		go processRoom(roomID, mlServiceURL)
 	}
 }
 
 // =============================================================================
-// PROCESS ROOM — Logic utama auto-reply untuk satu room
+// PROCESS ROOM
 // =============================================================================
 func processRoom(roomID int, mlServiceURL string) {
-	// ── Anti-Spam: Tunggu minimal 10 detik antar reply per room ──────────────
 	lastRepliedMu.Lock()
 	if lastTime, ok := lastReplied[roomID]; ok {
 		if time.Since(lastTime) < 10*time.Second {
@@ -218,38 +196,34 @@ func processRoom(roomID int, mlServiceURL string) {
 	}
 	lastRepliedMu.Unlock()
 
-	// ── Ambil user_gmail dari room (untuk cek siapa yang kirim) ─────────────
-	var userGmail string
+	var userIdentifier string
 	err := database.DB.QueryRow(
-		"SELECT user_gmail FROM chat_rooms WHERE id = ?", roomID,
-	).Scan(&userGmail)
+		"SELECT user_identifier FROM chat_rooms WHERE id = $1", roomID,
+	).Scan(&userIdentifier)
 	if err != nil {
 		return
 	}
 
-	// ── Ambil pesan terakhir untuk cek apakah user yang kirim ────────────────
-	var lastSenderGmail, lastMessage string
+	var lastSenderIdentifier, lastMessage string
 	err = database.DB.QueryRow(`
-		SELECT sender_gmail, message 
+		SELECT sender_identifier, message 
 		FROM chat_messages 
-		WHERE room_id = ? 
+		WHERE room_id = $1 
 		ORDER BY created_at DESC 
 		LIMIT 1
-	`, roomID).Scan(&lastSenderGmail, &lastMessage)
+	`, roomID).Scan(&lastSenderIdentifier, &lastMessage)
 	if err != nil {
-		return // Room kosong atau error
+		return
 	}
 
-	// ── Cek: Hanya reply jika pesan terakhir dari USER (bukan admin) ────────
-	if lastSenderGmail != userGmail {
-		return // Admin sudah reply atau room masih kosong
+	if lastSenderIdentifier != userIdentifier {
+		return
 	}
 
-	// ── Smart Context: Ambil pesan beruntun dari user saja sejak balasan admin terakhir ──
 	rows, err := database.DB.Query(`
-		SELECT sender_gmail, message 
+		SELECT sender_identifier, message 
 		FROM chat_messages 
-		WHERE room_id = ? 
+		WHERE room_id = $1 
 		ORDER BY created_at DESC 
 		LIMIT 8
 	`, roomID)
@@ -260,13 +234,11 @@ func processRoom(roomID int, mlServiceURL string) {
 
 	var userMessages []string
 	for rows.Next() {
-		var sGmail, msg string
-		if err := rows.Scan(&sGmail, &msg); err == nil {
-			// Jika ketemu pesan yang BUKAN dari user (berarti admin/AI sudah balas), STOP ambil konteks
-			if sGmail != userGmail {
-				break 
+		var sID, msg string
+		if err := rows.Scan(&sID, &msg); err == nil {
+			if sID != userIdentifier {
+				break
 			}
-			// Masukkan pesan user (yang panjangnya cukup) ke list
 			if len(msg) >= 3 {
 				userMessages = append(userMessages, msg)
 			}
@@ -277,12 +249,10 @@ func processRoom(roomID int, mlServiceURL string) {
 		return
 	}
 
-	// Balik urutan: dari yang paling lama ke paling baru (kronologis)
 	for i, j := 0, len(userMessages)-1; i < j; i, j = i+1, j-1 {
 		userMessages[i], userMessages[j] = userMessages[j], userMessages[i]
 	}
 
-	// Gabungkan semua pesan user beruntun jadi satu konteks
 	contextMessage := ""
 	for idx, msg := range userMessages {
 		if idx > 0 {
@@ -290,72 +260,61 @@ func processRoom(roomID int, mlServiceURL string) {
 		}
 		contextMessage += msg
 	}
-	// Beri bobot extra pada pesan paling baru agar TF-IDF lebih akurat
 	latestMsg := userMessages[len(userMessages)-1]
 	contextMessage += " | " + latestMsg + " | " + latestMsg
 
-	// ── Skip konteks terlalu pendek (kemungkinan bukan pertanyaan) ───────────
 	if len(lastMessage) < 3 {
 		return
 	}
 
-	// ── Ambil admin gmail yang akan digunakan untuk send reply ──────────────
 	aiMutex.RLock()
-	adminGmail := aiAdminGmail
+	adminIdentifier := aiAdminIdentifier
 	aiMutex.RUnlock()
 
-	if adminGmail == "" {
-		// Fallback: ambil dari DB jika state kosong
+	if adminIdentifier == "" {
 		database.DB.QueryRow(
-			"SELECT gmail FROM authentication WHERE role = 'admin' LIMIT 1",
-		).Scan(&adminGmail)
+			"SELECT identifier FROM authentication WHERE role = 'admin' LIMIT 1",
+		).Scan(&adminIdentifier)
 	}
-	if adminGmail == "" {
+	if adminIdentifier == "" {
 		return
 	}
 
-	// ── Panggil ML Service dengan konteks 8 pesan terakhir ──────────────────
 	mlResp, err := callMLService(mlServiceURL, contextMessage, roomID)
 	if err != nil {
 		log.Printf("[AI Worker] Gagal panggil ML service untuk room %d: %v", roomID, err)
 		return
 	}
 
-	// ── Threshold confidence: skip jika model kurang yakin (< 35%) ──────────
-	// Ubah nilai 0.35 untuk sesuaikan sensitivitas AI
 	const confidenceThreshold = 0.35
 	if mlResp.Confidence < confidenceThreshold {
 		log.Printf("[AI Worker] Room %d: confidence %.2f terlalu rendah, skip auto-reply", roomID, mlResp.Confidence)
 		return
 	}
 
-	// ── Rakit balasan: Template + Catatan Tambahan ───────────────────────────
 	fullReply := mlResp.ReplyText
 	if mlResp.HumanNote != "" {
 		fullReply += "\n\n📝 Catatan Tambahan:\n" + mlResp.HumanNote
 	}
 
-	// ── Simpan auto-reply ke database ───────────────────────────────────────
 	_, err = database.DB.Exec(
-		"INSERT INTO chat_messages (room_id, sender_gmail, message, message_type) VALUES (?, ?, ?, 'text')",
-		roomID, adminGmail, fullReply,
+		"INSERT INTO chat_messages (room_id, sender_identifier, message, message_type) VALUES ($1, $2, $3, 'text')",
+		roomID, adminIdentifier, fullReply,
 	)
 	if err != nil {
 		log.Printf("[AI Worker] Gagal simpan auto-reply room %d: %v", roomID, err)
 		return
 	}
 
-	// ── Update last_message di chat_rooms ───────────────────────────────────
 	preview := fullReply
 	if len(preview) > 100 {
 		preview = preview[:100] + "..."
 	}
 	database.DB.Exec(
-		"UPDATE chat_rooms SET last_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+		"UPDATE chat_rooms SET last_message = $1, updated_at = NOW() WHERE id = $2",
 		preview, roomID,
 	)
 
-	// ── Update anti-spam tracker ─────────────────────────────────────────────
 	lastRepliedMu.Lock()
 	lastReplied[roomID] = time.Now()
 	lastRepliedMu.Unlock()
@@ -365,7 +324,7 @@ func processRoom(roomID int, mlServiceURL string) {
 }
 
 // =============================================================================
-// CALL ML SERVICE — Kirim request HTTP ke Python FastAPI
+// CALL ML SERVICE
 // =============================================================================
 func callMLService(mlServiceURL string, message string, roomID int) (*mlResponse, error) {
 	reqBody, err := json.Marshal(mlRequest{
@@ -376,7 +335,6 @@ func callMLService(mlServiceURL string, message string, roomID int) (*mlResponse
 		return nil, fmt.Errorf("gagal marshal request: %w", err)
 	}
 
-	// Timeout 5 detik biar tidak blocking terlalu lama
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Post(
 		mlServiceURL+"/predict",

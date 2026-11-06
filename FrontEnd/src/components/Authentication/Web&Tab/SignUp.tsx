@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, ArrowRight } from 'lucide-react';
+import { User, Hash, Lock, ArrowRight, GraduationCap, Briefcase } from 'lucide-react';
 import Logo from '@/components/Shared/Logo';
 
 interface SignUpProps {
@@ -13,12 +13,19 @@ interface SignUpProps {
 
 const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [identifierType, setIdentifierType] = useState<'nim' | 'nip'>('nim');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    onSignUp({ username, gmail: email, password, role: 'user' });
+    onSignUp({
+      username: username.trim(),
+      identifier: identifier.trim(),
+      identifier_type: identifierType,
+      password,
+      role: identifierType === 'nip' ? 'dosen' : 'user',
+    });
   };
 
   return (
@@ -43,13 +50,11 @@ const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
 
       <div className="w-full max-w-5xl flex bg-white/60 backdrop-blur-3xl rounded-[48px] shadow-[0_32px_80px_rgba(24,52,73,0.12)] border border-white relative z-10 overflow-hidden">
 
-
         {/* LEFT PANEL - DARK NAVY BRANDING */}
         <div
           className="hidden lg:flex flex-1 bg-linear-to-br from-[#07111E] to-[#0F2238] p-16 flex-col justify-center items-center relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #0F2238 0%, #07111E 100%)' }}
         >
-          {/* Decorative Circles - Soft blue glow */}
           <div className="absolute top-0 left-0 w-96 h-96 bg-[#588CBC]/15 rounded-full blur-[100px] -ml-32 -mt-32 pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#0d1d2a]/50 rounded-full blur-[90px] -mr-20 -mb-20 pointer-events-none" />
 
@@ -78,9 +83,8 @@ const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
           </motion.div>
         </div>
 
-        {/* RIGHT PANEL - SIGNUP FORM WITH SUBTLE BATIK WATERMARK */}
+        {/* RIGHT PANEL - SIGNUP FORM */}
         <div className="flex-[0.8] p-12 lg:p-20 flex flex-col justify-center bg-slate-50/60 relative overflow-hidden">
-          {/* Subtle Batik Watermark Background */}
           <div
             className="absolute inset-0 z-0 pointer-events-none opacity-80"
             style={{
@@ -96,14 +100,46 @@ const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-md mx-auto w-full relative z-10"
           >
-            <div className="mb-10">
+            <div className="mb-8">
               <h2 className="text-3xl font-black text-slate-800 tracking-tight">Buat Akun Baru</h2>
-              <p className="text-slate-500 font-medium mt-2">Daftar sebagai pengguna untuk mengakses layanan.</p>
+              <p className="text-slate-500 font-medium mt-2">Daftar sebagai Mahasiswa atau Dosen.</p>
             </div>
 
-            <form onSubmit={handleSignUp} className="space-y-5">
+            <form onSubmit={handleSignUp} className="space-y-4">
+              {/* SELECTOR ROLE: MAHASISWA / DOSEN */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Daftar Sebagai</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIdentifierType('nim')}
+                    className={`py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                      identifierType === 'nim'
+                        ? 'bg-[#183449] text-white shadow-md shadow-[#183449]/20'
+                        : 'bg-white border border-slate-200 text-slate-500 hover:border-[#588CBC]'
+                    }`}
+                  >
+                    <GraduationCap size={16} />
+                    <span>Mahasiswa</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIdentifierType('nip')}
+                    className={`py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                      identifierType === 'nip'
+                        ? 'bg-[#183449] text-white shadow-md shadow-[#183449]/20'
+                        : 'bg-white border border-slate-200 text-slate-500 hover:border-[#588CBC]'
+                    }`}
+                  >
+                    <Briefcase size={16} />
+                    <span>Dosen</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* USERNAME / NAMA */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
                 <div className="relative group">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
                   <input
@@ -111,27 +147,32 @@ const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="syafikh_unj"
+                    placeholder={identifierType === 'nim' ? 'Nama Mahasiswa' : 'Nama Lengkap & Gelar'}
                     className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-3xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-all shadow-sm"
                   />
                 </div>
               </div>
 
+              {/* NIM / NIP */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Alamat Email</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  {identifierType === 'nim' ? 'NIM (Nomor Induk Mahasiswa)' : 'NIP (Nomor Induk Pegawai)'}
+                </label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
+                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
                   <input
-                    type="email"
+                    type="text"
+                    inputMode="numeric"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="syafikh@gmail.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder={identifierType === 'nim' ? 'Contoh: 1313620001' : 'Contoh: 198501012010121001'}
                     className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-3xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-all shadow-sm"
                   />
                 </div>
               </div>
 
+              {/* PASSWORD */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kata Sandi</label>
                 <div className="relative group">

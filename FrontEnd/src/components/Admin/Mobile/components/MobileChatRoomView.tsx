@@ -269,14 +269,19 @@ export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
                       const parts = msg.text.split('|');
                       const imgData = parts.length > 1 ? parts[1] : msg.text;
                       const caption = parts.length > 2 ? parts.slice(2).join('|') : null;
+                      const isValidImg = Boolean(imgData && (imgData.startsWith('data:image') || imgData.startsWith('http') || imgData.startsWith('/')));
                       return (
                         <div className="flex flex-col gap-2">
-                          <img
-                            src={imgData}
-                            alt="Sent image"
-                            onClick={() => viewFile(imgData, "Gambar_Lampiran.png")}
-                            className="rounded-2xl max-w-50 h-auto shadow-sm border border-slate-100 cursor-zoom-in active:scale-95 transition-all"
-                          />
+                          {isValidImg ? (
+                            <img
+                              src={imgData}
+                              alt="Sent image"
+                              onClick={() => viewFile(imgData, "Gambar_Lampiran.png")}
+                              className="rounded-2xl max-w-50 h-auto shadow-sm border border-slate-100 cursor-zoom-in active:scale-95 transition-all"
+                            />
+                          ) : (
+                            renderHighlightedText(msg.text, localSearchQuery)
+                          )}
                           {caption && (
                             <FormattedText text={caption} className="text-[13px] font-medium leading-relaxed mt-1 px-1" />
                           )}
@@ -288,6 +293,11 @@ export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
                   renderHighlightedText(msg.text, localSearchQuery)
                 )}
                 <div className="flex items-center justify-end gap-1.5 mt-2">
+                  {msg.isAI && (
+                    <span className="text-[8px] font-black tracking-wider uppercase bg-[#588CBC]/40 text-sky-200 border border-[#588CBC]/60 px-1 py-0.5 rounded flex items-center gap-0.5 shadow-xs">
+                      🤖 AI
+                    </span>
+                  )}
                   <span className={cn(
                     "text-[9px] font-bold",
                     msg.sender === 'admin' ? "text-slate-300" : "text-[#848484]"

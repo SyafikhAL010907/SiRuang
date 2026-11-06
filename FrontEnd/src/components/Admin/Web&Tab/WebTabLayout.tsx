@@ -32,7 +32,7 @@ const WebTabLayout = () => {
   const {
     adminName, setAdminName,
     adminGmail, setAdminGmail,
-    rooms,
+    rooms, setRooms,
     fetchRooms,
     selectedChat, setSelectedChat,
     messages, setMessages,
@@ -110,6 +110,7 @@ const WebTabLayout = () => {
     setAlertConfig,
     fetchRooms,
     rooms,
+    setRooms,
     selectedChat,
     setSelectedChat,
     setMessages,
@@ -120,7 +121,7 @@ const WebTabLayout = () => {
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
       setAdminName(parsed.username || parsed.Username || 'Admin');
-      setAdminGmail(parsed.gmail);
+      setAdminGmail(parsed.identifier || parsed.gmail || '');
       fetchRooms(parsed.token);
       fetchStats(parsed.token);
       fetchAllUsers(parsed.token);
@@ -140,11 +141,12 @@ const WebTabLayout = () => {
     if (storedUser && selectedChat && adminGmail) {
       const { token } = JSON.parse(storedUser);
       fetchMessages(selectedChat.id, token);
+      markAsRead(selectedChat.id);
 
       const interval = setInterval(() => fetchMessages(selectedChat.id, token), 3000);
       return () => clearInterval(interval);
     }
-  }, [selectedChat?.id, adminGmail, fetchMessages]);
+  }, [selectedChat?.id, adminGmail, fetchMessages, markAsRead]);
 
   // Efek pintar buat scroll
   useEffect(() => {

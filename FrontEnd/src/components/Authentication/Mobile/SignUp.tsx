@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Logo from '@/components/Shared/Logo';
+import { GraduationCap, Briefcase } from 'lucide-react';
 
 interface SignUpProps {
   onNavigate: () => void;
@@ -11,17 +12,23 @@ interface SignUpProps {
 
 const MobileSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [identifierType, setIdentifierType] = useState<'nim' | 'nip'>('nim');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    onSignUp({ username, gmail: email, password, role: 'user' });
+    onSignUp({
+      username: username.trim(),
+      identifier: identifier.trim(),
+      identifier_type: identifierType,
+      password,
+      role: identifierType === 'nip' ? 'dosen' : 'user',
+    });
   };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 flex flex-col p-8 relative overflow-hidden font-sans">
-      {/* Decorative Gradients */}
       <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#588CBC]/15 rounded-full blur-3xl"></div>
       <div className="absolute bottom-[20%] left-[-10%] w-64 h-64 bg-[#183449]/10 rounded-full blur-3xl"></div>
 
@@ -37,27 +44,60 @@ const MobileSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
           <p className="text-xs font-bold text-slate-400 mt-2 text-center uppercase tracking-widest">Buat akun baru</p>
         </div>
 
-        <form onSubmit={handleSignUp} className="space-y-6">
+        <form onSubmit={handleSignUp} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Daftar Sebagai</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIdentifierType('nim')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                  identifierType === 'nim'
+                    ? 'bg-[#183449] text-white shadow-md'
+                    : 'bg-white border border-slate-200 text-slate-500'
+                }`}
+              >
+                <GraduationCap size={15} />
+                <span>Mahasiswa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIdentifierType('nip')}
+                className={`py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                  identifierType === 'nip'
+                    ? 'bg-[#183449] text-white shadow-md'
+                    : 'bg-white border border-slate-200 text-slate-500'
+                }`}
+              >
+                <Briefcase size={15} />
+                <span>Dosen</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="syafikh_unj"
+              placeholder={identifierType === 'nim' ? 'Nama Mahasiswa' : 'Nama Lengkap & Gelar'}
               className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-all shadow-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+              {identifierType === 'nim' ? 'NIM (Nomor Induk Mahasiswa)' : 'NIP (Nomor Induk Pegawai)'}
+            </label>
             <input
-              type="email"
+              type="text"
+              inputMode="numeric"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="syafikh@gmail.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder={identifierType === 'nim' ? '1313620001' : '198501012010121001'}
               className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-[#588CBC]/15 focus:border-[#588CBC] transition-all shadow-sm"
             />
           </div>
@@ -77,13 +117,13 @@ const MobileSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-linear-to-br from-[#183449] to-[#2B5474] active:from-[#204561] active:to-[#588CBC] text-white py-5 rounded-2xl font-black text-base shadow-xl shadow-[#183449]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-4"
+            className="w-full bg-linear-to-br from-[#183449] to-[#2B5474] active:from-[#204561] active:to-[#588CBC] text-white py-4.5 rounded-2xl font-black text-base shadow-xl shadow-[#183449]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-4"
           >
             {loading ? 'MEMPROSES...' : 'DAFTAR SEKARANG'}
           </button>
         </form>
 
-        <div className="pb-4 text-center mt-10">
+        <div className="pb-4 text-center mt-8">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
             Sudah punya akun?{' '}
             <button onClick={onNavigate} className="text-[#588CBC] font-black">
