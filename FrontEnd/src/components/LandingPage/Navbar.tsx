@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { montserrat } from '@/lib/fonts';
 
@@ -164,116 +164,109 @@ function AdaptiveLogo({ dark, height }: { dark: boolean; height: number }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  DETEKSI WARNA BACKGROUND DI BAWAH HEADER                           */
+/*  DETEKSI WARNA BACKGROUND DI BAWAH HEADER (IntersectionObserver)   */
 /* ------------------------------------------------------------------ */
 
 type Tone = 'light' | 'dark'; // light = background terang (teks gelap), dark = background gelap (teks putih)
 
-let colorCtx: CanvasRenderingContext2D | null = null;
+/**
+ * Hook: mengamati semua elemen [data-nav-tone] dengan IntersectionObserver.
+ * rootMargin memotong area observasi menjadi hanya garis tengah navbar
+ * (misalnya: -45px dari atas, sisanya dikurangi dari bawah).
+ * Ketika section masuk ke garis itu → tone berubah.
+ *
+ * Prioritas: elemen yang lebih akhir di DOM (lebih bawah di halaman) menang
+ * saat ada overlap, karena secara visual dia yang paling "menutupi" navbar.
+ */
+function useNavbarTone(headerH: number): Tone {
+    const [tone, setTone] = React.useState<Tone>('light');
 
-// Ubah warna CSS apa pun (hex, rgb, oklch, dll) jadi [r, g, b, a].
-// Return null kalau warnanya tidak bisa dibaca browser (supaya tidak salah dianggap hitam).
-function toRGBA(color: string): [number, number, number, number] | null {
-    if (!color) return null;
-    const trimmed = color.trim().toLowerCase();
+    React.useEffect(() => {
+        // rootMargin: potong viewport sehingga IntersectionObserver hanya "melihat"
+        // 1 baris piksel tepat di garis tengah navbar (y = centerY dari atas viewport).
+        // rootMargin tidak bisa pakai calc(), jadi kita hitung ulang setiap kali vh berubah.
+        const centerY = Math.round(headerH / 2);
 
-    // Fast-path: Hex color (tanpa akses canvas/GPU)
-    if (trimmed.startsWith('#')) {
-        const hex = trimmed.slice(1);
-        if (hex.length === 3) {
-            return [
-                parseInt(hex[0] + hex[0], 16),
-                parseInt(hex[1] + hex[1], 16),
-                parseInt(hex[2] + hex[2], 16),
-                1,
-            ];
-        }
-        if (hex.length === 6) {
-            return [
-                parseInt(hex.slice(0, 2), 16),
-                parseInt(hex.slice(2, 4), 16),
-                parseInt(hex.slice(4, 6), 16),
-                1,
-            ];
-        }
-        if (hex.length === 8) {
-            return [
-                parseInt(hex.slice(0, 2), 16),
-                parseInt(hex.slice(2, 4), 16),
-                parseInt(hex.slice(4, 6), 16),
-                parseInt(hex.slice(6, 8), 16) / 255,
-            ];
-        }
-    }
+        // Map: element → tone-nya. Dipakai untuk hitung winner.
+        const intersecting = new Map<Element, Tone>();
+        // Urutan semua tone-elements di DOM (stabil).
+        let orderedEls: Element[] = [];
+        let observer: IntersectionObserver | null = null;
 
-    // Fast-path: rgb / rgba (tanpa akses canvas/GPU)
-    if (trimmed.startsWith('rgb')) {
-        const parts = trimmed.match(/[\d.]+/g);
-        if (parts && parts.length >= 3) {
-            return [
-                parseFloat(parts[0]),
-                parseFloat(parts[1]),
-                parseFloat(parts[2]),
-                parts.length >= 4 ? parseFloat(parts[3]) : 1,
-            ];
-        }
-    }
-
-    if (!colorCtx) {
-        colorCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-    }
-    if (!colorCtx) return null;
-
-    // fillStyle yang tidak valid TIDAK mengubah nilai sebelumnya, jadi pakai penanda dulu
-    const SENTINEL = '#010203';
-    colorCtx.fillStyle = SENTINEL;
-    colorCtx.fillStyle = color;
-    if (colorCtx.fillStyle === SENTINEL && trimmed !== SENTINEL) return null;
-
-    colorCtx.clearRect(0, 0, 1, 1);
-    colorCtx.fillRect(0, 0, 1, 1);
-    const [r, g, b, a] = colorCtx.getImageData(0, 0, 1, 1).data;
-    return [r, g, b, a / 255];
-}
-
-const luminance = (r: number, g: number, b: number) =>
-    (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-
-const COLOR_RE = /(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^)]*\)|#[0-9a-fA-F]{3,8}/g;
-
-function detectTone(header: HTMLElement): Tone {
-    const x = window.innerWidth / 2;
-    const y = header.offsetHeight / 2;
-
-    for (const el of document.elementsFromPoint(x, y)) {
-        if (header.contains(el)) continue;
-
-        // Opsional: paksa nada section lewat atribut data-nav-tone="dark" / "light"
-        const forced = (el as HTMLElement).closest?.('[data-nav-tone]') as HTMLElement | null;
-        if (forced) return forced.dataset.navTone === 'dark' ? 'dark' : 'light';
-
-        const cs = getComputedStyle(el);
-
-        // gradasi (misal banner biru): ambil warna pertama yang BENAR-BENAR terlihat
-        // (abaikan "transparent" / warna yang tidak bisa dibaca, supaya tidak dianggap hitam)
-        if (cs.backgroundImage !== 'none' && !cs.backgroundImage.startsWith('url')) {
-            const matches = cs.backgroundImage.match(COLOR_RE) ?? [];
-            for (const m of matches) {
-                const rgba = toRGBA(m);
-                if (!rgba) continue;
-                const [r, g, b, a] = rgba;
-                if (a > 0.5) return luminance(r, g, b) < 0.5 ? 'dark' : 'light';
+        const recalc = () => {
+            // Pilih elemen intersecting yang paling akhir dalam DOM order
+            // (paling bawah di halaman = paling "di atas" secara visual di titik scroll itu).
+            let winner: Tone = 'light';
+            for (const el of orderedEls) {
+                if (intersecting.has(el)) {
+                    winner = intersecting.get(el)!;
+                    // Tidak break — biarkan loop terus supaya elemen TERAKHIR yang menang.
+                }
             }
-            // tidak ada warna solid di gradasi ini -> lanjut cek background-color / elemen di bawahnya
-        }
+            setTone((prev) => (prev !== winner ? winner : prev));
+        };
 
-        const rgba = toRGBA(cs.backgroundColor);
-        if (rgba) {
-            const [r, g, b, a] = rgba;
-            if (a > 0.5) return luminance(r, g, b) < 0.5 ? 'dark' : 'light';
-        }
-    }
-    return 'light';
+        const buildObserver = () => {
+            if (observer) observer.disconnect();
+            intersecting.clear();
+
+            // rootMargin harus pixel (tidak boleh calc di IntersectionObserver).
+            // Hitung bottomMargin dari window.innerHeight saat ini.
+            const vh = window.innerHeight;
+            const topMargin = `-${centerY}px`;
+            const bottomMargin = `-${Math.max(0, vh - centerY - 1)}px`;
+
+            observer = new IntersectionObserver(
+                (entries) => {
+                    for (const entry of entries) {
+                        const attr = (entry.target as HTMLElement).getAttribute('data-nav-tone');
+                        const t: Tone = attr === 'dark' ? 'dark' : 'light';
+                        if (entry.isIntersecting) {
+                            intersecting.set(entry.target, t);
+                        } else {
+                            intersecting.delete(entry.target);
+                        }
+                    }
+                    recalc();
+                },
+                {
+                    root: null, // viewport
+                    rootMargin: `${topMargin} 0px ${bottomMargin} 0px`,
+                    threshold: 0,
+                }
+            );
+
+            for (const el of orderedEls) {
+                observer.observe(el);
+            }
+            recalc();
+        };
+
+        const observe = () => {
+            const els = Array.from(document.querySelectorAll<HTMLElement>('[data-nav-tone]'));
+            orderedEls = els;
+            buildObserver();
+        };
+
+        // Observe pertama kali
+        observe();
+
+        // Re-observe kalau DOM berubah (misal lazy-load section baru muncul)
+        const mo = new MutationObserver(() => observe());
+        mo.observe(document.body, { childList: true, subtree: true });
+
+        // Rebuild observer saat ukuran window berubah (vh berubah → bottomMargin perlu diupdate)
+        const onResize = () => buildObserver();
+        window.addEventListener('resize', onResize, { passive: true });
+
+        return () => {
+            observer?.disconnect();
+            mo.disconnect();
+            window.removeEventListener('resize', onResize);
+        };
+    }, [headerH]);
+
+    return tone;
 }
 
 /* ------------------------------------------------------------------ */
@@ -287,66 +280,12 @@ export interface NavbarProps {
 export default function Navbar({ variant }: NavbarProps) {
     const isMobile = variant === 'mobile';
     const [open, setOpen] = useState(false);
-    const [scrolled, setScrolled] = useState(false);
-    const [tone, setTone] = useState<Tone>('light');
-    const headerRef = useRef<HTMLElement>(null);
-    const rafRef = useRef<number | null>(null);
 
-    // Header jadi "kaca" setelah di-scroll + deteksi warna di bawahnya.
-    // Deteksi dijalankan ulang otomatis (bukan cuma saat scroll), supaya elemen sementara
-    // seperti loading screen / animasi fade-in tidak membuat nada nyangkut salah di awal.
-    useEffect(() => {
-        const update = () => {
-            rafRef.current = null;
-            setScrolled(window.scrollY > 12);
-            if (headerRef.current) {
-                const next = detectTone(headerRef.current);
-                setTone((prev) => (prev !== next ? next : prev));
-            }
-        };
-        const schedule = () => {
-            if (rafRef.current == null) rafRef.current = requestAnimationFrame(update);
-        };
+    // Tinggi header dalam px (konstan sesuai variant)
+    const headerPx = isMobile ? 64 : 90;
 
-        schedule();
-
-        window.addEventListener('scroll', schedule, { passive: true });
-        window.addEventListener('resize', schedule);
-        window.addEventListener('load', schedule);
-        window.addEventListener('pageshow', schedule);
-        window.addEventListener('app:loaded', schedule);
-        // animasi / transisi di halaman selesai -> cek ulang
-        document.addEventListener('transitionend', schedule, true);
-        document.addEventListener('animationend', schedule, true);
-
-        // Jangan observe 'style' karena Framer Motion terus mengupdate inline style pada seluruh subtree!
-        const mo = new MutationObserver(schedule);
-        mo.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'hidden'],
-        });
-
-        // font selesai dimuat
-        document.fonts?.ready.then(schedule).catch(() => { });
-
-        // jaring pengaman: cek ulang rutin
-        const interval = window.setInterval(schedule, 600);
-
-        return () => {
-            window.removeEventListener('scroll', schedule);
-            window.removeEventListener('resize', schedule);
-            window.removeEventListener('load', schedule);
-            window.removeEventListener('pageshow', schedule);
-            window.removeEventListener('app:loaded', schedule);
-            document.removeEventListener('transitionend', schedule, true);
-            document.removeEventListener('animationend', schedule, true);
-            mo.disconnect();
-            window.clearInterval(interval);
-            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-        };
-    }, []);
+    // Deteksi tone via IntersectionObserver — jauh lebih reliable dari BoundingRect/scroll-RAF
+    const tone = useNavbarTone(headerPx);
 
     // Escape untuk tutup + kunci scroll body saat menu terbuka
     useEffect(() => {
@@ -366,12 +305,6 @@ export default function Navbar({ variant }: NavbarProps) {
     const headerH = isMobile ? 'h-[64px]' : 'h-[90px]';
     const dark = tone === 'dark';
 
-    const glass = scrolled
-        ? dark
-            ? 'border-b border-white/10 bg-black/20 shadow-[0_4px_30px_rgba(0,0,0,0.10)] backdrop-blur-md'
-            : 'border-b border-black/5 bg-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.04)] backdrop-blur-md'
-        : 'border-b border-transparent bg-transparent';
-
     return (
         <>
             {/* spacer: header fixed, jadi tinggi layout lama tetap terjaga */}
@@ -379,10 +312,19 @@ export default function Navbar({ variant }: NavbarProps) {
 
             {/* ---------------- HEADER ---------------- */}
             <header
-                ref={headerRef}
-                className={`${montserrat.className} fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,box-shadow] duration-500 ${headerH} ${glass}`}
+                className={`${montserrat.className} fixed inset-x-0 top-0 z-50 ${headerH}`}
             >
-                <div className="relative mx-auto flex h-full w-full max-w-360 items-center justify-between px-4 lg:px-21">
+                {/* drop-shadow adaptif:
+                    - dark mode  → shadow hitam tipis → elemen putih tetap keliatan di atas card putih
+                    - light mode → glow putih tipis   → elemen gelap tetap keliatan di atas latar hitam */}
+                <div
+                    className="relative mx-auto flex h-full w-full max-w-360 items-center justify-between px-4 lg:px-21 transition-[filter] duration-300"
+                    style={{
+                        filter: dark
+                            ? 'drop-shadow(0 1px 6px rgba(0,0,0,0.55))'
+                            : 'drop-shadow(0 1px 5px rgba(255,255,255,0.75))',
+                    }}
+                >
                     {/* kiri: MENU + garis tiga (warna ikut `currentColor`) */}
                     <button
                         type="button"
@@ -390,7 +332,7 @@ export default function Navbar({ variant }: NavbarProps) {
                         aria-label="Buka menu"
                         aria-expanded={open}
                         aria-controls="main-nav"
-                        className={`group flex cursor-pointer items-center gap-4 transition-colors duration-300 ${dark ? 'text-white' : 'text-[#333333]'
+                        className={`group flex cursor-pointer items-center gap-4 transition-colors duration-300 ${dark ? 'text-white' : 'text-[#1C1C1C]'
                             }`}
                     >
                         <span className="text-[15px] font-bold tracking-[0.35em] lg:text-[18px]">MENU</span>
@@ -415,7 +357,7 @@ export default function Navbar({ variant }: NavbarProps) {
                     <Link
                         href={LOGIN_HREF}
                         prefetch={true}
-                        className={`hidden h-11.5 w-35 items-center justify-center rounded-[15px] text-[16px] font-semibold transition-[background-color,color,opacity] duration-300 hover:opacity-85 sm:flex lg:h-13 lg:w-42.5 lg:text-[18px] ${dark ? 'bg-white text-[#333333]' : 'bg-[#333333] text-white'
+                        className={`hidden h-11.5 w-35 items-center justify-center rounded-[15px] text-[16px] font-semibold transition-[background-color,color,opacity] duration-300 hover:opacity-85 sm:flex lg:h-13 lg:w-42.5 lg:text-[18px] ${dark ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
                             }`}
                     >
                         Masuk
@@ -484,7 +426,7 @@ export default function Navbar({ variant }: NavbarProps) {
                         href={LOGIN_HREF}
                         prefetch={true}
                         tabIndex={open ? 0 : -1}
-                        className="mt-auto flex h-13 w-full items-center justify-center rounded-[15px] bg-white text-[18px] font-semibold text-[#333333] transition-opacity hover:opacity-90"
+                        className="mt-auto flex h-13 w-full items-center justify-center rounded-[15px] bg-white text-[18px] font-semibold text-[#1C1C1C] transition-opacity hover:opacity-90"
                     >
                         Masuk
                     </Link>

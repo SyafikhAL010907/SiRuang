@@ -48,25 +48,59 @@ const PENJELASAN: Record<string, string> = {
 };
 export const penjelasanFasilitas = (nama: string) => PENJELASAN[nama] ?? 'Tersedia untuk pengguna ruangan ini.';
 
-export function FasilitasStep({ ruangan }: { ruangan: Ruangan }) {
+// Tema langkah Fasilitas: 'terang' = desain Figma (putih + garis hitam di atas batik), 'gelap' = Charcoal Noir lama
+export type TemaFasilitas = 'gelap' | 'terang';
+
+const TEMA_FASILITAS = {
+  gelap: {
+    judul: '',
+    sub: 'text-[#B3B3B3]',
+    kartu3D: 'border-[#565656] bg-[#565656]/20',
+    caption: 'text-[#B3B3B3] text-xs text-left',
+    itemAktif: 'border-[#E0E0E0] bg-[#565656]/30',
+    itemBiasa: 'border-[#565656] hover:border-[#848484]',
+    ikon: 'text-[#B3B3B3]',
+    isi: 'text-[#B3B3B3]',
+    toggleAktif: 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]',
+    toggleBiasa: 'border-[#848484] text-[#E0E0E0] hover:border-[#E0E0E0]',
+    fokus: FOCUS,
+  },
+  terang: {
+    judul: 'text-[#0D0D0D]',
+    sub: 'text-[#3A3A3A]',
+    kartu3D: 'border-[#0D0D0D] bg-white',
+    caption: 'text-[#3A3A3A] text-sm text-center',
+    itemAktif: 'border-[#0D0D0D] bg-[#F0F0F0]',
+    itemBiasa: 'border-[#0D0D0D] bg-white hover:bg-[#F7F7F7]',
+    ikon: 'text-[#0D0D0D]',
+    isi: 'text-[#3A3A3A]',
+    toggleAktif: 'border-[#0D0D0D] bg-[#0D0D0D] text-white',
+    toggleBiasa: 'border-[#0D0D0D] bg-white text-[#0D0D0D] hover:bg-[#F0F0F0]',
+    fokus: 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]',
+  },
+} as const;
+
+export function FasilitasStep({ ruangan, tema = 'gelap' }: { ruangan: Ruangan; tema?: TemaFasilitas }) {
+  const T = TEMA_FASILITAS[tema];
+  const terang = tema === 'terang';
   const is805 = ruangan.kode === 'R.805';
   const [mode3D, setMode3D] = useState(is805);
   const [i, setI] = useState(0);
   const nama = ruangan.fasilitas[i];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+    <div className={`grid gap-8 lg:grid-cols-[1.1fr_1fr] ${terang ? 'lg:items-center lg:gap-12' : ''}`}>
       <div className="lg:sticky lg:top-0 lg:self-start">
-        <div className="aspect-4/3 overflow-hidden rounded-3xl border border-[#565656] bg-[#565656]/20">
+        <div className={`aspect-4/3 overflow-hidden border ${terang ? 'rounded-2xl' : 'rounded-3xl'} ${T.kartu3D}`}>
           {mode3D ? (
             <Slot3D key={ruangan.kode} kode={ruangan.kode} label={ruangan.nama} ruang={{ kapasitas: ruangan.kapasitas ?? 50, pc: true, kode: ruangan.kode }} />
           ) : (
             <Slot3D key={nama} src={MODEL_3D[nama]} label={nama} />
           )}
         </div>
-        <p className="mt-3 text-xs text-[#B3B3B3]">
+        <p className={`mt-3 leading-relaxed ${T.caption}`}>
           {mode3D
-            ? 'Model 3D interaktif Three.js Ruang 805. Putar, zoom, dan lihat tata letak 50 PC mahasiswa + meja dosen.'
+            ? 'Model 3D interaktif Ruang 805. Putar, zoom, dan lihat tata letak 50 PC mahasiswa + meja dosen.'
             : MODEL_3D[nama]
             ? 'Geser untuk memutar, cubit atau scroll untuk zoom.'
             : 'Tampilan 3D akan muncul di sini setelah model dipasang.'}
@@ -74,27 +108,27 @@ export function FasilitasStep({ ruangan }: { ruangan: Ruangan }) {
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-2xl font-extrabold tracking-tight">Apa saja isi ruangannya?</h3>
+          <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Apa saja isi ruangannya?</h3>
           {is805 && (
             <button
               onClick={() => setMode3D((v) => !v)}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${FOCUS} ${mode3D ? 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]' : 'border-[#848484] text-[#E0E0E0] hover:border-[#E0E0E0]'}`}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${T.fokus} ${mode3D ? T.toggleAktif : T.toggleBiasa}`}
             >
               {mode3D ? '✓ 3D Ruangan Utuh (Aktif)' : 'Lihat 3D Ruangan Utuh'}
             </button>
           )}
         </div>
-        {ruangan.kapasitas && <p className="mt-2 text-sm text-[#B3B3B3]">Muat sampai {ruangan.kapasitas} orang. Pilih fasilitas untuk melihat penjelasannya.</p>}
-        <ul className="mt-5 space-y-2">
+        {ruangan.kapasitas && <p className={`mt-2 ${terang ? 'text-xs' : 'text-sm'} ${T.sub}`}>Muat sampai {ruangan.kapasitas} orang. Pilih fasilitas untuk melihat penjelasannya.</p>}
+        <ul className={`mt-5 ${terang ? 'space-y-3' : 'space-y-2'}`}>
           {ruangan.fasilitas.map((f, k) => (
             <li key={f}>
               <button
                 onClick={() => { setI(k); setMode3D(false); }}
                 aria-pressed={!mode3D && k === i}
-                className={`w-full rounded-2xl border p-4 text-left transition ${FOCUS} ${!mode3D && k === i ? 'border-[#E0E0E0] bg-[#565656]/30' : 'border-[#565656] hover:border-[#848484]'}`}
+                className={`w-full border text-left transition ${T.fokus} ${terang ? 'rounded-xl px-4 py-3' : 'rounded-2xl p-4'} ${!mode3D && k === i ? T.itemAktif : T.itemBiasa}`}
               >
-                <span className="flex items-center justify-between gap-3 font-bold">{f}<span aria-hidden className="text-[#B3B3B3]">{!mode3D && k === i ? '−' : '+'}</span></span>
-                {!mode3D && k === i && <span className="sfd-in mt-2 block text-sm leading-relaxed text-[#B3B3B3]">{penjelasanFasilitas(f)}</span>}
+                <span className={`flex items-center justify-between gap-3 font-bold ${terang ? 'text-sm text-[#0D0D0D]' : ''}`}>{f}<span aria-hidden className={T.ikon}>{!mode3D && k === i ? '−' : '+'}</span></span>
+                {!mode3D && k === i && <span className={`sfd-in mt-2 block text-sm leading-relaxed ${T.isi}`}>{penjelasanFasilitas(f)}</span>}
               </button>
             </li>
           ))}

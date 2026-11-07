@@ -6,6 +6,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { motion, MotionConfig, useInView, type HTMLMotionProps } from 'framer-motion';
 import { jakarta, fasthand } from '@/lib/fonts';
+import { Maximize2, X } from 'lucide-react';
 import Navbar from '@/components/LandingPage/Navbar';
 import Footer from '@/components/LandingPage/Footer';
 
@@ -149,7 +150,7 @@ export function DotIndicator({
         const colorClass =
           variant === 'light'
             ? isActive
-              ? 'bg-[#333333]'
+              ? 'bg-[#1C1C1C]'
               : 'bg-[#B8B8B8] hover:bg-[#999999]'
             : isActive
               ? 'bg-white'
@@ -198,8 +199,24 @@ function MapSkeleton() {
 }
 
 // Dynamic imports per floor
+const SFDLantai3Map = dynamic(
+  () =>
+    import('@/components/DenahVisual/DenahGedungSFD/Lantai3/DenahL3SFD/DenahL3SFD').then((m) => {
+      const Component = m.DenahL3SFD;
+      return function SFDLantai3Light(props: any) {
+        return <Component {...props} tema="terang" />;
+      };
+    }),
+  { ssr: false, loading: () => <MapSkeleton /> }
+);
 const SFDLantai8Map = dynamic(
-  () => import('@/components/DenahVisual/DenahGedungSFD/Lantai8/DenahL8SFD/DenahL8SFD').then((m) => m.DenahL8SFD),
+  () =>
+    import('@/components/DenahVisual/DenahGedungSFD/Lantai8/DenahL8SFD/DenahL8SFD').then((m) => {
+      const Component = m.DenahL8SFD;
+      return function SFDLantai8Light(props: any) {
+        return <Component {...props} tema="terang" />;
+      };
+    }),
   { ssr: false, loading: () => <MapSkeleton /> }
 );
 
@@ -239,6 +256,7 @@ const LELantai4Map = dynamic(
 
 export const FLOOR_MAPS_REGISTRY: Record<'sfd' | 'ls' | 'le', FloorMapItem[]> = {
   sfd: [
+    { lantai: 3, label: 'Lantai 3', ratio: 1050 / 635, Map: SFDLantai3Map },
     { lantai: 8, label: 'Lantai 8', ratio: 1050 / 635, Map: SFDLantai8Map },
   ],
   ls: [
@@ -453,7 +471,7 @@ function TestimonialCarousel() {
                 </p>
 
                 <p
-                  className={`absolute text-[16px] font-semibold text-[#333333] transition-opacity ease-in-out ${isActive
+                  className={`absolute text-[16px] font-semibold text-[#1C1C1C] transition-opacity ease-in-out ${isActive
                       ? 'opacity-100 duration-500 delay-500'
                       : 'pointer-events-none opacity-0 duration-200'
                     }`}
@@ -582,7 +600,7 @@ const CARA_KERJA = [
   },
 ];
 
-/* Card fitur: hover / focus => background berubah jadi #333333, teks jadi putih */
+/* Card fitur: hover / focus => background berubah jadi #1C1C1C, teks jadi putih */
 export function FiturUtamaCards({ variant }: { variant: 'web' | 'mobile' }) {
   const m = variant === 'mobile';
 
@@ -598,7 +616,7 @@ export function FiturUtamaCards({ variant }: { variant: 'web' | 'mobile' }) {
           tabIndex={0}
           y={28}
           delay={m ? 0 : i * 0.08}
-          className={`group flex cursor-pointer flex-col justify-between rounded-2xl border border-[#EFEFEF] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] outline-none transition-colors duration-300 ease-in-out hover:bg-[#333333] focus-visible:bg-[#333333] ${m ? 'min-h-47.5 p-4' : 'min-h-55 p-5 lg:min-h-65 lg:p-6'
+          className={`group flex cursor-pointer flex-col justify-between rounded-2xl border border-[#EFEFEF] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.04)] outline-none transition-colors duration-300 ease-in-out hover:bg-[#1C1C1C] focus-visible:bg-[#1C1C1C] ${m ? 'min-h-47.5 p-4' : 'min-h-55 p-5 lg:min-h-65 lg:p-6'
             }`}
         >
           <span
@@ -608,7 +626,7 @@ export function FiturUtamaCards({ variant }: { variant: 'web' | 'mobile' }) {
             {item.icon}
           </span>
           <p
-            className={`font-medium text-[#333333] transition-colors duration-300 ease-in-out group-hover:text-white group-focus-visible:text-white ${m ? 'text-[13px] leading-5' : 'text-[15px] leading-6 lg:text-[17px]'
+            className={`font-medium text-[#1C1C1C] transition-colors duration-300 ease-in-out group-hover:text-white group-focus-visible:text-white ${m ? 'text-[13px] leading-5' : 'text-[15px] leading-6 lg:text-[17px]'
               }`}
           >
             {item.text}
@@ -630,7 +648,7 @@ export function CaraKerjaSteps({ variant }: { variant: 'web' | 'mobile' }) {
           className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.1)] p-8 relative pt-14 text-center flex flex-col items-center hover:shadow-[0_12px_40px_rgba(0,0,0,0.15)] transition-shadow duration-300"
         >
           {/* Floating Number Badge */}
-          <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 w-14 h-14 bg-white rounded-full border-[3px] border-[#333333] flex items-center justify-center text-xl font-bold text-gray-800 shadow-md">
+          <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 w-14 h-14 bg-white rounded-full border-[3px] border-[#1C1C1C] flex items-center justify-center text-xl font-bold text-gray-800 shadow-md">
             {i + 1}
           </div>
 
@@ -683,7 +701,7 @@ export function CaraKerjaSection({ variant }: { variant: 'web' | 'mobile' }) {
     <section id="cara-kerja" className="relative w-full overflow-hidden bg-white">
       {/* ================= TOP SECTION (GELAP) ================= */}
       {/* pb harus >= nilai -mt di bawah supaya gelapnya turun sampai tengah kartu */}
-      <div className={`bg-[#333333] px-4 text-center ${m ? 'pt-16 pb-52.5' : 'pt-24 pb-50'}`}>
+      <div data-nav-tone="dark" className={`bg-[#1C1C1C] px-4 text-center ${m ? 'pt-16 pb-52.5' : 'pt-24 pb-50'}`}>
         <div className="max-w-4xl mx-auto">
           <Reveal as="p" y={16} className="text-gray-400 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-4">
             Semua Info Ruangan, Satu Tempat
@@ -697,7 +715,7 @@ export function CaraKerjaSection({ variant }: { variant: 'web' | 'mobile' }) {
       {/* ================= CARDS SECTION (LAYER MENINDIH) ================= */}
       {/* FIX: bg-white DIHAPUS dari wrapper ini (section sudah bg-white).
           Sebelumnya wrapper putih ini ikut tertarik naik oleh -mt dan menutupi area gelap. */}
-      <div className={m ? 'pb-16' : 'pb-24 lg:pb-32'}>
+      <div data-nav-tone="light" className={m ? 'pb-16' : 'pb-24 lg:pb-32'}>
         <div
           className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full ${m ? '-mt-50' : '-mt-47.5'
             }`}
@@ -738,6 +756,88 @@ export function CaraKerjaSection({ variant }: { variant: 'web' | 'mobile' }) {
   );
 }
 
+export function FloorPreviewModal({
+  item,
+  gedungLabel,
+  onClose,
+}: {
+  item: FloorMapItem | null;
+  gedungLabel: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!item) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [item, onClose]);
+
+  if (!item) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex flex-col w-full max-w-5xl max-h-[92vh] bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header Modal */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/90">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[#C2AC72]">
+              {gedungLabel}
+            </p>
+            <h3 className="text-lg sm:text-2xl font-extrabold text-slate-800">
+              Denah Lantai {item.lantai}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200/80 text-slate-700 hover:bg-slate-300 transition-colors cursor-pointer"
+            aria-label="Tutup"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Denah Kontainer */}
+        <div className="flex-1 overflow-auto p-4 sm:p-8 flex items-center justify-center bg-[#F8FAFC]">
+          <div className="w-full max-w-4xl" style={{ aspectRatio: item.ratio }}>
+            <item.Map
+              className="w-full h-full object-contain"
+              selectedCode={null}
+              onSelectRoom={() => {}}
+            />
+          </div>
+        </div>
+
+        {/* Footer info & CTA Login */}
+        <div className="px-5 py-3.5 border-t border-slate-100 bg-white flex flex-col sm:flex-row gap-2 items-center justify-between text-xs text-slate-500 font-medium">
+          <span>Pratinjau Denah Interaktif (Publik)</span>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#183449] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#588CBC]"
+          >
+            Masuk untuk Booking Ruangan →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  PAGE                                                               */
 /* ------------------------------------------------------------------ */
@@ -749,6 +849,7 @@ export default function WebTabLayout() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [cardsPerPage, setCardsPerPage] = useState(2);
+  const [previewModal, setPreviewModal] = useState<FloorMapItem | null>(null);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
@@ -901,7 +1002,7 @@ export default function WebTabLayout() {
       </section>
 
       {/* ---------------- DATA REAL-TIME ---------------- */}
-      <section id="data-real-time" className={`${container} mt-25 lg:mt-47`}>
+      <section data-nav-tone="light" id="data-real-time" className={`${container} mt-25 lg:mt-47`}>
         <Reveal as="h2" className="text-center text-[40px] font-semibold leading-15.75 lg:text-[50px]">
           Data Real-Time
         </Reveal>
@@ -923,8 +1024,8 @@ export default function WebTabLayout() {
                 onClick={() => handleSelectGedung(g.key as 'sfd' | 'ls' | 'le')}
                 aria-pressed={isActive}
                 className={`flex h-16.25 min-w-51 cursor-pointer items-center justify-center rounded-[15px] px-10 text-[20px] font-semibold transition-colors duration-300 ${isActive
-                    ? 'bg-[#333333] text-white'
-                    : 'border border-[#333333] bg-transparent text-black hover:bg-[#333333]/5'
+                    ? 'bg-[#1C1C1C] text-white'
+                    : 'border border-[#1C1C1C] bg-transparent text-black hover:bg-[#1C1C1C]/5'
                   }`}
               >
                 {g.label}
@@ -949,37 +1050,43 @@ export default function WebTabLayout() {
                   key={item.lantai}
                   className={cardsPerPage === 2 ? 'w-[calc((100%-30px)/2)]' : 'w-full'}
                 >
-                  <Link
-                    href={`${activeGedung.base}/lantai${item.lantai}`}
-                    prefetch={true}
-                    className="group block rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72]"
-                  >
-                    <figure className="flex flex-col">
-                      <div className="w-full rounded-[20px] bg-[#D9D9D9] p-3 shadow-xs transition-transform duration-300 group-hover:scale-[1.01]">
-                        <div
-                          className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white p-2"
-                          style={{ aspectRatio: item.ratio }}
-                        >
-                          <div className="h-full w-full pointer-events-none select-none" aria-hidden="true">
-                            <item.Map
-                              className="h-full w-full object-contain"
-                              selectedCode={null}
-                              onSelectRoom={() => { }}
-                            />
-                          </div>
+                  <figure className="flex flex-col">
+                    <div className="relative w-full rounded-[20px] bg-[#D9D9D9] p-3 shadow-xs transition-transform duration-300">
+                      {/* Tombol Perbesar Popup */}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewModal(item)}
+                        aria-label={`Perbesar Denah Lantai ${item.lantai}`}
+                        title="Perbesar Tampilan Denah"
+                        className="absolute right-5 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/85 hover:scale-105 active:scale-95 cursor-pointer"
+                      >
+                        <Maximize2 size={15} />
+                      </button>
+
+                      <div
+                        onClick={() => setPreviewModal(item)}
+                        className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white p-2 cursor-pointer transition-opacity hover:opacity-95"
+                        style={{ aspectRatio: item.ratio }}
+                      >
+                        <div className="h-full w-full pointer-events-none select-none" aria-hidden="true">
+                          <item.Map
+                            className="h-full w-full object-contain"
+                            selectedCode={null}
+                            onSelectRoom={() => { }}
+                          />
                         </div>
                       </div>
-                      <figcaption className="mt-4 flex flex-col items-center text-center">
-                        <span className="text-[18px] font-semibold text-[#333333] transition-colors group-hover:text-sky-700 lg:text-[22px]">
-                          Lantai {item.lantai}
-                        </span>
-                        <span className="my-1.5 h-1 w-8 rounded-full bg-[#C2AC72]" />
-                        <span className="text-[14px] font-medium text-[#B8B8B8]">
-                          {activeGedung.label}
-                        </span>
-                      </figcaption>
-                    </figure>
-                  </Link>
+                    </div>
+                    <figcaption className="mt-4 flex flex-col items-center text-center">
+                      <span className="text-[18px] font-semibold text-[#1C1C1C] lg:text-[22px]">
+                        Lantai {item.lantai}
+                      </span>
+                      <span className="my-1.5 h-1 w-8 rounded-full bg-[#C2AC72]" />
+                      <span className="text-[14px] font-medium text-[#B8B8B8]">
+                        {activeGedung.label}
+                      </span>
+                    </figcaption>
+                  </figure>
                 </div>
               ))}
             </div>
@@ -1005,40 +1112,47 @@ export default function WebTabLayout() {
                         key={item.lantai}
                         className={cardsPerPage === 2 ? 'w-[calc((100%-30px)/2)] shrink-0' : 'w-full shrink-0'}
                       >
-                        <Link
-                          href={`${activeGedung.base}/lantai${item.lantai}`}
-                          prefetch={true}
-                          onClick={(e) => {
-                            if (isDragging) e.preventDefault();
-                          }}
-                          className="group block rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72]"
-                        >
-                          <figure className="flex flex-col">
-                            <div className="w-full rounded-[20px] bg-[#D9D9D9] p-3 shadow-xs transition-transform duration-300 group-hover:scale-[1.01]">
-                              <div
-                                className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white p-2"
-                                style={{ aspectRatio: item.ratio }}
-                              >
-                                <div className="h-full w-full pointer-events-none select-none" aria-hidden="true">
-                                  <item.Map
-                                    className="h-full w-full object-contain"
-                                    selectedCode={null}
-                                    onSelectRoom={() => { }}
-                                  />
-                                </div>
+                        <figure className="flex flex-col">
+                          <div className="relative w-full rounded-[20px] bg-[#D9D9D9] p-3 shadow-xs transition-transform duration-300">
+                            {/* Tombol Perbesar Popup */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!isDragging) setPreviewModal(item);
+                              }}
+                              aria-label={`Perbesar Denah Lantai ${item.lantai}`}
+                              title="Perbesar Tampilan Denah"
+                              className="absolute right-5 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/85 hover:scale-105 active:scale-95 cursor-pointer"
+                            >
+                              <Maximize2 size={15} />
+                            </button>
+
+                            <div
+                              onClick={() => {
+                                if (!isDragging) setPreviewModal(item);
+                              }}
+                              className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white p-2 cursor-pointer transition-opacity hover:opacity-95"
+                              style={{ aspectRatio: item.ratio }}
+                            >
+                              <div className="h-full w-full pointer-events-none select-none" aria-hidden="true">
+                                <item.Map
+                                  className="h-full w-full object-contain"
+                                  selectedCode={null}
+                                  onSelectRoom={() => { }}
+                                />
                               </div>
                             </div>
-                            <figcaption className="mt-4 flex flex-col items-center text-center">
-                              <span className="text-[18px] font-semibold text-[#333333] transition-colors group-hover:text-sky-700 lg:text-[22px]">
-                                Lantai {item.lantai}
-                              </span>
-                              <span className="my-1.5 h-1 w-8 rounded-full bg-[#C2AC72]" />
-                              <span className="text-[14px] font-medium text-[#B8B8B8]">
-                                {activeGedung.label}
-                              </span>
-                            </figcaption>
-                          </figure>
-                        </Link>
+                          </div>
+                          <figcaption className="mt-4 flex flex-col items-center text-center">
+                            <span className="text-[18px] font-semibold text-[#1C1C1C] lg:text-[22px]">
+                              Lantai {item.lantai}
+                            </span>
+                            <span className="my-1.5 h-1 w-8 rounded-full bg-[#C2AC72]" />
+                            <span className="text-[14px] font-medium text-[#B8B8B8]">
+                              {activeGedung.label}
+                            </span>
+                          </figcaption>
+                        </figure>
                       </div>
                     ))}
                   </div>
@@ -1052,7 +1166,7 @@ export default function WebTabLayout() {
                   onClick={handlePrev}
                   disabled={slideIndex === 0}
                   aria-label="Halaman sebelumnya"
-                  className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#B8B8B8] text-[#333333] transition-all hover:border-[#333333] hover:bg-[#333333] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 lg:flex cursor-pointer"
+                  className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#B8B8B8] text-[#1C1C1C] transition-all hover:border-[#1C1C1C] hover:bg-[#1C1C1C] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 lg:flex cursor-pointer"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -1071,7 +1185,7 @@ export default function WebTabLayout() {
                   onClick={handleNext}
                   disabled={slideIndex >= totalPages - 1}
                   aria-label="Halaman berikutnya"
-                  className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#B8B8B8] text-[#333333] transition-all hover:border-[#333333] hover:bg-[#333333] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 lg:flex cursor-pointer"
+                  className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#B8B8B8] text-[#1C1C1C] transition-all hover:border-[#1C1C1C] hover:bg-[#1C1C1C] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 lg:flex cursor-pointer"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1083,8 +1197,15 @@ export default function WebTabLayout() {
         </motion.div>
       </section>
 
+      {/* Modal Popup Perbesar Denah */}
+      <FloorPreviewModal
+        item={previewModal}
+        gedungLabel={activeGedung.label}
+        onClose={() => setPreviewModal(null)}
+      />
+
       {/* ---------------- RESPONSIVE WEBSITE ---------------- */}
-      <section className={`${container} mt-25 lg:mt-39.5`}>
+      <section data-nav-tone="light" className={`${container} mt-25 lg:mt-39.5`}>
         <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-start lg:gap-0">
           <Reveal y={32} duration={0.9} className="relative z-0 flex h-105 w-89.25 shrink-0 items-center justify-center bg-white lg:ml-6 lg:h-139.5 lg:w-118.5">
             <video
@@ -1117,7 +1238,7 @@ export default function WebTabLayout() {
             </p>
             <Link
               href="#"
-              className="mt-7.5 flex h-16.25 w-51 items-center justify-center rounded-[15px] bg-[#333333] text-[20px] font-semibold text-white transition-opacity hover:opacity-85"
+              className="mt-7.5 flex h-16.25 w-51 items-center justify-center rounded-[15px] bg-[#1C1C1C] text-[20px] font-semibold text-white transition-opacity hover:opacity-85"
             >
               Lorem ipsum
             </Link>
@@ -1126,7 +1247,7 @@ export default function WebTabLayout() {
       </section>
 
       {/* ---------------- MASALAH YANG DISELESAIKAN ---------------- */}
-      <section className="mt-25 bg-[#333333] px-4 pb-25 pt-20 lg:mt-48 lg:pb-40 lg:pt-29.75">
+      <section data-nav-tone="dark" className="mt-25 bg-[#1C1C1C] px-4 pb-25 pt-20 lg:mt-48 lg:pb-40 lg:pt-29.75">
         <Reveal as="p" y={16} className="text-center text-[20px] leading-10 text-[#E3E3E3] lg:text-[23px]">
           Lorem Ipsum dolor sit
         </Reveal>
@@ -1140,7 +1261,7 @@ export default function WebTabLayout() {
       </section>
 
       {/* ---------------- FITUR UTAMA ---------------- */}
-      <section className="mx-auto w-full max-w-360 px-6 pb-30 pt-20 lg:px-21 lg:pt-30">
+      <section data-nav-tone="light" className="mx-auto w-full max-w-360 px-6 pb-30 pt-20 lg:px-21 lg:pt-30">
         {/* ---------------- FITUR UTAMA ---------------- */}
         <div id="fitur">
           <Reveal as="p" y={16} className="text-[13px] font-semibold uppercase tracking-widest text-[#B8B8B8]">

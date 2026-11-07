@@ -33,8 +33,16 @@ export function useAdminChat(options: UseAdminChatOptions) {
     adminGmailRef.current = adminGmail;
   }, [adminGmail]);
 
-  // ── Rooms ──
-  const [rooms, setRooms] = useState<any[]>([]);
+  // ── Rooms (persisted to sessionStorage for instant 0ms load on refresh) ──
+  const [rooms, setRooms] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('admin_cached_rooms');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
 
   // ── Selected Chat (persisted to sessionStorage) ──
   const [selectedChat, setSelectedChat] = useState<any | null>(() => {
@@ -135,7 +143,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
-        setRooms(data.map((r: any) => ({
+        const mapped = data.map((r: any) => ({
           ...r,
           user: r.user_name || r.user_gmail?.split('@')[0] || r.user_identifier,
           lastMessage: r.last_message,
@@ -144,7 +152,11 @@ export function useAdminChat(options: UseAdminChatOptions) {
           unread_count: r.unread_count || 0,
           is_online: r.is_online,
           is_marked_unread: r.is_marked_unread
-        })));
+        }));
+        setRooms(mapped);
+        try {
+          sessionStorage.setItem('admin_cached_rooms', JSON.stringify(mapped));
+        } catch {}
       }
     } catch (err) {
       console.error("Gagal ambil room:", err);

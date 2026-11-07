@@ -4,6 +4,10 @@
  * Booking - Gedung SFD Lantai 8
  * Isi: form & langkah "Booking" di popup ruangan (BookingStep) dan halaman daftar booking
  * (komponen tunggal responsive: Mobile, Tablet, Desktop) — tema Charcoal Noir.
+ *
+ * BookingStep punya 2 tema lewat prop `tema`:
+ *   'gelap'  = Charcoal Noir (default)
+ *   'terang' = desain Figma (putih + garis hitam, di atas latar batik)
  */
 
 import React, { useMemo, useState } from 'react';
@@ -26,7 +30,43 @@ const FIELD: { k: keyof FormBooking; label: string; ph: string; mode?: 'numeric'
   { k: 'fakultas', label: 'Fakultas', ph: 'Contoh: Fakultas Teknik' },
 ];
 
-export function BookingStep({ ruangan }: { ruangan: Ruangan }) {
+// Tema langkah Booking: 'terang' = desain Figma (putih + garis hitam di atas batik), 'gelap' = Charcoal Noir lama
+export type TemaBooking = 'gelap' | 'terang';
+
+const TEMA_BOOKING = {
+  gelap: {
+    judul: '',
+    sub: 'text-sm text-[#B3B3B3]',
+    label: LABEL,
+    input: INPUT,
+    btnUtama: BTN_UTAMA,
+    btnTepi: BTN_TEPI,
+    pesan: 'font-semibold text-[#E0E0E0]',
+    kotakBentrok: 'rounded-2xl border border-[#E0E0E0] p-4',
+    listBentrok: 'mt-2 space-y-1 text-[#B3B3B3]',
+    kartuTutup: 'rounded-3xl border border-[#565656] p-8',
+    kartuOk: 'rounded-3xl border border-[#E0E0E0] p-8',
+    dt: 'text-[#B3B3B3]',
+  },
+  terang: {
+    judul: 'text-[#0D0D0D]',
+    sub: 'text-xs text-[#3A3A3A]',
+    label: 'mb-1 block text-[10px] font-bold text-[#0D0D0D]',
+    input: 'w-full rounded-xl border border-[#0D0D0D] bg-white px-4 py-2.5 text-xs text-[#0D0D0D] outline-none transition placeholder:text-[#9A9A9A] focus:ring-4 focus:ring-black/10 [color-scheme:light]',
+    btnUtama: 'inline-flex items-center justify-center gap-2 rounded-full bg-[#0D0D0D] px-6 py-3 text-sm font-bold text-white transition hover:bg-black disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]',
+    btnTepi: 'inline-flex items-center justify-center gap-2 rounded-full border border-[#0D0D0D] bg-white px-6 py-3 text-sm font-semibold text-[#0D0D0D] transition hover:bg-[#F0F0F0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]',
+    pesan: 'text-xs font-bold text-[#0D0D0D]',
+    kotakBentrok: 'rounded-2xl border border-[#0D0D0D] bg-white p-4',
+    listBentrok: 'mt-2 space-y-1 text-[#3A3A3A]',
+    kartuTutup: 'rounded-3xl border border-[#0D0D0D] bg-white p-8',
+    kartuOk: 'rounded-3xl border border-[#0D0D0D] bg-white p-8',
+    dt: 'text-[#3A3A3A]',
+  },
+} as const;
+
+export function BookingStep({ ruangan, tema = 'gelap' }: { ruangan: Ruangan; tema?: TemaBooking }) {
+  const T = TEMA_BOOKING[tema];
+  const terang = tema === 'terang';
   const [f, setF] = useState<FormBooking>(FORM_KOSONG);
   const [terkirim, setTerkirim] = useState(false);
   const set = (k: keyof FormBooking) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -44,66 +84,66 @@ export function BookingStep({ ruangan }: { ruangan: Ruangan }) {
 
   if (!ruangan.bookable) {
     return (
-      <div className="mx-auto max-w-md rounded-3xl border border-[#565656] p-8 text-center">
-        <h3 className="text-xl font-extrabold">Ruangan ini tidak bisa dibooking</h3>
-        <p className="mt-2 text-sm leading-relaxed text-[#B3B3B3]">{ruangan.keterangan}</p>
+      <div className={`mx-auto max-w-md text-center ${T.kartuTutup}`}>
+        <h3 className={`text-xl font-extrabold ${T.judul}`}>Ruangan ini tidak bisa dibooking</h3>
+        <p className={`mt-2 text-sm leading-relaxed ${T.dt}`}>{ruangan.keterangan}</p>
       </div>
     );
   }
 
   if (terkirim) {
     return (
-      <div className="sfd-in mx-auto max-w-lg rounded-3xl border border-[#E0E0E0] p-8">
-        <h3 className="text-2xl font-extrabold tracking-tight">Booking diajukan</h3>
-        <p className="mt-2 text-sm text-[#B3B3B3]">Simpan ringkasan ini. Pengajuan akan ditinjau pengelola ruangan.</p>
-        <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
+      <div className={`sfd-in mx-auto max-w-lg ${T.kartuOk}`}>
+        <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Booking diajukan</h3>
+        <p className={`mt-2 text-sm ${T.dt}`}>Simpan ringkasan ini. Pengajuan akan ditinjau pengelola ruangan.</p>
+        <dl className={`mt-6 grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm ${terang ? 'text-[#0D0D0D]' : ''}`}>
           {[['Ruangan', `${ruangan.kode} · ${ruangan.nama}`], ['Waktu', `${hari}, ${f.tanggal} · ${f.mulai}–${f.selesai}`], ['Peminjam', `${f.nama} (${f.nim})`], ['Kelas', `${f.kelas} · angkatan ${f.angkatan}`], ['Prodi', `${f.prodi} · ${f.fakultas}`], ['Mata kuliah', `${f.matkul} · ${f.dosen}`]].map(([a, b]) => (
-            <React.Fragment key={a}><dt className="text-[#B3B3B3]">{a}</dt><dd className="font-semibold">{b}</dd></React.Fragment>
+            <React.Fragment key={a}><dt className={T.dt}>{a}</dt><dd className="font-semibold">{b}</dd></React.Fragment>
           ))}
         </dl>
-        <button onClick={() => { setF(FORM_KOSONG); setTerkirim(false); }} className={`${BTN_TEPI} mt-7 w-full`}>Booking jadwal lain</button>
+        <button onClick={() => { setF(FORM_KOSONG); setTerkirim(false); }} className={`${T.btnTepi} mt-7 w-full`}>Booking jadwal lain</button>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h3 className="text-2xl font-extrabold tracking-tight">Booking {ruangan.nama}</h3>
-      <p className="mt-2 text-sm text-[#B3B3B3]">Semua kolom wajib diisi. Peminjaman hanya Senin–Jumat, {JAM_BUKA.replace(':', '.')}–{JAM_TUTUP.replace(':', '.')}.</p>
+    <div className={`mx-auto ${terang ? 'max-w-[640px]' : 'max-w-3xl'}`}>
+      <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Booking {ruangan.nama}</h3>
+      <p className={`mt-1.5 ${T.sub}`}>Semua kolom wajib diisi. Peminjaman hanya Senin–Jumat, {JAM_BUKA.replace(':', '.')}–{JAM_TUTUP.replace(':', '.')}.</p>
       <datalist id="daftar-prodi">{PRODI.map((p) => <option key={p} value={p} />)}</datalist>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className={`grid sm:grid-cols-2 ${terang ? 'mt-5 gap-x-5 gap-y-3' : 'mt-6 gap-4'}`}>
         {FIELD.map(({ k, label, ph, mode }) => (
           <div key={k}>
-            <label htmlFor={`bk-${k}`} className={LABEL}>{label}</label>
-            <input id={`bk-${k}`} className={INPUT} value={f[k]} onChange={set(k)} placeholder={ph} inputMode={mode} list={k === 'prodi' ? 'daftar-prodi' : undefined} autoComplete="off" />
+            <label htmlFor={`bk-${k}`} className={T.label}>{label}</label>
+            <input id={`bk-${k}`} className={T.input} value={f[k]} onChange={set(k)} placeholder={ph} inputMode={mode} list={k === 'prodi' ? 'daftar-prodi' : undefined} autoComplete="off" />
           </div>
         ))}
         <div>
-          <label htmlFor="bk-angkatan" className={LABEL}>Angkatan</label>
-          <select id="bk-angkatan" className={INPUT} value={f.angkatan} onChange={set('angkatan')}>
+          <label htmlFor="bk-angkatan" className={T.label}>Angkatan</label>
+          <select id="bk-angkatan" className={T.input} value={f.angkatan} onChange={set('angkatan')}>
             <option value="">Pilih angkatan</option>
             {ANGKATAN.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="bk-tanggal" className={LABEL}>Tanggal</label>
-          <input id="bk-tanggal" type="date" className={INPUT} value={f.tanggal} onChange={set('tanggal')} min={new Date().toISOString().slice(0, 10)} />
+          <label htmlFor="bk-tanggal" className={T.label}>Tanggal</label>
+          <input id="bk-tanggal" type="date" className={T.input} value={f.tanggal} onChange={set('tanggal')} min={new Date().toISOString().slice(0, 10)} />
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:col-span-2">
-          <div><label htmlFor="bk-mulai" className={LABEL}>Jam mulai</label><input id="bk-mulai" type="time" className={INPUT} value={f.mulai} onChange={set('mulai')} min={JAM_BUKA} max={JAM_TUTUP} /></div>
-          <div><label htmlFor="bk-selesai" className={LABEL}>Jam selesai</label><input id="bk-selesai" type="time" className={INPUT} value={f.selesai} onChange={set('selesai')} min={JAM_BUKA} max={JAM_TUTUP} /></div>
+        <div className={`grid grid-cols-2 sm:col-span-2 ${terang ? 'gap-x-5' : 'gap-4'}`}>
+          <div><label htmlFor="bk-mulai" className={T.label}>Jam mulai</label><input id="bk-mulai" type="time" className={T.input} value={f.mulai} onChange={set('mulai')} min={JAM_BUKA} max={JAM_TUTUP} /></div>
+          <div><label htmlFor="bk-selesai" className={T.label}>Jam selesai</label><input id="bk-selesai" type="time" className={T.input} value={f.selesai} onChange={set('selesai')} min={JAM_BUKA} max={JAM_TUTUP} /></div>
         </div>
       </div>
 
       <div className="mt-4 space-y-2 text-sm" role="status">
-        {f.nim && !nimOk && <p className="font-semibold text-[#E0E0E0]">NIM hanya boleh berisi angka.</p>}
-        {!hariOk && <p className="font-semibold text-[#E0E0E0]">Tanggal ini jatuh di hari {hari}. Pilih tanggal Senin sampai Jumat.</p>}
-        {f.mulai && f.selesai && !urut && <p className="font-semibold text-[#E0E0E0]">Jam selesai harus setelah jam mulai.</p>}
-        {urut && !jamOk && <p className="font-semibold text-[#E0E0E0]">Waktu harus berada di antara {JAM_BUKA} dan {JAM_TUTUP}.</p>}
+        {f.nim && !nimOk && <p className={T.pesan}>NIM hanya boleh berisi angka.</p>}
+        {!hariOk && <p className={T.pesan}>Tanggal ini jatuh di hari {hari}. Pilih tanggal Senin sampai Jumat.</p>}
+        {f.mulai && f.selesai && !urut && <p className={T.pesan}>Jam selesai harus setelah jam mulai.</p>}
+        {urut && !jamOk && <p className={T.pesan}>Waktu harus berada di antara {JAM_BUKA} dan {JAM_TUTUP}.</p>}
         {bentrok.length > 0 && (
-          <div className="rounded-2xl border border-[#E0E0E0] p-4">
-            <p className="font-bold">Jadwal bentrok. Ubah jam atau tanggal.</p>
-            <ul className="mt-2 space-y-1 text-[#B3B3B3]">
+          <div className={T.kotakBentrok}>
+            <p className={`font-bold ${terang ? 'text-[#0D0D0D]' : ''}`}>Jadwal bentrok. Ubah jam atau tanggal.</p>
+            <ul className={T.listBentrok}>
               {bentrok.map((s) => <li key={s.mulai}>{s.kegiatan} ({s.mulai}–{s.selesai}) · PJ {s.pj}, {s.kontak}</li>)}
             </ul>
           </div>
@@ -111,7 +151,7 @@ export function BookingStep({ ruangan }: { ruangan: Ruangan }) {
       </div>
 
       {/* TODO: kirim `f` ke API booking di sini */}
-      <button onClick={() => setTerkirim(true)} disabled={!lengkap} className={`${BTN_UTAMA} mt-6 w-full sm:w-auto`}>Ajukan booking</button>
+      <button onClick={() => setTerkirim(true)} disabled={!lengkap} className={`${T.btnUtama} mt-6 w-full sm:w-auto`}>Ajukan booking</button>
     </div>
   );
 }

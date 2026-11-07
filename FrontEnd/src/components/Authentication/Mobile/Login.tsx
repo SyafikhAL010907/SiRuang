@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import Logo from '@/components/Shared/Logo';
-import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoginProps {
@@ -33,7 +35,16 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
       <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#588CBC]/15 rounded-full blur-3xl z-0" />
       <div className="absolute bottom-[10%] left-[-10%] w-64 h-64 bg-[#183449]/10 rounded-full blur-3xl z-0" />
 
-      <div className="flex-1 flex flex-col relative z-10 px-8 pt-10 pb-8">
+      <div className="flex-1 flex flex-col relative z-10 px-8 pt-6 pb-8">
+        {/* Tombol Kembali ke Beranda */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 self-start text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors mb-4"
+        >
+          <ArrowLeft size={16} />
+          <span>Kembali</span>
+        </Link>
+
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -42,7 +53,14 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
           <div className="w-24 h-24 bg-white rounded-[28px] shadow-xl shadow-slate-200/50 flex items-center justify-center border border-[#B3B3B3] mb-3 relative overflow-hidden">
             <div className="absolute inset-0 bg-linear-to-br from-slate-50 to-white opacity-50" />
             <div className="relative z-10 p-2">
-              <Logo onlyLogo width={80} height={80} className="w-20 h-20 object-contain" />
+              <Image
+                src="/LogoSiRuang.png"
+                alt="Logo SiRuang"
+                width={80}
+                height={80}
+                priority
+                className="w-20 h-20 object-contain"
+              />
             </div>
           </div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">Masuk Akun</h2>

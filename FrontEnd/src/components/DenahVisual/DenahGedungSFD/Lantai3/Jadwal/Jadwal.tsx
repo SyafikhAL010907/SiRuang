@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * Jadwal - Gedung SFD Lantai 8
+ * Jadwal - Gedung SFD Lantai 3
  * Dasar data untuk semua file lain (jadwal & ruangan tidak dipisah, sama seperti aslinya):
  *   - tipe, konstanta hari/jam, jadwal dummy (JADWAL_RUANGAN), data ruangan (RUANGAN)
  *   - helper jadwal (slotKosong, statusHari, useHariIni)
  *   - token UI bersama (FOCUS, tombol, input, font) dan <SfdStyle />
- *   - langkah "Jadwal" di popup ruangan (JadwalStep)
+ *   - langkah "Jadwal" di popup ruangan (JadwalStep) — punya 2 tema: gelap & terang
  *   - halaman daftar jadwal (komponen tunggal responsive: Mobile, Tablet, Desktop) — tema Charcoal Noir
  */
 
@@ -62,54 +62,114 @@ const j = (hari: Hari, mulai: string, selesai: string, kegiatan: string, kelas: 
 // Ganti dengan data asli nanti. Data induk ruangannya ada di RUANGAN di bawah.
 // ----------------------------------------------------------------------------
 export const JADWAL_RUANGAN: Record<string, Jadwal[]> = {
-  'R.801': [
-    j('Senin', '08:00', '10:00', 'Pemrograman Dasar', 'STI-1A', 'STI', 'Dr. Anwar', 'Rina (Aslab)', '0812-8010-0001'),
-    j('Selasa', '10:30', '13:00', 'Basis Data', 'STI-2A', 'STI', 'Ir. Lestari', 'Dimas', '0812-8010-0002'),
-    j('Rabu', '13:00', '15:30', 'Jaringan Komputer', 'STI-3A', 'STI', 'Pak Dedi', 'Rafif', '0812-8010-0003'),
-    j('Kamis', '08:00', '11:00', 'Rekayasa Perangkat Lunak', 'STI-4A', 'STI', 'Dr. Anwar', 'Rina (Aslab)', '0812-8010-0001'),
-    j('Jumat', '13:30', '16:00', 'Proyek Sistem Informasi', 'STI-3B', 'STI', 'Ir. Lestari', 'Dimas', '0812-8010-0002'),
+  'R-01': [
+    j('Senin', '08:00', '10:30', 'Praktikum PLC Dasar', 'TE-3A', 'Teknik Elektro', 'Dr. Hendra', 'Bagas (Aslab)', '0812-0301-0001'),
+    j('Selasa', '13:00', '16:00', 'Otomasi Industri', 'TE-4A', 'Teknik Elektro', 'Ir. Sari', 'Nadia', '0812-0301-0002'),
+    j('Rabu', '10:30', '13:00', 'Sistem Kontrol', 'TE-3B', 'Teknik Elektro', 'Dr. Hendra', 'Bagas (Aslab)', '0812-0301-0001'),
+    j('Kamis', '08:00', '11:00', 'Praktikum PLC Lanjut', 'TE-4B', 'Teknik Elektro', 'Ir. Sari', 'Nadia', '0812-0301-0002'),
+    j('Jumat', '13:30', '16:00', 'Proyek Otomasi', 'TE-4A', 'Teknik Elektro', 'Dr. Hendra', 'Bagas (Aslab)', '0812-0301-0001'),
   ],
-  'R.802': [
-    j('Senin', '10:30', '13:00', 'Desain Grafis', 'PTIK-2A', 'Pend. Teknik Informatika', 'Bu Maya', 'Teguh', '0812-8020-0001'),
-    j('Rabu', '08:00', '11:00', 'Produksi Video', 'PTIK-3A', 'Pend. Teknik Informatika', 'Pak Wahyu', 'Siti', '0812-8020-0002'),
-    j('Kamis', '13:00', '16:00', 'Animasi Dasar', 'PTIK-2B', 'Pend. Teknik Informatika', 'Bu Maya', 'Teguh', '0812-8020-0001'),
+  'R-02': [
+    j('Senin', '09:00', '11:00', 'Rapat Jurusan', 'INTERNAL', 'Fakultas Teknik', 'Ketua Jurusan', 'Admin Jurusan', '0812-0302-0001'),
+    j('Rabu', '13:00', '15:00', 'Bimbingan Tugas Akhir', 'TE-8A', 'Teknik Elektro', 'Dr. Hendra', 'Admin Jurusan', '0812-0302-0001'),
+    j('Kamis', '10:00', '12:00', 'Seminar Proposal', 'TE-7A', 'Teknik Elektro', 'Tim Penguji', 'Admin Jurusan', '0812-0302-0001'),
   ],
-  'R.805': [
-    j('Senin', '08:00', '10:30', 'Algoritma & Pemrograman', 'STI-1B', 'STI', 'Pak Dedi', 'Rafif', '0812-8050-0001'),
-    j('Selasa', '13:00', '16:00', 'Pemrograman Web', 'PTIK-3A', 'Pend. Teknik Informatika', 'Pak Wahyu', 'Siti', '0812-8050-0002'),
-    j('Rabu', '10:30', '13:00', 'Struktur Data', 'STI-2B', 'STI', 'Dr. Anwar', 'Rina (Aslab)', '0812-8050-0003'),
-    j('Kamis', '08:00', '11:00', 'Pemrograman Mobile', 'PTIK-4A', 'Pend. Teknik Informatika', 'Pak Wahyu', 'Siti', '0812-8050-0002'),
-    j('Jumat', '13:30', '16:30', 'Praktikum Umum', 'GABUNGAN', 'Fakultas Teknik', 'Tim Asisten Lab', 'Rafif', '0812-8050-0001'),
+  'R-03': [
+    j('Senin', '10:30', '13:00', 'Teknik Tegangan Tinggi', 'TE-5A', 'Teknik Elektro', 'Pak Rudi', 'Fajar (Aslab)', '0812-0303-0001'),
+    j('Selasa', '08:00', '11:00', 'Praktikum Rangkaian Listrik', 'TE-2A', 'Teknik Elektro', 'Bu Wulan', 'Intan', '0812-0303-0002'),
+    j('Rabu', '13:00', '16:00', 'Pengukuran Besaran Listrik', 'TE-3A', 'Teknik Elektro', 'Bu Wulan', 'Intan', '0812-0303-0002'),
+    j('Kamis', '13:30', '16:00', 'Praktikum Mesin Listrik', 'TE-4A', 'Teknik Elektro', 'Pak Rudi', 'Fajar (Aslab)', '0812-0303-0001'),
+  ],
+  'R-04': [
+    j('Senin', '13:00', '16:00', 'Dasar Robotika', 'TE-4A', 'Teknik Elektro', 'Dr. Bima', 'Yoga (Aslab)', '0812-0304-0001'),
+    j('Selasa', '10:30', '13:00', 'Mikrokontroler & Sensor', 'TE-3B', 'Teknik Elektro', 'Pak Dimas', 'Laras', '0812-0304-0002'),
+    j('Rabu', '08:00', '11:00', 'Praktikum Robotika', 'TE-5A', 'Teknik Elektro', 'Dr. Bima', 'Yoga (Aslab)', '0812-0304-0001'),
+    j('Jumat', '08:00', '10:30', 'Latihan Tim Robot', 'KRI', 'Fakultas Teknik', 'Dr. Bima', 'Yoga (Aslab)', '0812-0304-0001'),
+  ],
+  'R-05': [
+    j('Senin', '08:00', '10:30', 'Sistem Digital', 'TE-2A', 'Teknik Elektro', 'Bu Rina', 'Kevin (Aslab)', '0812-0305-0001'),
+    j('Selasa', '13:00', '16:00', 'Praktikum Sistem Digital', 'TE-2B', 'Teknik Elektro', 'Bu Rina', 'Kevin (Aslab)', '0812-0305-0001'),
+    j('Rabu', '10:30', '13:00', 'Mikroprosesor', 'TE-3A', 'Teknik Elektro', 'Pak Dimas', 'Laras', '0812-0305-0002'),
+    j('Kamis', '08:00', '11:00', 'Perancangan FPGA', 'TE-4A', 'Teknik Elektro', 'Pak Dimas', 'Laras', '0812-0305-0002'),
+    j('Jumat', '13:30', '16:30', 'Praktikum Umum', 'GABUNGAN', 'Fakultas Teknik', 'Tim Asisten Lab', 'Kevin (Aslab)', '0812-0305-0001'),
+  ],
+  'R-06': [
+    j('Senin', '10:30', '13:00', 'Elektronika Analog', 'TE-2A', 'Teknik Elektro', 'Pak Anto', 'Mira (Aslab)', '0812-0306-0001'),
+    j('Selasa', '08:00', '11:00', 'Praktikum Elektronika Dasar', 'TE-2B', 'Teknik Elektro', 'Pak Anto', 'Mira (Aslab)', '0812-0306-0001'),
+    j('Kamis', '13:00', '16:00', 'Rangkaian Penguat', 'TE-3A', 'Teknik Elektro', 'Bu Citra', 'Dani', '0812-0306-0002'),
+    j('Jumat', '08:00', '10:30', 'Instrumentasi', 'TE-4A', 'Teknik Elektro', 'Bu Citra', 'Dani', '0812-0306-0002'),
+  ],
+  'R-07': [
+    j('Senin', '13:00', '16:00', 'Sistem Telekomunikasi', 'TE-5A', 'Teknik Elektro', 'Dr. Yusuf', 'Rendi (Aslab)', '0812-0307-0001'),
+    j('Selasa', '10:30', '13:00', 'Antena & Propagasi', 'TE-6A', 'Teknik Elektro', 'Dr. Yusuf', 'Rendi (Aslab)', '0812-0307-0001'),
+    j('Rabu', '08:00', '11:00', 'Praktikum Telekomunikasi', 'TE-5B', 'Teknik Elektro', 'Bu Tika', 'Sinta', '0812-0307-0002'),
+    j('Kamis', '13:30', '16:00', 'Jaringan Nirkabel', 'TE-6B', 'Teknik Elektro', 'Bu Tika', 'Sinta', '0812-0307-0002'),
   ],
 };
 
 export const RUANGAN: Ruangan[] = [
   {
-    kode: 'R.801',
-    nama: 'Lab Kelas Mappi',
+    kode: 'R-01',
+    nama: 'PLC Lab',
     bookable: true,
     kapasitas: 30,
-    deskripsi: 'Lab pemrograman dan jaringan. Setiap meja punya PC workstation, dipakai untuk praktikum, perkuliahan, proyek tim, dan asistensi.',
-    fasilitas: ['PC workstation', 'Proyektor', 'AC', 'Whiteboard', 'Wi-Fi', 'Stop kontak tiap meja'],
-    jadwal: JADWAL_RUANGAN['R.801'],
+    deskripsi: 'Lab otomasi industri untuk praktikum PLC, sistem kontrol, dan proyek otomasi. Tersedia trainer PLC dan panel kontrol.',
+    fasilitas: ['Trainer PLC', 'Panel kontrol', 'PC workstation', 'Proyektor', 'AC', 'Whiteboard'],
+    jadwal: JADWAL_RUANGAN['R-01'],
   },
   {
-    kode: 'R.802',
-    nama: 'Lab Multimedia',
-    bookable: true,
-    kapasitas: 30,
-    deskripsi: 'Ruang produksi desain grafis, video, dan animasi. Dilengkapi tablet grafis, kamera, dan green screen untuk proyek kreatif.',
-    fasilitas: ['PC multimedia', 'Tablet grafis', 'Kamera & tripod', 'Green screen', 'Proyektor', 'AC'],
-    jadwal: JADWAL_RUANGAN['R.802'],
-  },
-  {
-    kode: 'R.805',
-    nama: 'Lab Komputer',
+    kode: 'R-02',
+    nama: 'Meeting Room',
     bookable: true,
     kapasitas: 40,
-    deskripsi: 'Lab terbesar di lantai ini dengan 40 unit komputer untuk praktikum umum lintas prodi, ujian berbasis komputer, dan pelatihan.',
-    fasilitas: ['PC workstation', 'Proyektor', 'AC', 'Wi-Fi', 'Whiteboard'],
-    jadwal: JADWAL_RUANGAN['R.805'],
+    deskripsi: 'Ruang rapat luas untuk rapat jurusan, bimbingan, seminar proposal, dan diskusi kelompok.',
+    fasilitas: ['Meja rapat', 'Proyektor', 'Layar presentasi', 'AC', 'Wi-Fi', 'Whiteboard'],
+    jadwal: JADWAL_RUANGAN['R-02'],
+  },
+  {
+    kode: 'R-03',
+    nama: 'High Voltage Lab & Electrical Lab',
+    bookable: true,
+    kapasitas: 30,
+    deskripsi: 'Lab untuk praktikum tegangan tinggi, rangkaian listrik, pengukuran besaran listrik, dan mesin listrik.',
+    fasilitas: ['Modul tegangan tinggi', 'Alat ukur listrik', 'Trainer mesin listrik', 'Proyektor', 'AC', 'Whiteboard'],
+    jadwal: JADWAL_RUANGAN['R-03'],
+  },
+  {
+    kode: 'R-04',
+    nama: 'Robotic Lab',
+    bookable: true,
+    kapasitas: 24,
+    deskripsi: 'Lab robotika untuk praktikum mikrokontroler, sensor, dan perancangan robot, juga dipakai latihan tim robot kampus.',
+    fasilitas: ['Kit robot', 'Mikrokontroler & sensor', 'Arena uji robot', 'PC workstation', 'AC', 'Wi-Fi'],
+    jadwal: JADWAL_RUANGAN['R-04'],
+  },
+  {
+    kode: 'R-05',
+    nama: 'Digital Lab',
+    bookable: true,
+    kapasitas: 30,
+    deskripsi: 'Lab sistem digital untuk praktikum rangkaian logika, mikroprosesor, dan perancangan FPGA.',
+    fasilitas: ['Trainer sistem digital', 'Kit FPGA', 'PC workstation', 'Proyektor', 'AC', 'Whiteboard'],
+    jadwal: JADWAL_RUANGAN['R-05'],
+  },
+  {
+    kode: 'R-06',
+    nama: 'Analog Lab',
+    bookable: true,
+    kapasitas: 30,
+    deskripsi: 'Lab elektronika analog untuk praktikum rangkaian penguat, instrumentasi, dan pengukuran sinyal.',
+    fasilitas: ['Osiloskop', 'Function generator', 'Power supply', 'Proyektor', 'AC', 'Whiteboard'],
+    jadwal: JADWAL_RUANGAN['R-06'],
+  },
+  {
+    kode: 'R-07',
+    nama: 'Telecommunication Lab',
+    bookable: true,
+    kapasitas: 30,
+    deskripsi: 'Lab telekomunikasi untuk praktikum sistem komunikasi, antena, propagasi, dan jaringan nirkabel.',
+    fasilitas: ['Trainer telekomunikasi', 'Spectrum analyzer', 'Kit antena', 'Proyektor', 'AC', 'Wi-Fi'],
+    jadwal: JADWAL_RUANGAN['R-07'],
   },
 ];
 
@@ -183,8 +243,49 @@ export function SfdStyle() {
 
 // ============================================================================
 // LANGKAH "JADWAL" di popup ruangan
+// tema 'terang' = sesuai desain Figma (putih + garis hitam, di atas latar batik)
+// tema 'gelap'  = tema Charcoal Noir lama (default)
 // ============================================================================
-export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
+export type TemaJadwal = 'gelap' | 'terang';
+
+const TEMA_JADWAL = {
+  gelap: {
+    judul: '',
+    isi: 'text-[#B3B3B3]',
+    sumbu: 'text-[#B3B3B3]',
+    barisAktif: 'border-[#E0E0E0] bg-[#565656]/30',
+    barisBiasa: 'border-[#565656] hover:border-[#848484]',
+    track: 'border-[#565656]',
+    blok: 'bg-[#E0E0E0]',
+    sisa: 'text-[#B3B3B3]',
+    subJudul: 'text-[#B3B3B3]',
+    pil: 'border-[#B3B3B3]',
+    kartu: 'border-[#565656]',
+    garisKartu: 'border-[#565656]',
+    badge: 'bg-[#E0E0E0] text-[#2B2B2B]',
+    infoKartu: 'text-[#B3B3B3]',
+  },
+  terang: {
+    judul: 'text-[#0D0D0D]',
+    isi: 'text-[#3A3A3A]',
+    sumbu: 'text-[#0D0D0D]',
+    barisAktif: 'border-[#0D0D0D] bg-[#F0F0F0]',
+    barisBiasa: 'border-[#0D0D0D] bg-white hover:bg-[#F7F7F7]',
+    track: 'border-[#0D0D0D]',
+    blok: 'bg-[#0D0D0D]',
+    sisa: 'text-[#0D0D0D]',
+    subJudul: 'text-[#3A3A3A]',
+    pil: 'border-[#0D0D0D]',
+    kartu: 'border-[#0D0D0D] bg-white',
+    garisKartu: 'border-[#0D0D0D]',
+    badge: 'bg-[#0D0D0D] text-white',
+    infoKartu: 'text-[#3A3A3A]',
+  },
+} as const;
+
+export function JadwalStep({ ruangan, tema = 'gelap' }: { ruangan: Ruangan; tema?: TemaJadwal }) {
+  const T = TEMA_JADWAL[tema];
+  const terang = tema === 'terang';
   const hariIni = useHariIni();
   const [pilih, setPilih] = useState<Hari | null>(null);
   const aktif: Hari = pilih ?? (HARI_KERJA.includes(hariIni) ? hariIni : 'Senin');
@@ -193,17 +294,19 @@ export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
   const pos = (m: number) => `${((m - BUKA) / (TUTUP - BUKA)) * 100}%`;
   const kolom = 'grid grid-cols-[3rem_1fr_6.5rem] items-center gap-3';
 
+  const fokus = terang ? 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]' : FOCUS;
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr]">
+    <div className={`grid gap-8 lg:grid-cols-[1.25fr_1fr] ${terang ? 'lg:items-start lg:gap-10' : ''}`}>
       <div>
-        <h3 className="text-2xl font-extrabold tracking-tight">Apakah ruangan ini kosong?</h3>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#B3B3B3]">
+        <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Apakah ruangan ini kosong?</h3>
+        <p className={`mt-2 max-w-xl text-sm leading-relaxed ${T.isi}`}>
           Jam operasional Senin sampai Jumat, {JAM_BUKA.replace(':', '.')}–{JAM_TUTUP.replace(':', '.')}. Blok terang berarti sudah terjadwal, garis putus-putus berarti kosong. Pilih hari untuk melihat detailnya.
         </p>
         <div className="mt-6 space-y-2">
           <div className={`${kolom} px-3`} aria-hidden>
             <span />
-            <div className="relative h-4 text-[10px] font-semibold text-[#B3B3B3]">
+            <div className={`relative h-4 text-[10px] font-semibold ${T.sumbu}`}>
               {[8, 10, 12, 14, 16, 17].map((h) => <span key={h} className="absolute -translate-x-1/2" style={{ left: pos(h * 60) }}>{pad(h)}</span>)}
             </div>
             <span />
@@ -211,14 +314,19 @@ export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
           {HARI_KERJA.map((h) => {
             const bebas = slotKosong(ruangan, h).reduce((a, [s, e]) => a + e - s, 0);
             return (
-              <button key={h} onClick={() => setPilih(h)} aria-pressed={h === aktif} className={`${kolom} w-full rounded-xl border px-3 py-2.5 text-left transition ${FOCUS} ${h === aktif ? 'border-[#E0E0E0] bg-[#565656]/30' : 'border-[#565656] hover:border-[#848484]'}`}>
-                <span className="text-sm font-bold">{h.slice(0, 3)}</span>
-                <span className="relative h-6 rounded-md border border-dashed border-[#565656]">
+              <button
+                key={h}
+                onClick={() => setPilih(h)}
+                aria-pressed={h === aktif}
+                className={`${kolom} w-full rounded-xl border px-3 py-2.5 text-left transition ${fokus} ${h === aktif ? T.barisAktif : T.barisBiasa}`}
+              >
+                <span className={`text-sm font-bold ${terang ? 'text-[#0D0D0D]' : ''}`}>{h.slice(0, 3)}</span>
+                <span className={`relative h-6 rounded-md border border-dashed ${T.track}`}>
                   {ruangan.jadwal.filter((s) => s.hari === h).map((s) => (
-                    <i key={s.mulai} className="absolute inset-y-0 rounded-sm bg-[#E0E0E0]" style={{ left: pos(mnt(s.mulai)), width: `${((mnt(s.selesai) - mnt(s.mulai)) / (TUTUP - BUKA)) * 100}%` }} />
+                    <i key={s.mulai} className={`absolute inset-y-0 rounded-sm ${T.blok}`} style={{ left: pos(mnt(s.mulai)), width: `${((mnt(s.selesai) - mnt(s.mulai)) / (TUTUP - BUKA)) * 100}%` }} />
                   ))}
                 </span>
-                <span className="text-right text-xs font-semibold text-[#B3B3B3]">{bebas === TUTUP - BUKA ? 'Kosong' : bebas === 0 ? 'Penuh' : `${durasi(bebas)} kosong`}</span>
+                <span className={`text-right text-xs font-semibold ${T.sisa} ${terang ? 'font-bold' : ''}`}>{bebas === TUTUP - BUKA ? 'Kosong' : bebas === 0 ? 'Penuh' : `${durasi(bebas)} kosong`}</span>
               </button>
             );
           })}
@@ -226,29 +334,29 @@ export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
       </div>
 
       <div key={aktif} className="sfd-in">
-        <h4 className="text-lg font-bold">{aktif}</h4>
-        <p className="mt-1 text-sm text-[#B3B3B3]">{sesi.length === 0 ? 'Tidak ada kelas. Ruangan kosong seharian.' : `${sesi.length} sesi terjadwal`}</p>
+        <h4 className={`text-lg font-bold ${T.judul}`}>{aktif}</h4>
+        <p className={`mt-1 text-sm ${T.subJudul}`}>{sesi.length === 0 ? 'Tidak ada kelas. Ruangan kosong seharian.' : `${sesi.length} sesi terjadwal`}</p>
         {kosong.length > 0 && (
           <div className="mt-4">
-            <p className="mb-2 text-xs font-semibold text-[#B3B3B3]">Jam kosong</p>
+            <p className={`mb-2 text-xs font-semibold ${terang ? 'text-[#0D0D0D]' : 'text-[#B3B3B3]'}`}>Jam kosong</p>
             <div className="flex flex-wrap gap-2">
               {kosong.map(([s, e]) => (
-                <span key={s} className="rounded-full border border-dashed border-[#B3B3B3] px-3 py-1 text-xs font-semibold">{pad(Math.floor(s / 60))}:{pad(s % 60)} – {pad(Math.floor(e / 60))}:{pad(e % 60)}</span>
+                <span key={s} className={`rounded-full border border-dashed px-3 py-1 text-xs font-semibold ${T.pil} ${terang ? 'bg-white text-[#0D0D0D]' : ''}`}>{pad(Math.floor(s / 60))}:{pad(s % 60)} – {pad(Math.floor(e / 60))}:{pad(e % 60)}</span>
               ))}
             </div>
           </div>
         )}
         <ul className="mt-5 space-y-3">
           {sesi.map((s) => (
-            <li key={s.mulai} className="rounded-2xl border border-[#565656] p-4">
+            <li key={s.mulai} className={`rounded-2xl border p-4 ${T.kartu}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-bold">{s.kegiatan}</p>
-                  <p className="mt-0.5 text-xs text-[#B3B3B3]">{s.kelas} · {s.prodi}</p>
+                  <p className={`font-bold ${terang ? 'text-[#0D0D0D]' : ''}`}>{s.kegiatan}</p>
+                  <p className={`mt-0.5 text-xs ${T.infoKartu}`}>{s.kelas} · {s.prodi}</p>
                 </div>
-                <span className="shrink-0 rounded-md bg-[#E0E0E0] px-2 py-1 text-xs font-bold text-[#2B2B2B]">{s.mulai}–{s.selesai}</span>
+                <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${T.badge}`}>{s.mulai}–{s.selesai}</span>
               </div>
-              <p className="mt-3 border-t border-[#565656] pt-3 text-xs text-[#B3B3B3]">Dosen {s.dosen} · PJ {s.pj} ({s.kontak})</p>
+              <p className={`mt-3 border-t pt-3 text-xs ${T.garisKartu} ${T.infoKartu}`}>Dosen {s.dosen} · PJ {s.pj} ({s.kontak})</p>
             </li>
           ))}
         </ul>

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Fasilitas - Gedung SFD Lantai 8
+ * Fasilitas - Gedung SFD Lantai 3
  * Isi: penjelasan tiap fasilitas, langkah "Fasilitas" di popup ruangan (FasilitasStep),
  * showcase pilihan ruangan yang berpindah mengikuti scroll (PilihanRuangan: deskripsi + card 3D + chip fasilitas),
  * dan halaman daftar fasilitas (komponen tunggal responsive: Mobile, Tablet, Desktop) — tema Charcoal Noir.
@@ -45,28 +45,83 @@ const PENJELASAN: Record<string, string> = {
   'Rak gudang mini': 'Rak skala kecil untuk berlatih penataan dan pengambilan barang gudang.',
   'Simulator lalu lintas': 'Simulasi arus kendaraan di persimpangan dan ruas jalan.',
   'Maket jaringan jalan': 'Maket jalan untuk presentasi analisis dan perencanaan transportasi.',
+  'Trainer PLC': 'Perangkat latih PLC lengkap dengan modul input-output untuk belajar pemrograman ladder dan kontrol otomatis.',
+  'Panel kontrol': 'Panel berisi kontaktor, relay, dan tombol untuk merangkai dan menguji sistem kontrol industri.',
+  'Meja rapat': 'Meja besar yang muat banyak orang untuk rapat, bimbingan, dan diskusi kelompok.',
+  'Layar presentasi': 'Layar besar di depan ruangan agar materi presentasi terlihat jelas dari semua kursi.',
+  'Modul tegangan tinggi': 'Perangkat praktik pembangkitan dan pengujian tegangan tinggi dengan pengaman standar laboratorium.',
+  'Alat ukur listrik': 'Multimeter, clamp meter, dan alat ukur lain untuk mengukur tegangan, arus, dan daya.',
+  'Trainer mesin listrik': 'Modul motor, generator, dan trafo untuk praktikum karakteristik mesin listrik.',
+  'Kit robot': 'Perangkat robot beserta aktuator dan rangka untuk dirakit, diprogram, dan diuji.',
+  'Mikrokontroler & sensor': 'Papan mikrokontroler dan beragam sensor untuk membuat sistem yang bisa membaca dan merespons lingkungan.',
+  'Arena uji robot': 'Area lantai bergaris dan berhalang untuk menguji gerak dan navigasi robot.',
+  'Trainer sistem digital': 'Perangkat latih rangkaian logika, flip-flop, dan counter untuk praktikum sistem digital.',
+  'Kit FPGA': 'Papan FPGA untuk merancang dan menjalankan rangkaian digital hasil rancangan sendiri.',
+  'Osiloskop': 'Alat untuk melihat bentuk gelombang sinyal listrik secara langsung saat praktikum.',
+  'Function generator': 'Pembangkit sinyal sinus, kotak, dan segitiga untuk menguji rangkaian analog.',
+  'Power supply': 'Catu daya yang tegangannya bisa diatur untuk menyalakan rangkaian praktikum.',
+  'Trainer telekomunikasi': 'Modul latih modulasi, demodulasi, dan sistem komunikasi untuk praktikum telekomunikasi.',
+  'Spectrum analyzer': 'Alat untuk melihat sebaran frekuensi sinyal, berguna menganalisis pemancar dan kanal komunikasi.',
+  'Kit antena': 'Beberapa jenis antena dan perlengkapan ukur untuk mempelajari pola radiasi dan propagasi.',
 };
 export const penjelasanFasilitas = (nama: string) => PENJELASAN[nama] ?? 'Tersedia untuk pengguna ruangan ini.';
 
-export function FasilitasStep({ ruangan }: { ruangan: Ruangan }) {
-  const is805 = ruangan.kode === 'R.805';
-  const [mode3D, setMode3D] = useState(is805);
+// Ruangan yang punya model interior 3D utuh (tombol "Lihat 3D Ruangan Utuh"). Isi kode ruangan di sini kalau modelnya sudah ada di ../3D/3DRoom.
+const INTERIOR_3D = new Set<string>(['R-02', 'R-01', 'R.801']);
+
+// Tema langkah Fasilitas: 'terang' = desain Figma (putih + garis hitam di atas batik), 'gelap' = Charcoal Noir lama
+export type TemaFasilitas = 'gelap' | 'terang';
+
+const TEMA_FASILITAS = {
+  gelap: {
+    judul: '',
+    sub: 'text-[#B3B3B3]',
+    kartu3D: 'border-[#565656] bg-[#565656]/20',
+    caption: 'text-[#B3B3B3] text-xs text-left',
+    itemAktif: 'border-[#E0E0E0] bg-[#565656]/30',
+    itemBiasa: 'border-[#565656] hover:border-[#848484]',
+    ikon: 'text-[#B3B3B3]',
+    isi: 'text-[#B3B3B3]',
+    toggleAktif: 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]',
+    toggleBiasa: 'border-[#848484] text-[#E0E0E0] hover:border-[#E0E0E0]',
+    fokus: FOCUS,
+  },
+  terang: {
+    judul: 'text-[#0D0D0D]',
+    sub: 'text-[#3A3A3A]',
+    kartu3D: 'border-[#0D0D0D] bg-white',
+    caption: 'text-[#3A3A3A] text-sm text-center',
+    itemAktif: 'border-[#0D0D0D] bg-[#F0F0F0]',
+    itemBiasa: 'border-[#0D0D0D] bg-white hover:bg-[#F7F7F7]',
+    ikon: 'text-[#0D0D0D]',
+    isi: 'text-[#3A3A3A]',
+    toggleAktif: 'border-[#0D0D0D] bg-[#0D0D0D] text-white',
+    toggleBiasa: 'border-[#0D0D0D] bg-white text-[#0D0D0D] hover:bg-[#F0F0F0]',
+    fokus: 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]',
+  },
+} as const;
+
+export function FasilitasStep({ ruangan, tema = 'gelap' }: { ruangan: Ruangan; tema?: TemaFasilitas }) {
+  const T = TEMA_FASILITAS[tema];
+  const terang = tema === 'terang';
+  const adaInterior3D = INTERIOR_3D.has(ruangan.kode) || /meeting/i.test(ruangan.nama) || /mappi/i.test(ruangan.nama) || /plc/i.test(ruangan.nama);
+  const [mode3D, setMode3D] = useState(adaInterior3D);
   const [i, setI] = useState(0);
   const nama = ruangan.fasilitas[i];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+    <div className={`grid gap-8 lg:grid-cols-[1.1fr_1fr] ${terang ? 'lg:items-center lg:gap-12' : ''}`}>
       <div className="lg:sticky lg:top-0 lg:self-start">
-        <div className="aspect-4/3 overflow-hidden rounded-3xl border border-[#565656] bg-[#565656]/20">
+        <div className={`aspect-4/3 overflow-hidden border ${terang ? 'rounded-2xl' : 'rounded-3xl'} ${T.kartu3D}`}>
           {mode3D ? (
             <Slot3D key={ruangan.kode} kode={ruangan.kode} label={ruangan.nama} ruang={{ kapasitas: ruangan.kapasitas ?? 50, pc: true, kode: ruangan.kode }} />
           ) : (
             <Slot3D key={nama} src={MODEL_3D[nama]} label={nama} />
           )}
         </div>
-        <p className="mt-3 text-xs text-[#B3B3B3]">
+        <p className={`mt-3 leading-relaxed ${T.caption}`}>
           {mode3D
-            ? 'Model 3D interaktif Three.js Ruang 805. Putar, zoom, dan lihat tata letak 50 PC mahasiswa + meja dosen.'
+            ? `Model 3D interaktif ${ruangan.nama}. Putar, zoom, dan lihat tata letak ruangannya.`
             : MODEL_3D[nama]
             ? 'Geser untuk memutar, cubit atau scroll untuk zoom.'
             : 'Tampilan 3D akan muncul di sini setelah model dipasang.'}
@@ -74,27 +129,27 @@ export function FasilitasStep({ ruangan }: { ruangan: Ruangan }) {
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-2xl font-extrabold tracking-tight">Apa saja isi ruangannya?</h3>
-          {is805 && (
+          <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Apa saja isi ruangannya?</h3>
+          {adaInterior3D && (
             <button
               onClick={() => setMode3D((v) => !v)}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${FOCUS} ${mode3D ? 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]' : 'border-[#848484] text-[#E0E0E0] hover:border-[#E0E0E0]'}`}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${T.fokus} ${mode3D ? T.toggleAktif : T.toggleBiasa}`}
             >
               {mode3D ? '✓ 3D Ruangan Utuh (Aktif)' : 'Lihat 3D Ruangan Utuh'}
             </button>
           )}
         </div>
-        {ruangan.kapasitas && <p className="mt-2 text-sm text-[#B3B3B3]">Muat sampai {ruangan.kapasitas} orang. Pilih fasilitas untuk melihat penjelasannya.</p>}
-        <ul className="mt-5 space-y-2">
+        {ruangan.kapasitas && <p className={`mt-2 ${terang ? 'text-xs' : 'text-sm'} ${T.sub}`}>Muat sampai {ruangan.kapasitas} orang. Pilih fasilitas untuk melihat penjelasannya.</p>}
+        <ul className={`mt-5 ${terang ? 'space-y-3' : 'space-y-2'}`}>
           {ruangan.fasilitas.map((f, k) => (
             <li key={f}>
               <button
                 onClick={() => { setI(k); setMode3D(false); }}
                 aria-pressed={!mode3D && k === i}
-                className={`w-full rounded-2xl border p-4 text-left transition ${FOCUS} ${!mode3D && k === i ? 'border-[#E0E0E0] bg-[#565656]/30' : 'border-[#565656] hover:border-[#848484]'}`}
+                className={`w-full border text-left transition ${T.fokus} ${terang ? 'rounded-xl px-4 py-3' : 'rounded-2xl p-4'} ${!mode3D && k === i ? T.itemAktif : T.itemBiasa}`}
               >
-                <span className="flex items-center justify-between gap-3 font-bold">{f}<span aria-hidden className="text-[#B3B3B3]">{!mode3D && k === i ? '−' : '+'}</span></span>
-                {!mode3D && k === i && <span className="sfd-in mt-2 block text-sm leading-relaxed text-[#B3B3B3]">{penjelasanFasilitas(f)}</span>}
+                <span className={`flex items-center justify-between gap-3 font-bold ${terang ? 'text-sm text-[#0D0D0D]' : ''}`}>{f}<span aria-hidden className={T.ikon}>{!mode3D && k === i ? '−' : '+'}</span></span>
+                {!mode3D && k === i && <span className={`sfd-in mt-2 block text-sm leading-relaxed ${T.isi}`}>{penjelasanFasilitas(f)}</span>}
               </button>
             </li>
           ))}
@@ -258,7 +313,7 @@ export function PilihanRuangan({ onExplore, compact = false }: { onExplore: (kod
               );
             })}
           </div>
-          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-[#E0E0E0]/85">{target ? penjelasanFasilitas(target) : aktif.kode === 'R.805' ? 'Interior 3D Three.js Lab Komputer R.805 (50 Mahasiswa + Dosen). Seret untuk memutar 360°, lalu pilih fasilitas di bawah untuk melihat modelnya satu per satu.' : `Interior 3D ${aktif.nama}. Seret untuk memutar, lalu pilih fasilitas di bawah untuk melihat modelnya satu per satu.`}</p>
+          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-[#E0E0E0]/85">{target ? penjelasanFasilitas(target) : `Interior 3D ${aktif.nama}. Seret untuk memutar, lalu pilih fasilitas di bawah untuk melihat modelnya satu per satu.`}</p>
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mask-[linear-gradient(to_right,black_88%,transparent)]">
             {[null, ...aktif.fasilitas].map((f) => (
               <button key={f ?? 'ruangan'} onClick={() => setTarget(f)} aria-pressed={target === f} className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${FOCUS} ${target === f ? 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]' : 'border-[#848484] text-[#E0E0E0] hover:border-[#E0E0E0]'}`}>{f ?? 'Ruangan'}</button>

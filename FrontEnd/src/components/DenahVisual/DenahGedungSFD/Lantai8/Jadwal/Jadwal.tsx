@@ -6,7 +6,7 @@
  *   - tipe, konstanta hari/jam, jadwal dummy (JADWAL_RUANGAN), data ruangan (RUANGAN)
  *   - helper jadwal (slotKosong, statusHari, useHariIni)
  *   - token UI bersama (FOCUS, tombol, input, font) dan <SfdStyle />
- *   - langkah "Jadwal" di popup ruangan (JadwalStep)
+ *   - langkah "Jadwal" di popup ruangan (JadwalStep) — punya 2 tema: gelap & terang
  *   - halaman daftar jadwal (komponen tunggal responsive: Mobile, Tablet, Desktop) — tema Charcoal Noir
  */
 
@@ -183,8 +183,49 @@ export function SfdStyle() {
 
 // ============================================================================
 // LANGKAH "JADWAL" di popup ruangan
+// tema 'terang' = sesuai desain Figma (putih + garis hitam, di atas latar batik)
+// tema 'gelap'  = tema Charcoal Noir lama (default)
 // ============================================================================
-export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
+export type TemaJadwal = 'gelap' | 'terang';
+
+const TEMA_JADWAL = {
+  gelap: {
+    judul: '',
+    isi: 'text-[#B3B3B3]',
+    sumbu: 'text-[#B3B3B3]',
+    barisAktif: 'border-[#E0E0E0] bg-[#565656]/30',
+    barisBiasa: 'border-[#565656] hover:border-[#848484]',
+    track: 'border-[#565656]',
+    blok: 'bg-[#E0E0E0]',
+    sisa: 'text-[#B3B3B3]',
+    subJudul: 'text-[#B3B3B3]',
+    pil: 'border-[#B3B3B3]',
+    kartu: 'border-[#565656]',
+    garisKartu: 'border-[#565656]',
+    badge: 'bg-[#E0E0E0] text-[#2B2B2B]',
+    infoKartu: 'text-[#B3B3B3]',
+  },
+  terang: {
+    judul: 'text-[#0D0D0D]',
+    isi: 'text-[#3A3A3A]',
+    sumbu: 'text-[#0D0D0D]',
+    barisAktif: 'border-[#0D0D0D] bg-[#F0F0F0]',
+    barisBiasa: 'border-[#0D0D0D] bg-white hover:bg-[#F7F7F7]',
+    track: 'border-[#0D0D0D]',
+    blok: 'bg-[#0D0D0D]',
+    sisa: 'text-[#0D0D0D]',
+    subJudul: 'text-[#3A3A3A]',
+    pil: 'border-[#0D0D0D]',
+    kartu: 'border-[#0D0D0D] bg-white',
+    garisKartu: 'border-[#0D0D0D]',
+    badge: 'bg-[#0D0D0D] text-white',
+    infoKartu: 'text-[#3A3A3A]',
+  },
+} as const;
+
+export function JadwalStep({ ruangan, tema = 'gelap' }: { ruangan: Ruangan; tema?: TemaJadwal }) {
+  const T = TEMA_JADWAL[tema];
+  const terang = tema === 'terang';
   const hariIni = useHariIni();
   const [pilih, setPilih] = useState<Hari | null>(null);
   const aktif: Hari = pilih ?? (HARI_KERJA.includes(hariIni) ? hariIni : 'Senin');
@@ -193,17 +234,19 @@ export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
   const pos = (m: number) => `${((m - BUKA) / (TUTUP - BUKA)) * 100}%`;
   const kolom = 'grid grid-cols-[3rem_1fr_6.5rem] items-center gap-3';
 
+  const fokus = terang ? 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]' : FOCUS;
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr]">
+    <div className={`grid gap-8 lg:grid-cols-[1.25fr_1fr] ${terang ? 'lg:items-start lg:gap-10' : ''}`}>
       <div>
-        <h3 className="text-2xl font-extrabold tracking-tight">Apakah ruangan ini kosong?</h3>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#B3B3B3]">
+        <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Apakah ruangan ini kosong?</h3>
+        <p className={`mt-2 max-w-xl text-sm leading-relaxed ${T.isi}`}>
           Jam operasional Senin sampai Jumat, {JAM_BUKA.replace(':', '.')}–{JAM_TUTUP.replace(':', '.')}. Blok terang berarti sudah terjadwal, garis putus-putus berarti kosong. Pilih hari untuk melihat detailnya.
         </p>
         <div className="mt-6 space-y-2">
           <div className={`${kolom} px-3`} aria-hidden>
             <span />
-            <div className="relative h-4 text-[10px] font-semibold text-[#B3B3B3]">
+            <div className={`relative h-4 text-[10px] font-semibold ${T.sumbu}`}>
               {[8, 10, 12, 14, 16, 17].map((h) => <span key={h} className="absolute -translate-x-1/2" style={{ left: pos(h * 60) }}>{pad(h)}</span>)}
             </div>
             <span />
@@ -211,14 +254,19 @@ export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
           {HARI_KERJA.map((h) => {
             const bebas = slotKosong(ruangan, h).reduce((a, [s, e]) => a + e - s, 0);
             return (
-              <button key={h} onClick={() => setPilih(h)} aria-pressed={h === aktif} className={`${kolom} w-full rounded-xl border px-3 py-2.5 text-left transition ${FOCUS} ${h === aktif ? 'border-[#E0E0E0] bg-[#565656]/30' : 'border-[#565656] hover:border-[#848484]'}`}>
-                <span className="text-sm font-bold">{h.slice(0, 3)}</span>
-                <span className="relative h-6 rounded-md border border-dashed border-[#565656]">
+              <button
+                key={h}
+                onClick={() => setPilih(h)}
+                aria-pressed={h === aktif}
+                className={`${kolom} w-full rounded-xl border px-3 py-2.5 text-left transition ${fokus} ${h === aktif ? T.barisAktif : T.barisBiasa}`}
+              >
+                <span className={`text-sm font-bold ${terang ? 'text-[#0D0D0D]' : ''}`}>{h.slice(0, 3)}</span>
+                <span className={`relative h-6 rounded-md border border-dashed ${T.track}`}>
                   {ruangan.jadwal.filter((s) => s.hari === h).map((s) => (
-                    <i key={s.mulai} className="absolute inset-y-0 rounded-sm bg-[#E0E0E0]" style={{ left: pos(mnt(s.mulai)), width: `${((mnt(s.selesai) - mnt(s.mulai)) / (TUTUP - BUKA)) * 100}%` }} />
+                    <i key={s.mulai} className={`absolute inset-y-0 rounded-sm ${T.blok}`} style={{ left: pos(mnt(s.mulai)), width: `${((mnt(s.selesai) - mnt(s.mulai)) / (TUTUP - BUKA)) * 100}%` }} />
                   ))}
                 </span>
-                <span className="text-right text-xs font-semibold text-[#B3B3B3]">{bebas === TUTUP - BUKA ? 'Kosong' : bebas === 0 ? 'Penuh' : `${durasi(bebas)} kosong`}</span>
+                <span className={`text-right text-xs font-semibold ${T.sisa} ${terang ? 'font-bold' : ''}`}>{bebas === TUTUP - BUKA ? 'Kosong' : bebas === 0 ? 'Penuh' : `${durasi(bebas)} kosong`}</span>
               </button>
             );
           })}
@@ -226,29 +274,29 @@ export function JadwalStep({ ruangan }: { ruangan: Ruangan }) {
       </div>
 
       <div key={aktif} className="sfd-in">
-        <h4 className="text-lg font-bold">{aktif}</h4>
-        <p className="mt-1 text-sm text-[#B3B3B3]">{sesi.length === 0 ? 'Tidak ada kelas. Ruangan kosong seharian.' : `${sesi.length} sesi terjadwal`}</p>
+        <h4 className={`text-lg font-bold ${T.judul}`}>{aktif}</h4>
+        <p className={`mt-1 text-sm ${T.subJudul}`}>{sesi.length === 0 ? 'Tidak ada kelas. Ruangan kosong seharian.' : `${sesi.length} sesi terjadwal`}</p>
         {kosong.length > 0 && (
           <div className="mt-4">
-            <p className="mb-2 text-xs font-semibold text-[#B3B3B3]">Jam kosong</p>
+            <p className={`mb-2 text-xs font-semibold ${terang ? 'text-[#0D0D0D]' : 'text-[#B3B3B3]'}`}>Jam kosong</p>
             <div className="flex flex-wrap gap-2">
               {kosong.map(([s, e]) => (
-                <span key={s} className="rounded-full border border-dashed border-[#B3B3B3] px-3 py-1 text-xs font-semibold">{pad(Math.floor(s / 60))}:{pad(s % 60)} – {pad(Math.floor(e / 60))}:{pad(e % 60)}</span>
+                <span key={s} className={`rounded-full border border-dashed px-3 py-1 text-xs font-semibold ${T.pil} ${terang ? 'bg-white text-[#0D0D0D]' : ''}`}>{pad(Math.floor(s / 60))}:{pad(s % 60)} – {pad(Math.floor(e / 60))}:{pad(e % 60)}</span>
               ))}
             </div>
           </div>
         )}
         <ul className="mt-5 space-y-3">
           {sesi.map((s) => (
-            <li key={s.mulai} className="rounded-2xl border border-[#565656] p-4">
+            <li key={s.mulai} className={`rounded-2xl border p-4 ${T.kartu}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-bold">{s.kegiatan}</p>
-                  <p className="mt-0.5 text-xs text-[#B3B3B3]">{s.kelas} · {s.prodi}</p>
+                  <p className={`font-bold ${terang ? 'text-[#0D0D0D]' : ''}`}>{s.kegiatan}</p>
+                  <p className={`mt-0.5 text-xs ${T.infoKartu}`}>{s.kelas} · {s.prodi}</p>
                 </div>
-                <span className="shrink-0 rounded-md bg-[#E0E0E0] px-2 py-1 text-xs font-bold text-[#2B2B2B]">{s.mulai}–{s.selesai}</span>
+                <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${T.badge}`}>{s.mulai}–{s.selesai}</span>
               </div>
-              <p className="mt-3 border-t border-[#565656] pt-3 text-xs text-[#B3B3B3]">Dosen {s.dosen} · PJ {s.pj} ({s.kontak})</p>
+              <p className={`mt-3 border-t pt-3 text-xs ${T.garisKartu} ${T.infoKartu}`}>Dosen {s.dosen} · PJ {s.pj} ({s.kontak})</p>
             </li>
           ))}
         </ul>

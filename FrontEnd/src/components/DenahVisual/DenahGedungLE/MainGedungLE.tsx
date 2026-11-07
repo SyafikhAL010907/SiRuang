@@ -2,9 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { jakarta, fasthand } from '@/lib/fonts';
 import { ArrowLeft, ArrowUpRight, Building2, Layers } from 'lucide-react';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 /* ------------------------------------------------------------------ */
 /*  DATA                                                               */
@@ -27,20 +29,27 @@ const container = 'mx-auto w-full max-w-[1440px] px-6 lg:px-[84px]';
 /* ------------------------------------------------------------------ */
 
 export default function MainGedungLE() {
+  const router = useRouter();
+
+  const handleBack = () => {
+    const target = getRoleDashboardPath();
+    router.push(target);
+  };
+
   return (
     <div className={`${jakarta.className} min-h-screen w-full bg-[#F6F6F4] pb-20 text-[#333333]`}>
       {/* ---------------- TOP BAR ---------------- */}
       <div className={`${container} pt-8 lg:pt-10`}>
-        <Link
-          href="/"
-          prefetch={true}
-          className="group inline-flex items-center gap-2 rounded-full border border-[#E3E3E0] bg-white py-2 pl-3 pr-5 text-[14px] font-semibold text-[#333333] transition-colors hover:border-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72]"
+        <button
+          type="button"
+          onClick={handleBack}
+          className="group inline-flex items-center gap-2 rounded-full border border-[#E3E3E0] bg-white py-2 pl-3 pr-5 text-[14px] font-semibold text-[#333333] transition-colors hover:border-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72] cursor-pointer"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F1F1EE] transition-colors group-hover:bg-[#333333] group-hover:text-white">
             <ArrowLeft size={15} />
           </span>
-          Kembali ke Beranda
-        </Link>
+          Kembali
+        </button>
       </div>
 
       {/* ---------------- HERO ---------------- */}

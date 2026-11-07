@@ -2,21 +2,30 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 export default function MainGedungLS() {
+  const router = useRouter();
+
+  const handleBack = () => {
+    const target = getRoleDashboardPath();
+    router.push(target);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Tombol Kembali ke Beranda */}
+      {/* Tombol Kembali */}
       <div className="w-full max-w-4xl mb-6 flex items-center justify-start">
-        <Link
-          href="/"
-          prefetch={true}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:text-[#183449] hover:border-[#588CBC]/40 hover:shadow-xs transition-all"
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:text-[#183449] hover:border-[#588CBC]/40 hover:shadow-xs transition-all cursor-pointer"
         >
           <ArrowLeft size={16} />
-          Kembali ke Beranda
-        </Link>
+          Kembali
+        </button>
       </div>
 
       <div className="text-center mb-10">

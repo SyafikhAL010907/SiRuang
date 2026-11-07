@@ -1600,7 +1600,7 @@ function Scene({
   );
 }
 
-export default function Ruang805SFD({
+export function RoomKelasMappi({
   scrollSafe = false,
   className = "",
   style,
@@ -1726,3 +1726,6 @@ export default function Ruang805SFD({
     </div>
   );
 }
+
+export default RoomKelasMappi;
+export { RoomKelasMappi as Ruang805SFD, RoomKelasMappi as RoomKelasmappi };

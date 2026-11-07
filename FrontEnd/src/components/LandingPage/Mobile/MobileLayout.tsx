@@ -5,8 +5,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, MotionConfig } from 'framer-motion';
 import { jakarta, fasthand } from '@/lib/fonts';
+import { Maximize2 } from 'lucide-react';
 import {
   FLOOR_MAPS_REGISTRY,
+  FloorPreviewModal,
+  type FloorMapItem,
   DotIndicator,
   FiturUtamaCards,
   CaraKerjaSection,
@@ -192,6 +195,7 @@ function TestimonialCarousel() {
 export default function MobileLayout() {
   const [activeKey, setActiveKey] = useState<'sfd' | 'ls' | 'le'>('sfd');
   const [slideIndex, setSlideIndex] = useState(0);
+  const [previewModal, setPreviewModal] = useState<FloorMapItem | null>(null);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -272,7 +276,7 @@ export default function MobileLayout() {
       </section>
 
       {/* ---------------- DATA REAL-TIME ---------------- */}
-      <section id="data-real-time" className="mt-16 px-4">
+      <section data-nav-tone="light" id="data-real-time" className="mt-16 px-4">
         <Reveal as="h2" y={20} className="text-center text-[30px] font-semibold leading-10">Data Real-Time</Reveal>
         <Reveal as="p" y={20} delay={0.08} className="mt-3 text-center text-[15px] leading-6">
           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
@@ -291,8 +295,8 @@ export default function MobileLayout() {
                 aria-pressed={isActive}
                 className={`h-12 shrink-0 rounded-xl px-6 text-[15px] font-semibold transition-colors duration-300 ${
                   isActive
-                    ? 'bg-[#333333] text-white'
-                    : 'border border-[#333333] bg-transparent text-black'
+                    ? 'bg-[#1C1C1C] text-white'
+                    : 'border border-[#1C1C1C] bg-transparent text-black'
                 }`}
               >
                 {g.label}
@@ -317,14 +321,23 @@ export default function MobileLayout() {
           >
             {floorItems.map((item) => (
               <div key={item.lantai} className="w-full shrink-0 snap-start px-0.5">
-                <Link
-                  href={`${activeGedung.base}/lantai${item.lantai}`}
-                  className="block rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C2AC72]"
-                >
+                <div className="block rounded-[20px]">
                   <figure className="flex flex-col items-center">
-                    <div className="w-full rounded-[20px] bg-[#D9D9D9] p-3 shadow-xs transition-transform active:scale-[0.99]">
+                    <div className="relative w-full rounded-[20px] bg-[#D9D9D9] p-3 shadow-xs">
+                      {/* Tombol Perbesar Popup */}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewModal(item)}
+                        aria-label={`Perbesar Denah Lantai ${item.lantai}`}
+                        title="Perbesar Tampilan Denah"
+                        className="absolute right-5 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/85 active:scale-95 cursor-pointer"
+                      >
+                        <Maximize2 size={15} />
+                      </button>
+
                       <div
-                        className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white p-2"
+                        onClick={() => setPreviewModal(item)}
+                        className="flex w-full items-center justify-center overflow-hidden rounded-xl bg-white p-2 cursor-pointer transition-opacity active:opacity-90"
                         style={{ aspectRatio: item.ratio }}
                       >
                         <div className="h-full w-full pointer-events-none select-none" aria-hidden="true">
@@ -337,7 +350,7 @@ export default function MobileLayout() {
                       </div>
                     </div>
                     <figcaption className="mt-4 flex flex-col items-center text-center">
-                      <span className="text-[18px] font-semibold text-[#333333]">
+                      <span className="text-[18px] font-semibold text-[#1C1C1C]">
                         Lantai {item.lantai}
                       </span>
                       <span className="my-1.5 h-1 w-8 rounded-full bg-[#C2AC72]" />
@@ -346,7 +359,7 @@ export default function MobileLayout() {
                       </span>
                     </figcaption>
                   </figure>
-                </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -364,8 +377,15 @@ export default function MobileLayout() {
         </motion.div>
       </section>
 
+      {/* Modal Popup Perbesar Denah */}
+      <FloorPreviewModal
+        item={previewModal}
+        gedungLabel={activeGedung.label}
+        onClose={() => setPreviewModal(null)}
+      />
+
       {/* ---------------- RESPONSIVE WEBSITE ---------------- */}
-      <section className="mt-16 px-4">
+      <section data-nav-tone="light" className="mt-16 px-4">
         <Reveal y={28} duration={0.9} className="relative z-0 mx-auto aspect-474/558 w-full max-w-75 flex items-center justify-center bg-white">
           <video
             src="/Landing/Responsive.mp4"
@@ -395,7 +415,7 @@ export default function MobileLayout() {
           </p>
           <Link
             href="#"
-            className="mt-6 flex h-12 w-40 items-center justify-center rounded-xl bg-[#333333] text-[16px] font-semibold text-white active:opacity-80"
+            className="mt-6 flex h-12 w-40 items-center justify-center rounded-xl bg-[#1C1C1C] text-[16px] font-semibold text-white active:opacity-80"
           >
             Lorem ipsum
           </Link>
@@ -403,7 +423,7 @@ export default function MobileLayout() {
       </section>
 
       {/* ---------------- MASALAH YANG DISELESAIKAN ---------------- */}
-      <section className="mt-16 bg-[#333333] px-4 pb-16 pt-14">
+      <section data-nav-tone="dark" className="mt-16 bg-[#1C1C1C] px-4 pb-16 pt-14">
         <Reveal as="p" y={16} className="text-center text-[14px] leading-6 text-[#E3E3E3]">
           Lorem Ipsum dolor sit
         </Reveal>
@@ -417,7 +437,7 @@ export default function MobileLayout() {
       </section>
 
       {/* ---------------- FITUR UTAMA ---------------- */}
-      <section className="px-4 pb-20 pt-14">
+      <section data-nav-tone="light" className="px-4 pb-20 pt-14">
         {/* ---------------- FITUR UTAMA ---------------- */}
         <div id="fitur">
           <Reveal as="p" y={14} className="text-[11px] font-semibold uppercase tracking-widest text-[#B8B8B8]">

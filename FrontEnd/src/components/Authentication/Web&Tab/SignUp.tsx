@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { User, Hash, Lock, ArrowRight, GraduationCap, Briefcase } from 'lucide-react';
 import Logo from '@/components/Shared/Logo';
@@ -50,10 +51,10 @@ const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
 
       <div className="w-full max-w-5xl flex bg-white/60 backdrop-blur-3xl rounded-[48px] shadow-[0_32px_80px_rgba(24,52,73,0.12)] border border-white relative z-10 overflow-hidden">
 
-        {/* LEFT PANEL - DARK NAVY BRANDING */}
+        {/* LEFT PANEL - BRANDING */}
         <div
-          className="hidden lg:flex flex-1 bg-linear-to-br from-[#07111E] to-[#0F2238] p-16 flex-col justify-center items-center relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #0F2238 0%, #07111E 100%)' }}
+          className="hidden lg:flex flex-1 bg-[#000000] p-16 flex-col justify-center items-center relative overflow-hidden"
+          style={{ background: '#000000' }}
         >
           <div className="absolute top-0 left-0 w-96 h-96 bg-[#588CBC]/15 rounded-full blur-[100px] -ml-32 -mt-32 pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#0d1d2a]/50 rounded-full blur-[90px] -mr-20 -mb-20 pointer-events-none" />
@@ -64,7 +65,14 @@ const WebSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
             className="relative z-10 flex flex-col items-center text-center"
           >
             <div className="-mt-8 lg:-mt-12 drop-shadow-2xl">
-              <Logo onlyLogo width={340} height={340} className="w-64 h-64 lg:w-80 lg:h-80 object-contain drop-shadow-2xl" />
+              <Image
+                src="/LogoSiRuang.png"
+                alt="Logo SiRuang"
+                width={340}
+                height={340}
+                priority
+                className="w-64 h-64 lg:w-80 lg:h-80 object-contain drop-shadow-2xl"
+              />
             </div>
 
             <div className="-mt-4 lg:-mt-6 flex flex-col items-center gap-3">

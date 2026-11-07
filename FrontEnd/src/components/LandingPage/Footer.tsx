@@ -17,7 +17,7 @@ export interface FooterProps {
 
 export default function Footer({ variant }: FooterProps) {
     return (
-        <footer className={`${jakarta.className} bg-[#333333] text-white pt-20 pb-16 px-6 md:px-12 lg:px-24 w-full`}>
+        <footer data-nav-tone="dark" className={`${jakarta.className} bg-[#1C1C1C] text-white pt-20 pb-16 px-6 md:px-12 lg:px-24 w-full`}>
             <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-start gap-12 lg:gap-8">
                 {/* Left: Brand/Heading */}
                 <div className="w-full lg:w-5/12">

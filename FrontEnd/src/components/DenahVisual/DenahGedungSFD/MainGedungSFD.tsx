@@ -2,12 +2,19 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Undo2, ArrowUpRight } from 'lucide-react';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 // Aset: public/PilihLantaiSFD/  (background + foto lantai), logo di root public/
 const BASE = '/PilihLantaiSFD';
 const BACKGROUND = `${BASE}/BackgroundPilan.png`;
 const LOGO = '/LogoSiRuangDatar.png';
+
+// Font halaman ini (samain dengan desain). Kalau mau ganti font, cukup ubah FONT_NAMA.
+const FONT_NAMA = 'Geom';
+const FONT_UTAMA = `'${FONT_NAMA}', ui-sans-serif, system-ui, sans-serif`;
+const FONT_URL = `https://fonts.googleapis.com/css2?family=${FONT_NAMA.replace(/ /g, '+')}:wght@300;400;500;600;700;800&display=swap`;
 
 const FLOORS = [
   { label: 3, img: `${BASE}/Lantai1.png`, href: '/denah-sfd/lantai3' },
@@ -67,21 +74,30 @@ const CARD_PATH = [
 ].join(' ');
 
 export default function MainGedungSFD() {
+  const router = useRouter();
+
+  const handleBack = () => {
+    const target = getRoleDashboardPath();
+    router.push(target);
+  };
+
   return (
     <div
       className="min-h-screen w-full bg-white bg-cover bg-center flex flex-col items-center px-6 py-8"
-      style={{ backgroundImage: `url('${BACKGROUND}')` }}
+      style={{ backgroundImage: `url('${BACKGROUND}')`, fontFamily: FONT_UTAMA }}
     >
+      <style>{`@import url('${FONT_URL}');`}</style>
+
       {/* Header: Kembali + Logo */}
       <header className="w-full max-w-5xl flex items-center justify-between">
-        <Link
-          href="/"
-          prefetch={true}
-          className="inline-flex items-center gap-3 text-sm font-medium text-black hover:opacity-70 transition-opacity"
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-3 text-sm font-medium text-black hover:opacity-70 transition-opacity cursor-pointer"
         >
           <Undo2 size={18} />
-          Kembali ke beranda
-        </Link>
+          Kembali
+        </button>
 
         {/* Logo diperbesar: ubah h-20 / md:h-28 kalau mau lebih besar/kecil */}
         <img

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import Logo from '@/components/Shared/Logo';
-import { GraduationCap, Briefcase } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { GraduationCap, Briefcase, ArrowLeft } from 'lucide-react';
 
 interface SignUpProps {
   onNavigate: () => void;
@@ -33,11 +34,27 @@ const MobileSignUp = ({ onNavigate, onSignUp, loading }: SignUpProps) => {
       <div className="absolute bottom-[20%] left-[-10%] w-64 h-64 bg-[#183449]/10 rounded-full blur-3xl"></div>
 
       <div className="flex-1 flex flex-col justify-center relative z-10">
+        {/* Tombol Kembali */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 self-start text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors mb-4"
+        >
+          <ArrowLeft size={16} />
+          <span>Kembali</span>
+        </Link>
+
         <div className="flex flex-col items-center mb-5 -mt-6">
           <div className="w-24 h-24 bg-white rounded-[28px] shadow-xl shadow-slate-200/50 flex items-center justify-center border border-[#B3B3B3] mb-3 relative overflow-hidden">
             <div className="absolute inset-0 bg-linear-to-br from-slate-50 to-white opacity-50" />
             <div className="relative z-10 p-2">
-              <Logo onlyLogo width={80} height={80} className="w-20 h-20 object-contain" />
+              <Image
+                src="/LogoSiRuang.png"
+                alt="Logo SiRuang"
+                width={80}
+                height={80}
+                priority
+                className="w-20 h-20 object-contain"
+              />
             </div>
           </div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">Daftar SiRuang</h2>

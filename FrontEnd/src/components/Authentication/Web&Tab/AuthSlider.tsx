@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, User, GraduationCap, Briefcase } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, ArrowLeft, User, GraduationCap, Briefcase } from 'lucide-react';
 import Logo from '@/components/Shared/Logo';
 import { cn } from '@/lib/utils';
 
@@ -307,7 +309,14 @@ function OverlayPanel({
             )}
         >
             <div className="-mt-8 lg:-mt-12 drop-shadow-2xl">
-                <Logo onlyLogo width={340} height={340} className="w-64 h-64 lg:w-80 lg:h-80 object-contain drop-shadow-2xl" />
+                <Image
+                    src="/LogoSiRuang.png"
+                    alt="Logo SiRuang"
+                    width={340}
+                    height={340}
+                    priority
+                    className="w-64 h-64 lg:w-80 lg:h-80 object-contain drop-shadow-2xl"
+                />
             </div>
 
             <div className="-mt-4 lg:-mt-6 flex flex-col items-center gap-3">
@@ -344,6 +353,15 @@ const AuthSlider = ({
 
     return (
         <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#07111E] p-6 font-sans selection:bg-[#588CBC]/20 selection:text-[#183449]">
+            {/* Tombol Kembali ke Landing Page */}
+            <Link
+                href="/"
+                className="absolute left-6 top-6 z-30 inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/20 hover:scale-105 active:scale-95 sm:left-8 sm:top-8"
+            >
+                <ArrowLeft size={16} />
+                <span>Kembali ke Beranda</span>
+            </Link>
+
             <div
                 className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
                 style={{
@@ -409,12 +427,11 @@ const AuthSlider = ({
                 >
                     <div
                         className={cn(
-                            'relative -left-full h-full w-[200%] transition-transform duration-700 ease-in-out will-change-transform motion-reduce:transition-none',
+                            'relative -left-full h-full w-[200%] transition-transform duration-700 ease-in-out will-change-transform motion-reduce:transition-none bg-[#000000]',
                             isRightPanelActive ? 'translate-x-1/2' : 'translate-x-0'
                         )}
                         style={{
-                            background:
-                                'radial-gradient(circle at 15% 10%, rgba(88,140,188,0.18), transparent 35%), linear-gradient(135deg, #0F2238 0%, #07111E 100%)',
+                            background: '#000000',
                         }}
                     >
                         <OverlayPanel

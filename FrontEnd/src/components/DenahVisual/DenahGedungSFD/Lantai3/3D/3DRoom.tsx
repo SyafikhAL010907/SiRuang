@@ -9,7 +9,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 
-const Ruang805SFD = dynamic(() => import('./3DRuang805SFD'), {
+const RoomKelasMappi = dynamic(() => import('./3DRoomKelasmappi'), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-[#cfd3d8]" style={{ minHeight: 300 }}>
@@ -21,7 +21,7 @@ const Ruang805SFD = dynamic(() => import('./3DRuang805SFD'), {
   ),
 });
 
-export { Ruang805SFD };
+export { RoomKelasMappi, RoomKelasMappi as Ruang805SFD, RoomKelasMappi as RoomKelasmappi };
 
 /**
  * SLOT 3D — daftarkan model per fasilitas di sini.
@@ -198,21 +198,27 @@ export function Slot3D({
     document.head.appendChild(s);
   }, [src]);
 
-  // Cek apakah target adalah ruangan R.805 (Lab Komputer)
-  const is805Room =
-    (kode === 'R.805' ||
-      ruang?.kode === 'R.805' ||
-      label === 'R.805' ||
-      label.includes('805') ||
-      label.toLowerCase().includes('lab komputer')) &&
+  // Cek apakah target adalah ruangan Meeting Room (R-02) / Kelas Mappi / R-01 (PLC Lab)
+  const isMappiRoom =
+    (kode === 'R-02' ||
+      ruang?.kode === 'R-02' ||
+      /meeting/i.test(label) ||
+      kode === 'R-01' ||
+      kode === 'R.801' ||
+      ruang?.kode === 'R-01' ||
+      ruang?.kode === 'R.801' ||
+      /mappi/i.test(label) ||
+      /plc/i.test(label) ||
+      /805/i.test(label) ||
+      /lab komputer/i.test(label)) &&
     !src;
 
-  if (is805Room && (ruang || label.includes('805') || label.toLowerCase().includes('lab komputer') || label === 'Ruangan')) {
+  if (isMappiRoom && (ruang || /meeting/i.test(label) || /mappi/i.test(label) || /plc/i.test(label) || label === 'Ruangan')) {
     return (
       <div className="relative h-full w-full overflow-hidden" onPointerDown={() => setDipakai(true)}>
-        <Ruang805SFD scrollSafe={scrollSafe} />
+        <RoomKelasMappi scrollSafe={scrollSafe} />
         <span className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-[#565656] bg-[#2B2B2B]/80 px-3 py-1 text-xs font-semibold text-[#E0E0E0] backdrop-blur">
-          Three.js · R.805 Lab Komputer (50 Mahasiswa + Dosen)
+          Three.js · {label || 'Meeting Room'}
         </span>
         <PetunjukPutar tampil={!dipakai} />
       </div>
