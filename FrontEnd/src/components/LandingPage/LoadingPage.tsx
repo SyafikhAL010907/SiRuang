@@ -294,8 +294,9 @@ const css = `
 /* ---------- logo (transparan, tanpa piringan) ---------- */
 .pl-logo{
   position:relative;flex:none;
-  width:clamp(190px,24vw,360px);aspect-ratio:1;
-  top:-2.4vw; /* naikkan logo agar sejajar dengan garis batik */
+  width:clamp(100px,11.5vw,150px);
+  top:3.5vw;
+  top:-0.5vw; /* naikkan logo agar sejajar dengan garis batik */
   background:transparent;
   display:grid;place-items:center;
 }
