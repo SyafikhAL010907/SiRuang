@@ -452,3 +452,48 @@ func BulkDeleteRooms(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Berhasil menghapus %d room chat!", len(req.RoomIDs))})
 }
+
+// GetAdminInfo - Mengambil info profil Admin UNJ (avatar_url, nama) untuk sisi user
+func GetAdminInfo(c *gin.Context) {
+	var avatarURL sql.NullString
+	var fullName sql.NullString
+	var username sql.NullString
+
+	query := `
+		SELECT 
+			COALESCE(p.avatar_url, ''),
+			COALESCE(p.full_name, ''),
+			COALESCE(a.username, 'Admin UNJ')
+		FROM authentication a
+		LEFT JOIN profiles p ON a.id = p.user_id
+		WHERE a.role = 'admin'
+		ORDER BY a.id ASC
+		LIMIT 1`
+
+	err := database.DB.QueryRow(query).Scan(&avatarURL, &fullName, &username)
+	if err != nil && err != sql.ErrNoRows {
+		log.Println("[WARN] GetAdminInfo error:", err)
+	}
+
+	av := avatarURL.String
+	if av == "" {
+		av = "/LogoSiRuangPolos.png"
+	}
+
+	fn := fullName.String
+	if fn == "" {
+		fn = username.String
+	}
+	if fn == "" {
+		fn = "Admin UNJ"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"avatar_url": av,
+		"avatarUrl":  av,
+		"name":       fn,
+		"full_name":  fn,
+		"role":       "admin",
+	})
+}
+

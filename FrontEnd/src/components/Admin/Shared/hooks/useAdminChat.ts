@@ -3,16 +3,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Message, CannedResponse } from '@/constants/chatTypes';
+import { supabase } from '@/lib/supabaseClient';
 import { toLocalTime } from '../utils';
 
 // ── Options to handle Web vs Mobile differences ──
 export interface UseAdminChatOptions {
   /** Mobile uses `unread_count` directly, Web maps it to `unread` + `lastMessage`/`user` fields */
   platform: 'web' | 'mobile';
+  /** Opsional: dipakai buat nampilin alert kalau kirim pesan gagal. */
+  showAlert?: (message: string, title?: string) => void;
 }
 
 export function useAdminChat(options: UseAdminChatOptions) {
-  const { platform } = options;
+  const { platform, showAlert } = options;
 
   // ── Auth State ──
   const [adminName, setAdminName] = useState('Admin');
@@ -85,10 +88,11 @@ export function useAdminChat(options: UseAdminChatOptions) {
     if (selectedChat?.id) {
       try {
         const cached = sessionStorage.getItem(`admin_chat_messages_${selectedChat.id}`);
-        if (cached) {
-          setMessages(JSON.parse(cached));
-        }
-      } catch {}
+        // Tanpa cache: kosongkan dulu supaya pesan room sebelumnya nggak kebawa
+        setMessages(cached ? JSON.parse(cached) : []);
+      } catch {
+        setMessages([]);
+      }
     } else {
       setMessages([]);
     }
@@ -96,11 +100,16 @@ export function useAdminChat(options: UseAdminChatOptions) {
 
   // Simpan update pesan ke cache lokal sessionStorage
   useEffect(() => {
-    if (selectedChatRef.current?.id && messages.length > 0) {
-      try {
-        sessionStorage.setItem(`admin_chat_messages_${selectedChatRef.current.id}`, JSON.stringify(messages));
-      } catch {}
-    }
+    const roomKey = selectedChatRef.current?.id;
+    if (!roomKey) return;
+    try {
+      if (messages.length > 0) {
+        sessionStorage.setItem(`admin_chat_messages_${roomKey}`, JSON.stringify(messages));
+      } else {
+        // Chat kosong (mis. dihapus dari database): buang cache lama
+        sessionStorage.removeItem(`admin_chat_messages_${roomKey}`);
+      }
+    } catch {}
   }, [messages]);
 
   // ── Send Message State ──
@@ -118,6 +127,8 @@ export function useAdminChat(options: UseAdminChatOptions) {
 
   // ── File input ref ──
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFetchingRoomsRef = useRef(false);
+  const isFetchingMessagesRef = useRef(false);
 
   const viewFile = useCallback((dataUrl: string, fileName?: string) => {
     setSelectedExcelFile({ data: dataUrl, name: fileName || 'Dokumen' });
@@ -137,6 +148,8 @@ export function useAdminChat(options: UseAdminChatOptions) {
 
   // ── Fetch Functions ──
   const fetchRooms = useCallback(async (token: string) => {
+    if (isFetchingRoomsRef.current) return;
+    isFetchingRoomsRef.current = true;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/rooms`, {
         headers: { 'Authorization': token }
@@ -160,6 +173,8 @@ export function useAdminChat(options: UseAdminChatOptions) {
       }
     } catch (err) {
       console.error("Gagal ambil room:", err);
+    } finally {
+      isFetchingRoomsRef.current = false;
     }
   }, []);
 
@@ -191,13 +206,17 @@ export function useAdminChat(options: UseAdminChatOptions) {
   }, [fetchRooms]);
 
   const fetchMessages = useCallback(async (roomId: number, token: string) => {
+    if (isFetchingMessagesRef.current) return;
+    isFetchingMessagesRef.current = true;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${roomId}&_t=${Date.now()}`, {
         headers: { 'Authorization': token },
         cache: 'no-store',
       });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
+      const raw = await res.json().catch(() => null);
+      // Backend (Go) bisa balas `null` kalau room belum punya pesan: anggap daftar kosong
+      const data: any[] | null = res.ok ? (Array.isArray(raw) ? raw : raw == null ? [] : null) : null;
+      if (data) {
         const currentAdminId = (adminGmailRef.current || adminGmail || '').toLowerCase();
         const serverMessages: Message[] = data.map((m: any) => {
           const sId = (m.sender_gmail || m.sender_identifier || '').toLowerCase();
@@ -218,15 +237,13 @@ export function useAdminChat(options: UseAdminChatOptions) {
         });
 
         setMessages((prevMessages) => {
-          const serverIds = new Set(serverMessages.map((m) => m.id));
+          // Server = sumber kebenaran. Satu-satunya pesan lokal yang dipertahankan adalah
+          // pesan "temp-" yang baru dikirim dan belum muncul di server.
           const localPending = prevMessages.filter((p) => {
-            if (serverIds.has(p.id)) return false;
-            if (p.id.startsWith('temp-')) {
-              return !serverMessages.some(
-                (s) => s.sender === p.sender && s.text === p.text && s.type === p.type
-              );
-            }
-            return true;
+            if (!p.id.startsWith('temp-')) return false;
+            return !serverMessages.some(
+              (s) => s.sender === p.sender && s.text === p.text && s.type === p.type
+            );
           });
 
           const merged = [...serverMessages, ...localPending];
@@ -252,8 +269,78 @@ export function useAdminChat(options: UseAdminChatOptions) {
       }
     } catch (err) {
       console.error("Gagal ambil pesan:", err);
+    } finally {
+      isFetchingMessagesRef.current = false;
     }
   }, [adminGmail, markAsRead]);
+
+  // ── Supabase Realtime (instan) ──
+  // Polling di layout tetap jalan sebagai cadangan. Kalau di console muncul
+  // "[Realtime admin] terhubung", pesan baru masuk detik itu juga tanpa nunggu polling.
+  const fetchRoomsRef = useRef(fetchRooms);
+  const fetchMessagesRef = useRef(fetchMessages);
+  useEffect(() => {
+    fetchRoomsRef.current = fetchRooms;
+    fetchMessagesRef.current = fetchMessages;
+  }, [fetchRooms, fetchMessages]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user');
+    if (!stored) return;
+    let token = '';
+    try {
+      token = JSON.parse(stored).token;
+    } catch {
+      return;
+    }
+    if (!token) return;
+
+    // Gabungkan event yang datang beruntun (mis. Bless Chat ke banyak room) jadi 1 refresh
+    let roomsTimer: ReturnType<typeof setTimeout> | null = null;
+    const refreshRooms = () => {
+      if (roomsTimer) return;
+      roomsTimer = setTimeout(() => {
+        roomsTimer = null;
+        fetchRoomsRef.current(token);
+      }, 150);
+    };
+
+    const channel = supabase
+      .channel('realtime_chat_admin_all')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const row: any =
+            payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+          console.debug('[Realtime admin] event:', payload.eventType, 'room', row?.room_id);
+
+          // Jika hanya event UPDATE is_read, tidak perlu refetch (mencegah loop feedback antar tab)
+          if (payload.eventType === 'UPDATE') {
+            return;
+          }
+
+          refreshRooms();
+
+          const activeId = selectedChatRef.current?.id;
+          if (activeId && (!row?.room_id || Number(row.room_id) === Number(activeId))) {
+            fetchMessagesRef.current(activeId, token);
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.info('[Realtime admin] terhubung');
+        } else {
+          console.warn('[Realtime admin] status:', status, err ?? '');
+        }
+      });
+
+    return () => {
+      if (roomsTimer) clearTimeout(roomsTimer);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleMarkAsUnread = useCallback(async () => {
     if (!selectedChat) return;
@@ -289,6 +376,11 @@ export function useAdminChat(options: UseAdminChatOptions) {
   ) => {
     e.preventDefault();
     if (!selectedChat) return;
+
+    // Simpan isi input sebelum dikosongkan, buat dikembalikan kalau kirim gagal
+    const prevNote = manualNote;
+    const prevSelected = selectedResponse;
+    const prevFiles = pendingFiles;
 
     const combinedText = selectedResponse
       ? `${selectedResponse.response}\n\nCatatan Tambahan:\n${manualNote}`
@@ -341,6 +433,15 @@ export function useAdminChat(options: UseAdminChatOptions) {
     if (el) el.style.height = 'auto';
     scrollToBottom('smooth');
 
+    // Kalau kirim gagal: buang bubble palsu, balikin isi input, kasih tau admin
+    const rollback = (reason: string) => {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setManualNote(prevNote);
+      setSelectedResponse(prevSelected);
+      setPendingFiles(prevFiles);
+      showAlert?.(`Pesan gagal terkirim. ${reason}`, 'Pesan Belum Terkirim');
+    };
+
     try {
       const sendRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
         method: 'POST',
@@ -356,13 +457,18 @@ export function useAdminChat(options: UseAdminChatOptions) {
         })
       });
 
-      if (sendRes && sendRes.ok) {
-        const saved = await sendRes.json();
-        if (saved?.id) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === tempId ? { ...m, id: saved.id.toString() } : m))
-          );
-        }
+      if (!sendRes.ok) {
+        const errText = await sendRes.text().catch(() => '');
+        console.error('Gagal kirim pesan:', sendRes.status, errText);
+        rollback(`(Server membalas ${sendRes.status}). Coba lagi ya.`);
+        return;
+      }
+
+      const saved = await sendRes.json().catch(() => null);
+      if (saved?.id) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, id: saved.id.toString() } : m))
+        );
       }
 
       if (platform === 'web') {
@@ -370,9 +476,10 @@ export function useAdminChat(options: UseAdminChatOptions) {
       }
       scrollToBottom('smooth');
     } catch (err) {
-      console.error("Gagal kirim pesan:", err);
+      console.error('Gagal kirim pesan:', err);
+      rollback('Periksa koneksi internet lalu coba lagi.');
     }
-  }, [selectedChat, selectedResponse, manualNote, platform, fetchMessages, fetchRooms, scrollToBottom]);
+  }, [selectedChat, selectedResponse, manualNote, platform, fetchMessages, fetchRooms, scrollToBottom, showAlert]);
 
   return {
     // Auth

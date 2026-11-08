@@ -131,10 +131,11 @@ const MobileLayout = () => {
       // ⚠️  DISABLE: Comment baris fetchAIStatus di bawah jika tidak pakai AI
       fetchAIStatus(parsed.token);
 
+      // Fallback polling santai sebagai safety net (15 detik) karena Realtime WebSocket sudah aktif 0ms
       const interval = setInterval(() => {
         fetchRooms(parsed.token);
         fetchStats(parsed.token);
-      }, 3000);
+      }, 15000);
       return () => clearInterval(interval);
     }
   }, [fetchRooms, fetchStats, fetchAllUsers, fetchAIStatus, setAdminName, setAdminGmail]);
@@ -146,7 +147,8 @@ const MobileLayout = () => {
       fetchMessages(selectedChat.id, token);
       markAsRead(selectedChat.id);
 
-      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 1500);
+      // Fallback polling pesan (10 detik) jika WebSocket sempat terputus
+      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 10000);
       return () => clearInterval(interval);
     }
   }, [selectedChat?.id, view, fetchMessages, markAsRead]);

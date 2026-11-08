@@ -96,6 +96,19 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
   // supaya foto & data langsung benar saat halaman ini dibuka.
   const { profile: cached } = useMyProfile();
 
+  const [username, setUsername] = useState<string>(() => {
+    if (cached?.username) return cached.username;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return parsed.username || parsed.Username || adminName;
+        }
+      } catch {}
+    }
+    return adminName;
+  });
   const [fullName, setFullName] = useState(cached?.fullName ?? initialProfile?.fullName ?? adminName);
   const [email, setEmail] = useState(cached?.email ?? initialProfile?.email ?? '');
   const [faculty, setFaculty] = useState(cached?.faculty ?? initialProfile?.faculty ?? 'Fakultas Teknik');
@@ -116,7 +129,7 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const idLabel = identifierType === 'nip' ? 'NIP' : 'NIM';
-  const waNumber = useMemo(() => normalizeWa(whatsapp), [whatsapp]);
+  const waNumber = useMemo(() => normalizeWa(whatsapp || phone), [whatsapp, phone]);
   const waLink = waNumber ? `https://wa.me/${waNumber}` : '';
 
   // 1. Ambil data profil dari Backend Go saat komponen dimuat
@@ -127,11 +140,16 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
         if (!cached) setLoadingProfile(true); // kalau sudah ada cache, refresh diam-diam
         const data = await getProfile();
         if (isMounted && data) {
+          if (data.username) setUsername(data.username);
           if (data.fullName) setFullName(data.fullName);
           if (data.email) setEmail(data.email);
           if (data.faculty) setFaculty(data.faculty);
           if (data.phone) setPhone(data.phone);
-          if (data.whatsapp) setWhatsapp(data.whatsapp);
+          if (data.whatsapp) {
+            setWhatsapp(data.whatsapp);
+          } else if (data.phone) {
+            setWhatsapp(data.phone);
+          }
           setAvatarUrl(data.avatarUrl);
           setIsDefaultAvatar(data.isDefaultAvatar);
           setMyProfile(data); // sinkronkan ke dashboard
@@ -208,7 +226,7 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
     setSaving(true);
     try {
       const payload = {
-        fullName,
+        fullName: username || fullName,
         email,
         phone,
         whatsapp: waNumber,
@@ -372,16 +390,19 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
                   <label htmlFor="adm-name" className="text-xs font-bold text-slate-700">
                     Nama Lengkap
                   </label>
-                  <input
-                    id="adm-name"
-                    type="text"
-                    required
-                    maxLength={150}
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className={inputClass}
-                    placeholder="Nama Admin"
-                  />
+                  <div className="relative">
+                    <input
+                      id="adm-name"
+                      type="text"
+                      value={username}
+                      readOnly
+                      className={`${inputClass} pr-10 bg-slate-50 text-slate-500 cursor-not-allowed`}
+                    />
+                    <Lock size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Diambil dari username akun dan tidak dapat diubah di sini.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -434,18 +455,56 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="adm-phone" className="text-xs font-bold text-slate-700">
-                    Nomor HP
+                  <label htmlFor="adm-phone" className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                    <span>Nomor HP</span>
+                    <span className="text-[10px] font-normal text-slate-400">Terhubung ke WhatsApp</span>
                   </label>
                   <input
                     id="adm-phone"
                     type="tel"
                     maxLength={20}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPhone(val);
+                      setWhatsapp(val);
+                    }}
                     className={inputClass}
                     placeholder="0812 3456 7890"
                   />
+                  <p className="text-[11px] text-slate-400">
+                    Boleh diawali 08, +62, atau 62.
+                  </p>
+
+                  {/* Auto-generated Link WhatsApp persis di bawah Nomor HP */}
+                  <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 mt-2 transition-all">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <MessageCircle size={12} className="text-emerald-500" />
+                        Link WhatsApp
+                      </span>
+                      {waNumber && (
+                        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Aktif
+                        </span>
+                      )}
+                    </div>
+                    {waLink ? (
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-2 text-xs font-semibold text-[#588CBC] hover:text-[#183449] hover:underline transition-colors break-all mt-0.5"
+                      >
+                        <span>{waLink}</span>
+                        <ExternalLink size={13} className="shrink-0 text-slate-400" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-400">
+                        Masukkan nomor HP untuk membuat link WhatsApp otomatis
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -470,52 +529,6 @@ export const AdminProfile: React.FC<AdminProfileProps> = ({
                 <span>{saving ? 'Menyimpan...' : saved ? 'Perubahan tersimpan' : 'Simpan Perubahan'}</span>
               </button>
             </form>
-
-            {/* INFORMASI KONTAK */}
-            <div className="rounded-3xl bg-[#0F2238] p-6 text-white shadow-lg shadow-[#183449]/20 space-y-4">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-black">
-                  <Phone size={18} className="text-[#7FB0E0]" />
-                  Informasi Kontak
-                </h2>
-                <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                  Pastikan nomor WhatsApp aktif agar mahasiswa dan dosen bisa menghubungi admin.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="adm-wa" className="text-xs font-bold text-white">
-                  Nomor WhatsApp
-                </label>
-                <input
-                  id="adm-wa"
-                  type="tel"
-                  inputMode="tel"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  placeholder="0812 3456 7890"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-black/30 text-[13px] font-medium text-white placeholder:text-slate-500 focus:outline-none focus:border-[#7FB0E0] focus:ring-4 focus:ring-[#7FB0E0]/15 transition-all"
-                />
-                <p className="text-[11px] text-slate-400">Boleh diawali 08, +62, atau 62.</p>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3.5 py-2.5">
-                <p className="text-[11px] text-slate-400 mb-1">Link WhatsApp</p>
-                {waLink ? (
-                  <a
-                    href={waLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between gap-2 text-[13px] font-semibold text-[#7FB0E0] hover:text-white transition-colors break-all"
-                  >
-                    {waLink}
-                    <ExternalLink size={14} className="shrink-0" />
-                  </a>
-                ) : (
-                  <span className="text-[13px] text-slate-500">Isi nomor untuk membuat link</span>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* KOLOM KANAN */}

@@ -22,8 +22,8 @@ const FLOORS = [
 ];
 
 // ---- Ukuran kartu & bentuk lekukan (px) ----
-const W = 280;   // lebar kartu
-const H = 372;   // tinggi kartu
+const W = 250;   // lebar kartu
+const H = 332;   // tinggi kartu
 const R = 20;    // corner radius 4 sudut kartu
 
 // Tombol
@@ -83,7 +83,7 @@ export default function MainGedungSFD() {
 
   return (
     <div
-      className="min-h-screen w-full bg-white bg-cover bg-center flex flex-col items-center px-6 py-8"
+      className="min-h-screen w-full bg-white bg-cover bg-center flex flex-col items-center px-6 py-5"
       style={{ backgroundImage: `url('${BACKGROUND}')`, fontFamily: FONT_UTAMA }}
     >
       <style>{`@import url('${FONT_URL}');`}</style>
@@ -99,17 +99,17 @@ export default function MainGedungSFD() {
           Kembali
         </button>
 
-        {/* Logo diperbesar: ubah h-20 / md:h-28 kalau mau lebih besar/kecil */}
+        {/* Logo: ubah h-14 / md:h-20 kalau mau lebih besar/kecil */}
         <img
           src={LOGO}
           alt="SiRuang"
-          className="h-20 md:h-28 w-auto object-contain -my-4"
+          className="h-14 md:h-20 w-auto object-contain -my-3"
         />
       </header>
 
       {/* Judul */}
-      <div className="text-center mt-10 md:mt-14 mb-14">
-        <h1 className="text-3xl md:text-4xl text-black leading-snug">
+      <div className="text-center mt-4 md:mt-6 mb-8">
+        <h1 className="text-2xl md:text-3xl text-black leading-snug">
           <span className="font-normal">Pilih Lantai </span>
           <span className="font-bold">dan Temukan</span>
           <br />
@@ -117,7 +117,7 @@ export default function MainGedungSFD() {
             Ruang Kelas yang tersedia di Gedung SFD
           </span>
         </h1>
-        <p className="mt-6 max-w-2xl mx-auto text-sm md:text-base text-black leading-relaxed">
+        <p className="mt-4 max-w-2xl mx-auto text-sm text-black leading-relaxed">
           Temukan ruang kelas yang tersedia di setiap lantai Gedung SFD dan
           pantau status ketersediaannya untuk kebutuhan akademik Anda.
         </p>

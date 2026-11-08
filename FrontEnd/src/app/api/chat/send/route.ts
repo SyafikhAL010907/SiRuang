@@ -44,15 +44,14 @@ export async function POST(request: Request) {
       lastMsg = '📎 Lampiran File';
     }
 
-    // 3. Update last_message di chat_rooms (tanpa await blocking biar instan)
-    supabaseServer
+    // 3. Update last_message di chat_rooms
+    await supabaseServer
       .from('chat_rooms')
       .update({
         last_message: lastMsg,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', roomId)
-      .then();
+      .eq('id', roomId);
 
     // 4. Background fire-and-forget ML Trigger dengan AbortSignal timeout 1 detik
     const mlUrl = process.env.ML_SERVICE_URL;

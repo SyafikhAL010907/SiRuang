@@ -62,6 +62,7 @@ func main() {
 	r.POST("/api/signup", handlers.HandleSignUp)
 	r.POST("/api/login", handlers.HandleLogin)
 	r.GET("/api/captcha", handlers.GetCaptcha)
+	r.GET("/api/chat/admin-info", handlers.GetAdminInfo)
 	// Protected Routes
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
@@ -74,6 +75,7 @@ func main() {
 		protected.POST("/logout", handlers.HandleLogout)
 
 		// Chat Routes (Shared)
+		protected.GET("/chat/admin-info", handlers.GetAdminInfo)
 		protected.GET("/chat/user-room", handlers.GetOrCreateRoom)
 		protected.GET("/chat/messages/:room_id", handlers.GetMessages)
 		protected.POST("/chat/send", handlers.SendMessage)
