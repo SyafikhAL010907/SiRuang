@@ -49,7 +49,11 @@ export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
             </div>
           )}
           <div className="relative">
-            <Avatar size="md" />
+            <Avatar
+              size="md"
+              src={chat.avatar_url && chat.avatar_url.startsWith('https://') ? chat.avatar_url : undefined}
+              alt={chat.user_name || chat.user_gmail}
+            />
             {chat.is_online && (
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm animate-pulse"></span>
             )}

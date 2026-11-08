@@ -117,7 +117,11 @@ export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
         {!isLocalSearchOpen && (
           <div className="flex items-center gap-3 flex-1">
             <div className="relative">
-              <Avatar size="sm" />
+              <Avatar
+                size="sm"
+                src={selectedChat?.avatar_url && selectedChat.avatar_url.startsWith('https://') ? selectedChat.avatar_url : undefined}
+                alt={selectedChat?.user_name || selectedChat?.user_gmail}
+              />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm"></span>
             </div>
             <div className="flex-1 min-w-0">

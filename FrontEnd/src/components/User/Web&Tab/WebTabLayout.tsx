@@ -636,7 +636,7 @@ const WebTabLayout = () => {
             {/* Header */}
             <header className="px-8 py-5 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between z-10 shadow-sm">
               <div className="flex items-center gap-4">
-                <Avatar src="/unj.png" size="md" />
+                <Avatar src="/LogoSiRuangPolos.png" size="md" />
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="font-black text-slate-800 tracking-tight">Admin  UNJ</h2>
@@ -973,7 +973,7 @@ const WebTabLayout = () => {
               >
                   <div className="w-24 h-24 bg-slate-100 rounded-4xl flex items-center justify-center mb-8 shadow-2xl shadow-slate-200/50 relative overflow-hidden group">
                       <div className="absolute inset-0 bg-[#588CBC]/10 scale-0 group-hover:scale-100 transition-transform duration-700 rounded-full"></div>
-                      <Image src="/unj.png" alt="Logo" width={60} height={60} className="relative z-10" />
+                      <Image src="/LogoSiRuangPolos.png" alt="Logo" width={60} height={60} className="relative z-10 object-contain" />
                   </div>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-3">Admin  UNJ</h2>
                   {/* Jadwal Penmaba Card (Replaces Search Bar) */}

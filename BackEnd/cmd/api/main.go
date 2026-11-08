@@ -19,6 +19,8 @@ import (
 	"helpdesk-backend/internal/database"
 	"helpdesk-backend/internal/handlers"
 	"helpdesk-backend/internal/middleware"
+	"helpdesk-backend/internal/profile"
+	"helpdesk-backend/internal/storage"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -43,12 +45,18 @@ func main() {
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+		AllowMethods:     []string{"POST", "GET", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// Profile Module Initialization
+	supabaseStorage := storage.NewSupabaseStorage()
+	profileRepo := profile.NewRepository(database.DB)
+	profileService := profile.NewService(profileRepo, supabaseStorage)
+	profileHandler := profile.NewHandler(profileService)
 
 	// Public Routes
 	r.POST("/api/signup", handlers.HandleSignUp)
@@ -58,6 +66,9 @@ func main() {
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
+		// Profile Routes (Semua role terautentikasi: Admin, User, Dosen, PJ)
+		profile.RegisterRoutes(protected, profileHandler)
+
 		// User Routes
 		protected.GET("/user/profile", handlers.UserProfile)
 		protected.POST("/logout", handlers.HandleLogout)

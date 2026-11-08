@@ -59,6 +59,16 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// Ambil user_id untuk context: prioritaskan dari token JWT, atau query users/authentication
+		userID := claims.UserID
+		if userID == 0 && database.DB != nil {
+			err = database.DB.QueryRow("SELECT id FROM users WHERE identifier = $1", claims.Identifier).Scan(&userID)
+			if err != nil || userID == 0 {
+				_ = database.DB.QueryRow("SELECT id FROM authentication WHERE identifier = $1", claims.Identifier).Scan(&userID)
+			}
+		}
+
+		c.Set("user_id", userID)
 		c.Set("identifier", claims.Identifier)
 		c.Set("identifier_type", claims.IdentifierType)
 		c.Set("role", claims.Role)

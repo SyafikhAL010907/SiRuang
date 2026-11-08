@@ -21,12 +21,15 @@ func GetRooms(c *gin.Context) {
 			cr.user_identifier, 
 			COALESCE(cr.last_message, ''), 
 			cr.updated_at, 
-			COALESCE(a.username, ''),
+			COALESCE(NULLIF(p.full_name, ''), a.username, cr.user_identifier),
 			(SELECT COUNT(*) FROM chat_messages WHERE room_id = cr.id AND is_read = 0 AND sender_identifier = cr.user_identifier) as unread_count,
 			EXISTS(SELECT 1 FROM active_sessions WHERE identifier = cr.user_identifier) as is_online,
-			cr.is_marked_unread
+			cr.is_marked_unread,
+			COALESCE(p.avatar_url, '') as avatar_url,
+			COALESCE(a.role::text, 'user') as role
 		FROM chat_rooms cr
 		LEFT JOIN authentication a ON cr.user_identifier = a.identifier
+		LEFT JOIN profiles p ON a.id = p.user_id
 		ORDER BY cr.updated_at DESC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal ambil daftar room: " + err.Error()})
@@ -37,7 +40,7 @@ func GetRooms(c *gin.Context) {
 	var rooms []models.ChatRoom
 	for rows.Next() {
 		var room models.ChatRoom
-		if err := rows.Scan(&room.ID, &room.UserIdentifier, &room.LastMessage, &room.UpdatedAt, &room.UserName, &room.UnreadCount, &room.IsOnline, &room.IsMarkedUnread); err != nil {
+		if err := rows.Scan(&room.ID, &room.UserIdentifier, &room.LastMessage, &room.UpdatedAt, &room.UserName, &room.UnreadCount, &room.IsOnline, &room.IsMarkedUnread, &room.AvatarURL, &room.Role); err != nil {
 			log.Println("[ERROR] Scan room:", err)
 			continue
 		}

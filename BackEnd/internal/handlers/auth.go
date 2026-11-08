@@ -109,6 +109,7 @@ func HandleLogin(c *gin.Context) {
 
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &models.Claims{
+		UserID:         user.ID,
 		Identifier:     user.Identifier,
 		IdentifierType: user.IdentifierType,
 		Role:           user.Role,

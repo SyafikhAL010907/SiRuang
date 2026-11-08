@@ -603,7 +603,7 @@ const MobileLayout = () => {
                       >
                         <div className="relative">
                           <div className="w-16 h-16 bg-[#588CBC]/10 rounded-2xl flex items-center justify-center text-[#588CBC] ring-4 ring-slate-50">
-                            <Image src="/unj.png" alt="UNJ" width={40} height={40} className="drop-shadow-md" />
+                            <Image src="/LogoSiRuangPolos.png" alt="SiRuang" width={40} height={40} className="drop-shadow-md object-contain" />
                           </div>
                         </div>
                         <div className="flex-1 text-left">
@@ -654,7 +654,7 @@ const MobileLayout = () => {
                     {!isLocalSearchOpen && (
                       <div className="flex items-center gap-3 flex-1">
                         <div className="relative">
-                            <Avatar src="/unj.png" size="sm" />
+                            <Avatar src="/LogoSiRuangPolos.png" size="sm" />
                             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full"></span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -984,11 +984,11 @@ const MobileLayout = () => {
                           animate={{ scale: 1, opacity: 1 }}
                         >
                             <Image 
-                              src="/unj.png" 
-                              alt="Logo UNJ" 
+                              src="/LogoSiRuangPolos.png" 
+                              alt="Logo SiRuang" 
                               width={48} 
                               height={48} 
-                              className="drop-shadow-2xl" 
+                              className="drop-shadow-2xl object-contain" 
                             />
                         </motion.div>
                         <div className="flex flex-col">
@@ -1026,7 +1026,7 @@ const MobileLayout = () => {
                         >
                             <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-slate-200 relative overflow-hidden group">
                                 <div className="absolute inset-0 bg-[#588CBC]/10 scale-0 group-hover:scale-100 transition-transform duration-700 rounded-full"></div>
-                                <Image src="/unj.png" alt="Logo" width={50} height={50} className="relative z-10" />
+                                <Image src="/LogoSiRuangPolos.png" alt="Logo" width={50} height={50} className="relative z-10 object-contain" />
                             </div>
                             <h2 className="text-xl font-black text-slate-800 tracking-tight mb-2">Admin  UNJ</h2>
                             {/* Jadwal Penmaba Card (di atas tombol chat) */}

@@ -15,11 +15,16 @@ import TemplatePopupModal from '../Shared/Modals/TemplatePopupModal';
 
 import AdminSidebar from './components/AdminSidebar';
 import AdminDashboardView from './components/AdminDashboardView';
+import AdminProfile from '@/components/Profile/Admin/AdminProfile';
+import RoleAccessView from './components/RoleAccessView';
+import ManajemenAkunView from './components/ManajemenAkunView';
+import RelasiMataKuliahView from './components/RelasiMataKuliahView';
 import ChatHeader from './components/ChatHeader';
 import ChatMessagesArea from './components/ChatMessagesArea';
 import ChatInputArea from './components/ChatInputArea';
 
 const WebTabLayout = () => {
+  const [mainView, setMainView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah'>('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -285,13 +290,30 @@ const WebTabLayout = () => {
               setManualNote={setManualNote}
             />
           </div>
+        ) : mainView === 'profile' ? (
+          <AdminProfile
+            adminName={adminName}
+            adminGmail={adminGmail}
+            onBack={() => setMainView('dashboard')}
+          />
+        ) : mainView === 'role-access' ? (
+          <RoleAccessView onBack={() => setMainView('dashboard')} />
+        ) : mainView === 'manajemen-akun' ? (
+          <ManajemenAkunView onBack={() => setMainView('dashboard')} />
+        ) : mainView === 'relasi-mata-kuliah' ? (
+          <RelasiMataKuliahView onBack={() => setMainView('dashboard')} />
         ) : (
           <AdminDashboardView
             adminName={adminName}
+            adminGmail={adminGmail}   
             rooms={rooms}
             isInfoActive={isInfoActive}
             networkLatency={networkLatency}
             totalUsersCount={totalUsersCount}
+            onOpenProfile={() => setMainView('profile')}
+            onOpenRoleAccess={() => setMainView('role-access')}
+            onOpenManajemenAkun={() => setMainView('manajemen-akun')}
+            onOpenRelasiMataKuliah={() => setMainView('relasi-mata-kuliah')}
           />
         )}
       </main>

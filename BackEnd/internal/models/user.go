@@ -13,6 +13,7 @@ type User struct {
 }
 
 type Claims struct {
+	UserID         int    `json:"user_id,omitempty"`
 	Identifier     string `json:"identifier"`
 	IdentifierType string `json:"identifier_type"`
 	Role           string `json:"role"`

@@ -47,10 +47,23 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   return (
     <header className="px-8 py-5 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between z-10 shadow-sm">
       <div className="flex items-center gap-4">
-        <Avatar size="md" />
+        <Avatar
+          size="md"
+          src={selectedChat.avatar_url && selectedChat.avatar_url.startsWith('https://') ? selectedChat.avatar_url : undefined}
+          alt={selectedChat.user_name || selectedChat.user_gmail}
+        />
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-black text-slate-800 tracking-tight">{selectedChat.user_name || selectedChat.user_gmail}</h2>
+            {selectedChat.role && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#588CBC]/15 text-[#183449] uppercase">
+                {selectedChat.role === 'pj_kelas'
+                  ? 'PJ Kelas'
+                  : selectedChat.role === 'dosen'
+                  ? 'Dosen'
+                  : 'Mahasiswa'}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className={cn(
