@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, MessageSquare, CheckCheck } from 'lucide-react';
 import Avatar from '@/components/Shared/Avatar';
 import { cn } from '@/lib/utils';
 import { toLocalTime } from '../../Shared/utils';
@@ -13,6 +13,10 @@ export interface MobileChatListViewProps {
   selectedRooms: number[];
   toggleSelectRoom: (id: number) => void;
   handleOpenChat: (chat: any) => void;
+  activeFilter?: 'unreading' | 'reading';
+  setActiveFilter?: (filter: 'unreading' | 'reading') => void;
+  readCount?: number;
+  unreadCount?: number;
 }
 
 export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
@@ -21,7 +25,61 @@ export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
   selectedRooms,
   toggleSelectRoom,
   handleOpenChat,
+  activeFilter = 'unreading',
+  setActiveFilter,
+  readCount = 0,
+  unreadCount = 0,
 }) => {
+  if (filteredRooms.length === 0) {
+    return (
+      <motion.div
+        key="chat-list-empty"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white rounded-3xl border border-slate-100 shadow-xs"
+      >
+        <div className="w-14 h-14 rounded-2xl bg-[#588CBC]/10 text-[#183449] flex items-center justify-center mb-3">
+          {activeFilter === 'unreading' ? <CheckCheck size={26} /> : <MessageSquare size={26} />}
+        </div>
+        <h4 className="text-sm font-black text-slate-800">
+          {activeFilter === 'unreading'
+            ? 'Tidak Ada Pesan Unreading'
+            : 'Tidak Ada Pesan Reading'}
+        </h4>
+        <p className="text-[11px] text-slate-400 font-medium mt-1 max-w-xs leading-relaxed">
+          {activeFilter === 'unreading'
+            ? readCount > 0
+              ? `Semua pesan telah dibaca. Ada ${readCount} riwayat pesan pada tab Reading.`
+              : 'Belum ada pesan masuk dari pengguna.'
+            : unreadCount > 0
+            ? `Semua pesan masuk belum dibaca. Silakan periksa tab Unreading (${unreadCount} pesan).`
+            : 'Belum ada riwayat pesan yang telah dibaca.'}
+        </p>
+
+        {activeFilter === 'unreading' && readCount > 0 && setActiveFilter && (
+          <button
+            type="button"
+            onClick={() => setActiveFilter('reading')}
+            className="mt-4 px-4 py-2 bg-[#183449] hover:bg-[#204460] active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+          >
+            Buka Tab Reading ({readCount})
+          </button>
+        )}
+
+        {activeFilter === 'reading' && unreadCount > 0 && setActiveFilter && (
+          <button
+            type="button"
+            onClick={() => setActiveFilter('unreading')}
+            className="mt-4 px-4 py-2 bg-[#183449] hover:bg-[#204460] active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+          >
+            Buka Tab Unreading ({unreadCount})
+          </button>
+        )}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       key="chat-list"

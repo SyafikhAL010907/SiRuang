@@ -16,12 +16,14 @@ import FilePreviewModal from '@/components/Shared/FilePreviewModal';
 import MobileHeader from './components/MobileHeader';
 import MobileDashboardView from './components/MobileDashboardView';
 import MobileChatListView from './components/MobileChatListView';
-import MobileBottomNav from './components/MobileBottomNav';
+import MobileBottomNav from './MobileBottomNav';
 import MobileChatRoomView from './components/MobileChatRoomView';
 import AdminProfile from '@/components/Profile/Admin/AdminProfile';
 import RoleAccessView from '../Web&Tab/components/RoleAccessView';
 import ManajemenAkunView from '../Web&Tab/components/ManajemenAkunView';
 import RelasiMataKuliahView from '../Web&Tab/components/RelasiMataKuliahView';
+import MobileManagementView from './components/MobileManagementView';
+import BuildingDenahGrid from '../Shared/Cards/BuildingDenahGrid';
 
 const MobileLayout = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -200,9 +202,10 @@ const MobileLayout = () => {
     if (activeTab === 'unreading') return room.unread_count > 0 || room.is_marked_unread;
     if (activeTab === 'reading') return room.unread_count === 0 && !room.is_marked_unread;
 
-    if (activeTab === 'chat') {
+    if (activeTab === 'chat' || activeTab === 'message') {
       if (activeFilter === 'unreading') return room.unread_count > 0 || room.is_marked_unread;
       if (activeFilter === 'reading') return room.unread_count === 0 && !room.is_marked_unread;
+      return true;
     }
 
     return true;
@@ -210,6 +213,13 @@ const MobileLayout = () => {
 
   const handleBulkDelete = () => baseHandleBulkDelete(filteredRooms);
   const toggleSelectAll = () => baseToggleSelectAll(filteredRooms);
+
+  const unreadRoomsCount = rooms.filter(
+    (r) => (r.unread_count || 0) > 0 || r.is_marked_unread
+  ).length;
+  const readRoomsCount = rooms.filter(
+    (r) => (r.unread_count || 0) === 0 && !r.is_marked_unread
+  ).length;
 
   return (
   <div className="flex h-dvh w-full max-w-full bg-slate-50 overflow-hidden font-sans text-slate-800 antialiased select-none">
@@ -239,6 +249,8 @@ const MobileLayout = () => {
               filteredRooms={filteredRooms}
               toggleSelectAll={toggleSelectAll}
               handleBulkDelete={handleBulkDelete}
+              activeFilter={activeFilter}
+              setActiveFilter={setActiveFilter}
             />
 
             {/* SCROLLABLE CONTENT AREA */}
@@ -252,23 +264,63 @@ const MobileLayout = () => {
                     totalUsersCount={totalUsersCount}
                     adminName={adminName}
                     adminGmail={adminGmail}
-                    onOpenProfile={() => setSubView('profile')}
-                    onOpenRoleAccess={() => setSubView('role-access')}
-                    onOpenManajemenAkun={() => setSubView('manajemen-akun')}
-                    onOpenRelasiMataKuliah={() => setSubView('relasi-mata-kuliah')}
+                    onOpenProfile={() => {
+                      setActiveTab('profile');
+                      setSubView('profile');
+                    }}
+                    onOpenRoleAccess={() => {
+                      setActiveTab('managemen');
+                      setSubView('role-access');
+                    }}
+                    onOpenManajemenAkun={() => {
+                      setActiveTab('managemen');
+                      setSubView('manajemen-akun');
+                    }}
+                    onOpenRelasiMataKuliah={() => {
+                      setActiveTab('managemen');
+                      setSubView('relasi-mata-kuliah');
+                    }}
                   />
-                ) : activeTab === 'home' && subView === 'profile' ? (
+                ) : activeTab === 'profile' || (activeTab === 'home' && subView === 'profile') ? (
                   <AdminProfile
                     adminName={adminName}
                     adminGmail={adminGmail}
-                    onBack={() => setSubView('dashboard')}
+                    onBack={() => {
+                      setActiveTab('home');
+                      setSubView('dashboard');
+                    }}
                   />
-                ) : activeTab === 'home' && subView === 'role-access' ? (
-                  <RoleAccessView onBack={() => setSubView('dashboard')} />
-                ) : activeTab === 'home' && subView === 'manajemen-akun' ? (
-                  <ManajemenAkunView onBack={() => setSubView('dashboard')} />
-                ) : activeTab === 'home' && subView === 'relasi-mata-kuliah' ? (
-                  <RelasiMataKuliahView onBack={() => setSubView('dashboard')} />
+                ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'role-access' ? (
+                  <RoleAccessView
+                    onBack={() => {
+                      setActiveTab('home');
+                      setSubView('dashboard');
+                    }}
+                  />
+                ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'manajemen-akun' ? (
+                  <ManajemenAkunView
+                    onBack={() => {
+                      setActiveTab('home');
+                      setSubView('dashboard');
+                    }}
+                  />
+                ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'relasi-mata-kuliah' ? (
+                  <RelasiMataKuliahView
+                    onBack={() => {
+                      setActiveTab('home');
+                      setSubView('dashboard');
+                    }}
+                  />
+                ) : activeTab === 'managemen' ? (
+                  <MobileManagementView
+                    onSelectRoleAccess={() => setSubView('role-access')}
+                    onSelectManajemenAkun={() => setSubView('manajemen-akun')}
+                    onSelectRelasiMataKuliah={() => setSubView('relasi-mata-kuliah')}
+                  />
+                ) : activeTab === 'denah' ? (
+                  <div className="pt-2">
+                    <BuildingDenahGrid variant="mobile" />
+                  </div>
                 ) : (
                   <MobileChatListView
                     filteredRooms={filteredRooms}
@@ -276,6 +328,10 @@ const MobileLayout = () => {
                     selectedRooms={selectedRooms}
                     toggleSelectRoom={toggleSelectRoom}
                     handleOpenChat={handleOpenChat}
+                    activeFilter={activeFilter}
+                    setActiveFilter={setActiveFilter}
+                    readCount={readRoomsCount}
+                    unreadCount={unreadRoomsCount}
                   />
                 )}
               </AnimatePresence>
@@ -301,8 +357,19 @@ const MobileLayout = () => {
               activeTab={activeTab}
               setActiveTab={(tab) => {
                 setActiveTab(tab);
-                // Reset subView ke dashboard saat pindah ke tab home
                 if (tab === 'home') setSubView('dashboard');
+                else if (tab === 'profile') setSubView('profile');
+                else setSubView('dashboard');
+              }}
+              subView={subView}
+              unreadCount={unreadRoomsCount}
+              onSelectManagement={(key) => {
+                setActiveTab('managemen');
+                setSubView(key);
+              }}
+              onOpenProfile={() => {
+                setActiveTab('profile');
+                setSubView('profile');
               }}
               setActiveFilter={setActiveFilter}
             />

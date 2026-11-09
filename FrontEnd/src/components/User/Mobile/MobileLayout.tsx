@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserChat } from '../Shared/hooks/useUserChat';
 import { useUserMessageSearch } from '../Shared/hooks/useUserMessageSearch';
 import { useUserAttachments } from '../Shared/hooks/useUserAttachments';
-import MobileBottomNav from './components/MobileBottomNav';
+import MobileBottomNav from './MobileBottomNav';
 import MobileHomeView from './components/MobileHomeView';
 import MobileChatListView from './components/MobileChatListView';
 import MobileChatRoomView from './components/MobileChatRoomView';
 import MobileProfileView from './components/MobileProfileView';
+import MobileDenahView from './components/MobileDenahView';
+import MobileBookingView from './components/MobileBookingView';
 import UserTemplatePopupModal from '../Shared/Modals/UserTemplatePopupModal';
 import CustomAlert from '@/components/Shared/CustomAlert';
 import FilePreviewModal from '@/components/Shared/FilePreviewModal';
@@ -17,7 +19,7 @@ import { downloadFile } from '../Shared/utils';
 
 const MobileLayout = () => {
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'home' | 'chats' | 'logout'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'denah' | 'chats' | 'booking' | 'profile'>('home');
   const [chatView, setChatView] = useState<'LIST' | 'ROOM'>('LIST');
 
   // Modal / UI states
@@ -89,13 +91,17 @@ const MobileLayout = () => {
       try {
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
-        console.error("Logout API failed:", err);
+        console.error('Logout API failed:', err);
       }
     }
     localStorage.removeItem('user');
+    try {
+      sessionStorage.removeItem('user_chat_room_id');
+      sessionStorage.removeItem('user_chat_messages');
+    } catch {}
     window.location.href = '/login';
   };
 
@@ -158,19 +164,33 @@ const MobileLayout = () => {
           <MobileHomeView
             key="home-view"
             userName={chat.userName}
+            userGmail={chat.userGmail}
             unreadCount={chat.unreadCount}
             onOpenChat={handleOpenChatFromHome}
+            onOpenProfile={() => setActiveTab('profile')}
+          />
+        ) : activeTab === 'denah' ? (
+          <MobileDenahView
+            key="denah-view"
+            onBackToHome={() => setActiveTab('home')}
+          />
+        ) : activeTab === 'booking' ? (
+          <MobileBookingView
+            key="booking-view"
+            onGoToDenah={() => setActiveTab('denah')}
           />
         ) : (
           <MobileProfileView
             key="profile-view"
             userName={chat.userName}
+            userGmail={chat.userGmail}
+            onBack={() => setActiveTab('home')}
             onLogout={handleLogout}
           />
         )}
       </AnimatePresence>
 
-      {/* BOTTOM NAV (Redesigned ala Admin) - Hidden in Room View */}
+      {/* BOTTOM NAV - Hidden in Room View */}
       <AnimatePresence>
         {!(activeTab === 'chats' && chatView === 'ROOM') && (
           <MobileBottomNav
@@ -222,8 +242,6 @@ const MobileLayout = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-
 
       {/* Excel Preview Modal */}
       {selectedExcelFile && (

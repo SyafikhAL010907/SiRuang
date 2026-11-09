@@ -27,6 +27,8 @@ export interface MobileHeaderProps {
   filteredRooms: any[];
   toggleSelectAll: () => void;
   handleBulkDelete: () => void;
+  activeFilter?: 'unreading' | 'reading';
+  setActiveFilter?: (filter: 'unreading' | 'reading') => void;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -45,7 +47,11 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   filteredRooms,
   toggleSelectAll,
   handleBulkDelete,
+  activeFilter = 'unreading',
+  setActiveFilter,
 }) => {
+  const unreadCount = rooms.filter((r: any) => (r.unread_count || 0) > 0 || r.is_marked_unread).length;
+  const readCount = rooms.filter((r: any) => (r.unread_count || 0) === 0 && !r.is_marked_unread).length;
   return (
     <div className="sticky top-0 z-40 bg-slate-50 flex flex-col shrink-0 border-b border-slate-100/40">
       {/* Premium Header (Logo & Welcome) */}
@@ -83,7 +89,15 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               <h2 className="text-lg font-bold">Selamat Datang, {adminName}!</h2>
               <div className="flex items-center gap-3">
                 <p className="text-xs text-white/80">
-                  {activeTab === 'home' ? "Panel Informasi Dashboard" : `Ada ${rooms.filter((r: any) => (r.unread_count || 0) > 0).length} chat baru.`}
+                  {activeTab === 'message'
+                    ? `Ada ${rooms.filter((r: any) => (r.unread_count || 0) > 0).length} chat baru.`
+                    : activeTab === 'denah'
+                    ? "Denah Interaktif & Ruangan Kampus"
+                    : activeTab === 'managemen'
+                    ? "Pusat Kontrol & Manajemen Akses"
+                    : activeTab === 'profile'
+                    ? "Informasi Akun & Profil Admin"
+                    : "Panel Informasi Dashboard"}
                 </p>
               </div>
             </div>
@@ -93,7 +107,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
       {/* Top Actions Area */}
       <div className="px-4 -mt-7 relative z-30 pb-3">
-        {activeTab === 'home' ? (
+        {activeTab !== 'message' ? (
           /* PREMIUM LARGE TOGGLE SWITCH (Replaces Quick Access) */
           <div className="w-full bg-white rounded-4xl p-4 shadow-xl shadow-slate-200/50 border border-[#588CBC]/20 flex items-center justify-between group transition-all relative overflow-hidden">
             <div className="flex items-center gap-4">
@@ -142,6 +156,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
             animate={{ opacity: 1 }}
             className="flex flex-col gap-3"
           >
+            {/* Search Input */}
             <div className="bg-white rounded-full shadow-lg shadow-slate-200/50 border-2 border-slate-100 focus-within:border-[#588CBC] focus-within:ring-4 focus-within:ring-[#588CBC]/10 transition-all duration-300">
               <div className="flex items-center gap-3 px-4 h-11 bg-white rounded-full">
                 <Search size={18} className="text-[#183449] shrink-0" />
@@ -162,6 +177,57 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Filter Toggle: Unreading & Reading */}
+            {setActiveFilter && (
+              <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter('unreading')}
+                  className={cn(
+                    "flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all duration-200 flex items-center justify-center gap-2",
+                    activeFilter === 'unreading'
+                      ? "bg-[#183449] text-white shadow-xs"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  )}
+                >
+                  <span>Unreading</span>
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[9px] font-black",
+                      activeFilter === 'unreading'
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    )}
+                  >
+                    {unreadCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter('reading')}
+                  className={cn(
+                    "flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all duration-200 flex items-center justify-center gap-2",
+                    activeFilter === 'reading'
+                      ? "bg-[#183449] text-white shadow-xs"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  )}
+                >
+                  <span>Reading</span>
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[9px] font-black",
+                      activeFilter === 'reading'
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    )}
+                  >
+                    {readCount}
+                  </span>
+                </button>
+              </div>
+            )}
             <div className="bg-white/80 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-50 min-h-11.5 items-center justify-center relative overflow-hidden shadow-xs">
               <AnimatePresence mode="wait">
                 {isDeleteMode ? (

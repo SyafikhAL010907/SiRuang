@@ -4,7 +4,6 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, KeyRound, Network, ChevronRight, User } from 'lucide-react';
 import StatGrid from '../../Shared/Cards/StatGrid';
-import SystemStatusCard from '../../Shared/Cards/SystemStatusCard';
 import BuildingDenahGrid from '../../Shared/Cards/BuildingDenahGrid';
 import { useMyProfile, loadMyProfile } from '@/lib/profileStore';
 import { getAvatarSrc } from '@/lib/avatarValidation';
@@ -22,7 +21,7 @@ export interface MobileDashboardViewProps {
   onOpenRelasiMataKuliah?: () => void;
 }
 
-// Menu navigasi tambahan — sama dengan Web&Tab AdminDashboardView
+// Menu Manajemen — sama dengan Web&Tab AdminDashboardView
 const ROLE_ACCESS_MENUS: {
   label: string;
   key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah';
@@ -36,8 +35,6 @@ const ROLE_ACCESS_MENUS: {
 export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
   rooms,
   isInfoActive,
-  networkLatency,
-  totalUsersCount,
   adminName = 'Admin',
   adminGmail,
   onOpenProfile,
@@ -53,10 +50,10 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
 
   const displayName = profile?.fullName || adminName;
 
-  const handleMenuClick = (key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah') => {
-    if (key === 'role-access' && onOpenRoleAccess) onOpenRoleAccess();
-    if (key === 'manajemen-akun' && onOpenManajemenAkun) onOpenManajemenAkun();
-    if (key === 'relasi-mata-kuliah' && onOpenRelasiMataKuliah) onOpenRelasiMataKuliah();
+  const handlers: Record<string, (() => void) | undefined> = {
+    'role-access': onOpenRoleAccess,
+    'manajemen-akun': onOpenManajemenAkun,
+    'relasi-mata-kuliah': onOpenRelasiMataKuliah,
   };
 
   return (
@@ -100,34 +97,34 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
       {/* STATS GRID */}
       <StatGrid variant="mobile" rooms={rooms} isInfoActive={isInfoActive} />
 
-      {/* SYSTEM STATUS CARD */}
-      <SystemStatusCard variant="mobile" networkLatency={networkLatency} totalUsersCount={totalUsersCount} />
-
-      {/* MENU ADMIN — RoleAccess / ManajemenAkun / RelasiMataKuliah */}
+      {/* MANAJEMEN ROLE ACCESS (menggantikan Server Status, sama seperti versi web) */}
       {(onOpenRoleAccess || onOpenManajemenAkun || onOpenRelasiMataKuliah) && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-4 pt-4 pb-2">
-            Menu Admin
-          </p>
-          {ROLE_ACCESS_MENUS.map((menu, idx) => {
-            const Icon = menu.icon;
-            return (
+        <div className="bg-black rounded-[28px] p-5 text-white shadow-2xl shadow-black/20 flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-bold tracking-tight">Manajemen Role Access</h3>
+            <p className="text-[11px] text-white/60 font-medium leading-relaxed">
+              Kelola hak akses pengguna dan atur peran dalam sistem secara mudah dan aman.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            {ROLE_ACCESS_MENUS.map(({ label, key, icon: Icon }) => (
               <button
-                key={menu.key}
+                key={key}
                 type="button"
-                onClick={() => handleMenuClick(menu.key)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left ${
-                  idx < ROLE_ACCESS_MENUS.length - 1 ? 'border-b border-slate-50' : ''
-                }`}
+                onClick={handlers[key]}
+                className="group bg-white text-slate-800 rounded-2xl p-3 min-h-28 flex flex-col justify-between gap-3 active:scale-95 transition-all text-left"
               >
-                <div className="w-8 h-8 rounded-xl bg-[#183449]/8 flex items-center justify-center shrink-0">
-                  <Icon size={15} className="text-[#183449]" />
+                <div className="w-8 h-8 rounded-xl bg-black text-white flex items-center justify-center">
+                  <Icon size={16} />
                 </div>
-                <span className="flex-1 text-sm font-semibold text-slate-700">{menu.label}</span>
-                <ChevronRight size={15} className="text-slate-300 shrink-0" />
+                <div className="flex items-end justify-between gap-1">
+                  <span className="text-[10px] font-semibold leading-snug">{label}</span>
+                  <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                </div>
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
       )}
 
