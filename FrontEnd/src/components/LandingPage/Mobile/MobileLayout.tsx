@@ -31,13 +31,109 @@ const gedungList = [
   { key: 'le', label: 'Gedung L Elektro', base: '/denah-le', floors: [1, 2, 3, 4] },
 ];
 
-const QUOTE =
-  '“Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.”';
+type Testimonial = {
+  src: string;
+  quote: string;
+  role: string;
+  focusX: number;
+};
 
-const testimonials = [1, 2, 3, 4, 5].map((n) => ({
-  src: `/SolusiMasalah/${n}.png`,
-  quote: QUOTE,
-}));
+/* Data testimoni disamakan persis dengan versi Web&Tab */
+const testimonials: Testimonial[] = [
+  {
+    src: '/SolusiMasalah/1.png',
+    role: 'PJ Kelas',
+    focusX: 50,
+    quote:
+      '\u201cDulu harus keliling gedung cuma buat cari ruang kosong. Sekarang tinggal buka SiRuang dan langsung tahu mana yang tersedia.\u201d',
+  },
+  {
+    src: '/SolusiMasalah/2.png',
+    role: 'Dosen',
+    focusX: 48,
+    quote:
+      '\u201cMau jadwalkan kelas pengganti? Saya cek dulu ruang yang kosong, jadi tidak lagi bentrok dengan kelas lain.\u201d',
+  },
+  {
+    src: '/SolusiMasalah/3.png',
+    role: 'Mahasiswa',
+    focusX: 45,
+    quote:
+      '\u201cCukup dari HP, saya bisa cek ruangan untuk kerja kelompok atau belajar tanpa harus keliling kampus.\u201d',
+  },
+  {
+    src: '/SolusiMasalah/4.png',
+    role: 'Admin Akademik',
+    focusX: 38,
+    quote:
+      '\u201cPengajuan ruangan kini tercatat rapi di satu tempat, tidak ada lagi jadwal ganda atau info yang simpang siur.\u201d',
+  },
+  {
+    src: '/SolusiMasalah/5.png',
+    role: 'Ketua Organisasi',
+    focusX: 50,
+    quote:
+      '\u201cBooking ruangan untuk rapat dan acara jadi jauh lebih cepat. Pilih tanggal dan jam, ajukan, lalu tunggu konfirmasi.\u201d',
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  OVERRIDE KHUSUS MOBILE (hanya aktif selama MobileLayout dirender)  */
+/* ------------------------------------------------------------------ */
+
+const MOBILE_OVERRIDE_CSS = `
+/* ===== NAVBAR: logo pindah ke kanan (tombol MENU tetap di kiri) ===== */
+.mobile-landing header a[aria-label^="SiRuang"]{
+  left:auto !important;
+  right:16px !important;
+  --tw-translate-x:0px !important;
+  translate:0 -50% !important;
+  transform:none !important;
+}
+
+/* ===== LOADING PAGE: susunan sama seperti web, tinggal diperkecil ===== */
+.pl-root .pl-content{
+  gap:clamp(28px,6vh,52px);
+  padding:0 10px;
+}
+.pl-root .pl-title{
+  font-size:clamp(11px,3.3vw,15px);
+  letter-spacing:.16em;
+  padding-left:.16em;
+}
+.pl-root .pl-row{
+  display:flex;
+  align-items:center;
+  width:100%;
+  gap:4px;
+}
+.pl-root .pl-pct{
+  flex:none;
+  width:3.3ch;
+  font-size:clamp(9px,2.8vw,12px);
+  grid-column:auto;
+  grid-row:auto;
+}
+.pl-root .pl-bar{
+  flex:1 1 0;
+  min-width:0;
+  width:auto;
+  grid-column:auto;
+  grid-row:auto;
+}
+.pl-root .pl-logo{
+  flex:none;
+  grid-column:auto;
+  grid-row:auto;
+  justify-self:auto;
+  width:clamp(46px,15vw,64px);
+  max-width:none;
+  top:-0.5vw;
+}
+.pl-root .pl-status{
+  font-size:clamp(12px,3.6vw,15px);
+}
+`;
 
 /* ------------------------------------------------------------------ */
 /*  CAROUSEL CONFIG (canvas 358 x 340, diskalakan sesuai lebar layar) */
@@ -97,7 +193,6 @@ function useFitScale(designWidth: number, max = 1.2) {
 
 function TestimonialCarousel() {
   const [active, setActive] = useState(0);
-  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
   const { ref, scale } = useFitScale(CANVAS_W);
   const n = testimonials.length;
   const half = Math.floor(n / 2);
@@ -158,10 +253,12 @@ function TestimonialCarousel() {
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
-                    className="h-full w-full object-cover object-top"
+                    className="h-full w-full object-cover"
+                    style={{ objectPosition: `${item.focusX}% top` }}
                   />
                 </div>
 
+                {/* Quote teks */}
                 <p
                   className={`absolute text-[12px] font-medium leading-4.75 text-black transition-opacity ease-in-out ${
                     isActive
@@ -171,6 +268,18 @@ function TestimonialCarousel() {
                   style={{ left: 14, top: 192, width: 162 }}
                 >
                   {item.quote}
+                </p>
+
+                {/* Role teks (sama seperti versi web) */}
+                <p
+                  className={`absolute text-[11px] font-semibold text-[#1C1C1C] transition-opacity ease-in-out ${
+                    isActive
+                      ? 'opacity-100 duration-500 delay-500'
+                      : 'pointer-events-none opacity-0 duration-200'
+                  }`}
+                  style={{ left: 14, bottom: 14, width: 162 }}
+                >
+                  &mdash; {item.role}
                 </p>
               </div>
             );
@@ -239,38 +348,55 @@ export default function MobileLayout() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className={`${jakarta.className} w-full overflow-x-hidden bg-white text-black`}>
+    <div className={`mobile-landing ${jakarta.className} w-full overflow-x-hidden bg-white text-black`}>
+      <style>{MOBILE_OVERRIDE_CSS}</style>
+
       {/* ---------------- NAVBAR ---------------- */}
       <Navbar variant="mobile" />
 
       {/* ---------------- HERO ---------------- */}
       <section className="mt-18 px-4">
+        {/* flex-col: gedung & teks disusun berurutan (bukan absolute), jadi tidak bisa tumpang tindih */}
         <Reveal
           mode="load"
           y={28}
           scale={0.985}
           duration={0.9}
-          className="relative rounded-[28px] px-6 pb-8 pt-57.5"
+          className="relative flex flex-col rounded-[28px] px-6 pb-8"
           style={{ background: 'linear-gradient(90deg, #183449 0%, #588CBC 100%)' }}
         >
-          <Reveal mode="load" x={36} y={0} delay={0.4} duration={0.95} className="absolute right-0 -top-16 aspect-617/745 w-[62%]">
-            <Image
-              src="/Landing/GedungSFD.png"
-              alt="Gedung SFD"
-              width={617}
-              height={745}
-              priority
-              className="h-full w-full rounded-br-[28px] object-cover"
-            />
-          </Reveal>
+          {/* baris atas: judul di kiri, gedung di kanan (nongol keluar dari sisi atas card) */}
+          <div className="flex items-end gap-3">
+            <Reveal mode="load" y={20} delay={0.35} className="min-w-0 flex-1 pb-1 text-[#FCFCFC]">
+              <span className="block text-[22px] font-bold leading-[1.15]">
+                Selamat Datang Di
+              </span>
+              <span className={`${fasthand.className} mt-1 block text-[40px] font-normal leading-tight`}>
+                SiRuang
+              </span>
+            </Reveal>
 
-          <Reveal mode="load" y={20} delay={0.35} className="text-[#FCFCFC]">
-            <span className="block text-[24px] font-bold leading-tight">Selamat Datang Di</span>
-            <span className={`${fasthand.className} block text-[42px] font-normal leading-tight mt-1`}>SiRuang</span>
-          </Reveal>
+            <Reveal
+              mode="load"
+              x={36}
+              y={0}
+              delay={0.4}
+              duration={0.95}
+              className="relative -mr-6 -mt-16 aspect-617/745 w-[50%] shrink-0"
+            >
+              <Image
+                src="/Landing/GedungSFD.png"
+                alt="Gedung SFD"
+                width={617}
+                height={745}
+                priority
+                className="h-full w-full rounded-br-[28px] object-cover"
+              />
+            </Reveal>
+          </div>
 
-          <Reveal as="p" mode="load" y={20} delay={0.47} className="mt-3.5 text-[15px] leading-6 text-[#FCFCFC]">
-           Butuh ruangan sekarang? Cek slot kosong dan langsung booking sementara tanpa takut nabrak jadwal akademik kampus.
+          <Reveal as="p" mode="load" y={20} delay={0.47} className="mt-5 text-[15px] leading-6 text-[#FCFCFC]">
+            Butuh ruangan sekarang? Cek slot kosong dan langsung booking sementara tanpa takut nabrak jadwal akademik kampus.
           </Reveal>
         </Reveal>
       </section>
@@ -279,12 +405,12 @@ export default function MobileLayout() {
       <section data-nav-tone="light" id="data-real-time" className="mt-16 px-4">
         <Reveal as="h2" y={20} className="text-center text-[30px] font-semibold leading-10">Data Real-Time</Reveal>
         <Reveal as="p" y={20} delay={0.08} className="mt-3 text-center text-[15px] leading-6">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-          incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
+          Pantau ketersediaan ruangan di seluruh gedung kampus secara langsung.
+          Semua data diperbarui otomatis, tanpa perlu refresh manual.
         </Reveal>
 
-        {/* tombol gedung (geser ke samping kalau layar sempit) */}
-        <Reveal y={20} delay={0.14} className="-mx-4 mt-6 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* tombol gedung: 3 kolom sama lebar, tidak bisa digeser, semua langsung kelihatan */}
+        <Reveal y={20} delay={0.14} className="mt-6 grid w-full grid-cols-3 gap-2">
           {gedungList.map((g) => {
             const isActive = g.key === activeKey;
             return (
@@ -293,7 +419,7 @@ export default function MobileLayout() {
                 type="button"
                 onClick={() => handleSelectGedung(g.key as 'sfd' | 'ls' | 'le')}
                 aria-pressed={isActive}
-                className={`h-12 shrink-0 rounded-xl px-6 text-[15px] font-semibold transition-colors duration-300 ${
+                className={`flex h-12 min-w-0 items-center justify-center rounded-xl px-1.5 text-center text-[13px] font-semibold leading-tight transition-colors duration-300 ${
                   isActive
                     ? 'bg-[#1C1C1C] text-white'
                     : 'border border-[#1C1C1C] bg-transparent text-black'
@@ -407,17 +533,17 @@ export default function MobileLayout() {
 
         <Reveal delay={0.1} className="relative z-10 mt-6">
           <p className="text-[15px] font-semibold leading-7 text-[#B8B8B8]">
-            Lorem Ipsum dolor sit
+            Akses dari mana saja, kapan saja
           </p>
           <h2 className="mt-1 text-[30px] font-semibold leading-10">Responsive Website</h2>
           <p className="mt-3 text-[15px] leading-6">
             SiRuang dirancang responsif sehingga nyaman diakses dari ponsel maupun laptop. PJ kelas bisa mengecek status ruangan dari rumah atau saat di perjalanan, tanpa harus datang ke kampus hanya untuk memastikan ruangan kosong. Tidak perlu instal aplikasi tambahan, cukup buka lewat browser.
           </p>
           <Link
-            href="#"
+            href={LOGIN_HREF}
             className="mt-6 flex h-12 w-40 items-center justify-center rounded-xl bg-[#1C1C1C] text-[16px] font-semibold text-white active:opacity-80"
           >
-            Lorem ipsum
+            Mulai Sekarang
           </Link>
         </Reveal>
       </section>
@@ -425,7 +551,7 @@ export default function MobileLayout() {
       {/* ---------------- MASALAH YANG DISELESAIKAN ---------------- */}
       <section data-nav-tone="dark" className="mt-16 bg-[#1C1C1C] px-4 pb-16 pt-14">
         <Reveal as="p" y={16} className="text-center text-[14px] leading-6 text-[#E3E3E3]">
-          Lorem Ipsum dolor sit
+          Pengalaman nyata dari pengguna SiRuang
         </Reveal>
         <Reveal as="h2" y={20} delay={0.08} className="mt-1 text-center text-[28px] font-semibold leading-9 text-white">
           Masalah yang Diselesaikan

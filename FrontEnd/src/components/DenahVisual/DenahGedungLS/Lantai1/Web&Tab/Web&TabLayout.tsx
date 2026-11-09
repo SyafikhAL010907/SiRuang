@@ -1,154 +1,135 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+/**
+ * Denah Gedung LE - Lantai 1
+ * WEB & TAB VIEW — tema Charcoal Noir
+ *
+ * Alur pengguna: Denah → Jadwal → Fasilitas → Lokasi (denah lagi) → Booking
+ *
+ * Isi file ini: peta interaktif + legenda + daftar ruangan, langkah Lokasi, popup RoomFlow, dan LePage.
+ */
 
-// ============================================================================
-// 1. DATA RUANGAN & TIPE - LANTAI 1
-// ============================================================================
-export type Hari = 'Senin' | 'Selasa' | 'Rabu' | 'Kamis' | 'Jumat' | 'Sabtu' | 'Minggu';
-export type RoomCode =
-  | 'R107'
-  | 'RUANG_DOSEN'
-  | 'R102'
-  | 'R101'
-  | 'LAB_PNEUMATIK_HIDROLIK'
-  | 'LAB_PERANCANGAN'
-  | 'LAB_GAMBAR_TEKNIK'
-  | 'R106'
-  | 'LAB_BENGKEL_MEKANIK_LISTRIK';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
+import { DenahL1LE, boxFokus, useAnimatedBox } from '../DenahL1LE/DenahL1LE';
+import {
+  NOMOR_LANTAI,
+  LANTAI_LABEL,
+  RUANGAN,
+  cariRuangan,
+  statusHari,
+  useHariIni,
+  JadwalStep,
+  FOCUS,
+  BTN_UTAMA,
+  BTN_TEPI,
+  FONT,
+  SfdStyle,
+} from '../Jadwal/Jadwal';
+import type { Ruangan } from '../Jadwal/Jadwal';
+import { FasilitasStep, PilihanRuangan, penjelasanFasilitas } from '../Fasilitas/Fasilitas';
+import { BookingStep } from '../Booking/Booking';
+import { LokasiStep, Lokasi } from '../LokasiRuangan/Lokasi';
+import { MODEL_3D, MODEL_RUANGAN, Slot3D } from '../3D/3DRoom';
 
-export const URUTAN_HARI: Hari[] = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-export const HARI_DARI_INDEX: Hari[] = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+// Re-exports untuk kompatibilitas import di berbagai halaman
+export type { Hari, Jadwal } from '../Jadwal/Jadwal';
+export {
+  URUTAN_HARI,
+  HARI_DARI_INDEX,
+  HARI_KERJA,
+  JAM_BUKA,
+  JAM_TUTUP,
+  NOMOR_LANTAI,
+  FOTO_SEMENTARA,
+  RUANGAN,
+  cariRuangan,
+  fotoRuangan,
+  slotKosong,
+  statusHari,
+  useHariIni,
+  SfdStyle,
+} from '../Jadwal/Jadwal';
+export { penjelasanFasilitas, PilihanRuangan } from '../Fasilitas/Fasilitas';
+export { MODEL_3D, MODEL_RUANGAN, Slot3D, Ruang102LE } from '../3D/3DRoom';
+export { DenahL1LE, FloorPlanSvg } from '../DenahL1LE/DenahL1LE';
+export { LokasiStep, Lokasi } from '../LokasiRuangan/Lokasi';
+export type { Ruangan } from '../Jadwal/Jadwal';
 
-export type Jadwal = { hari: Hari; mulai: string; selesai: string; kegiatan: string; kelas: string; prodi: string; dosen: string; pj: string; kontak: string; };
-export type RoomInfo = { kode: RoomCode; nama: string; bookable: boolean; kapasitas?: number; keterangan?: string; fasilitas: string[]; jadwal: Jadwal[]; };
+// ROOMS map untuk kompatibilitas dengan page `[ruang]` lama
+export const ROOMS: Record<string, Ruangan> = RUANGAN.reduce((acc, r) => {
+  acc[r.kode] = r;
+  return acc;
+}, {} as Record<string, Ruangan>);
+export const BOOKABLE_ROOMS = RUANGAN.filter((r) => r.bookable);
 
-const j = (hari: Hari, mulai: string, selesai: string, kegiatan: string, kelas: string, prodi: string, dosen: string, pj: string, kontak: string): Jadwal =>
-  ({ hari, mulai, selesai, kegiatan, kelas, prodi, dosen, pj, kontak });
+const BG_GEDUNG = '/GedungLElektro/GedungLElektro.png';
+const LOGO_SIRUANG = '/LogoSiRuangDatar.png';
+const BG_BATIK = '/Batik.png';
 
-const PTM = 'Pendidikan Teknik Mesin';
-const PTE = 'Pendidikan Teknik Elektro';
+// Tombol tema terang
+const BTN_TERANG_UTAMA =
+  'rounded-full bg-[#111111] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40';
+const BTN_TERANG_TEPI =
+  'rounded-full border border-[#2B2B2B] bg-white px-6 py-2.5 text-sm font-bold text-[#2B2B2B] transition hover:bg-[#E0E0E0]';
 
-// DATA DI BAWAH INI DUMMY - ganti dengan data asli / fetch API
-export const ROOMS: Record<RoomCode, RoomInfo> = {
-  // ===== KODE RUANGAN: R101 - R. 101 Kuliah =====
-  R101: {
-    kode: 'R101', nama: 'R. 101 Kuliah', bookable: true, kapasitas: 40, fasilitas: ['AC (2 Unit)', 'Proyektor', 'Whiteboard'],
-    jadwal: [
-      j('Senin', '08:00', '10:30', 'Mekanika Teknik', 'PTM-1A', PTM, 'Pak Hadi, M.T.', 'Rangga', '0812-1010-0001'),
-      j('Selasa', '10:00', '12:30', 'Termodinamika', 'PTM-2A', PTM, 'Bu Wulan, M.T.', 'Dina', '0812-1010-0002'),
-      j('Rabu', '13:00', '15:30', 'Fisika Teknik', 'PTE-1A', PTE, 'Bu Susi, M.Si.', 'Andi', '0812-1010-0003'),
-      j('Kamis', '08:00', '10:30', 'Matematika Teknik', 'PTM-1B', PTM, 'Pak Yoga, M.Si.', 'Salsa', '0812-1010-0004'),
-      j('Jumat', '13:30', '16:00', 'Kewirausahaan', 'GABUNGAN', 'Fakultas Teknik', 'Tim Dosen FT', 'Admin Gedung', '0812-0000-0000'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: R102 - R. 102 Kuliah (ruang besar, kapasitas 2 kelas) =====
-  R102: {
-    kode: 'R102', nama: 'R. 102 Kuliah', bookable: true, kapasitas: 80,
-    keterangan: 'Ruang besar, bisa dipakai untuk 2 kelas sekaligus.',
-    fasilitas: ['AC (4 Unit)', 'Proyektor (2 Unit)', 'Sound System', 'Whiteboard (2 Unit)'],
-    jadwal: [
-      j('Senin', '10:00', '12:30', 'Pengantar Teknik', 'PTM-1A + PTM-1B', PTM, 'Pak Hadi, M.T.', 'Rangga', '0812-1020-0001'),
-      j('Rabu', '08:00', '12:00', 'Workshop Kewirausahaan', 'GABUNGAN', 'Fakultas Teknik', 'Tim Dosen FT', 'Admin Gedung', '0812-0000-0000'),
-      j('Kamis', '13:00', '15:30', 'Kuliah Umum K3', 'PTE-1A + PTE-1B', PTE, 'Pak Bambang, M.T.', 'Lina', '0812-1020-0002'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: LAB_PNEUMATIK_HIDROLIK - Lab Pneumatik Hidrolik =====
-  LAB_PNEUMATIK_HIDROLIK: {
-    kode: 'LAB_PNEUMATIK_HIDROLIK', nama: 'Lab Pneumatik Hidrolik', bookable: true, kapasitas: 30,
-    fasilitas: ['Trainer Pneumatik', 'Trainer Hidrolik', 'Kompresor', 'Proyektor'],
-    jadwal: [
-      j('Selasa', '08:00', '11:00', 'Praktikum Pneumatik', 'PTM-3A', PTM, 'Pak Eko, M.T.', 'Reza', '0812-1030-0001'),
-      j('Kamis', '13:00', '16:00', 'Praktikum Hidrolik', 'PTM-3B', PTM, 'Pak Eko, M.T.', 'Keysha', '0812-1030-0002'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: LAB_PERANCANGAN - Lab Perancangan =====
-  LAB_PERANCANGAN: {
-    kode: 'LAB_PERANCANGAN', nama: 'Lab Perancangan', bookable: true, kapasitas: 30,
-    fasilitas: ['AC', 'PC Desain (30 Unit)', 'Software CAD/CAM', 'Proyektor'],
-    jadwal: [
-      j('Senin', '13:00', '16:00', 'Perancangan Elemen Mesin', 'PTM-3A', PTM, 'Bu Wulan, M.T.', 'Dimas', '0812-1040-0001'),
-      j('Rabu', '09:00', '12:00', 'CAD/CAM', 'PTM-2B', PTM, 'Pak Hadi, M.T.', 'Siti', '0812-1040-0002'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: LAB_GAMBAR_TEKNIK - Lab Gambar Teknik =====
-  LAB_GAMBAR_TEKNIK: {
-    kode: 'LAB_GAMBAR_TEKNIK', nama: 'Lab Gambar Teknik', bookable: true, kapasitas: 30,
-    fasilitas: ['Meja Gambar (30 Unit)', 'AC', 'Proyektor', 'Rak Penyimpanan Gambar'],
-    jadwal: [
-      j('Selasa', '13:00', '16:00', 'Gambar Teknik', 'PTM-1A', PTM, 'Pak Yoga, M.T.', 'Rafif', '0812-1050-0001'),
-      j('Jumat', '08:00', '11:00', 'Gambar Teknik Lanjut', 'PTM-2A', PTM, 'Pak Yoga, M.T.', 'Lina', '0812-1050-0002'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: R106 - R. 106 Kuliah =====
-  R106: {
-    kode: 'R106', nama: 'R. 106 Kuliah', bookable: true, kapasitas: 40, fasilitas: ['AC', 'Proyektor', 'Whiteboard'],
-    jadwal: [
-      j('Senin', '08:00', '10:30', 'Fisika Dasar', 'PTE-1A', PTE, 'Bu Susi, M.Si.', 'Andi', '0812-1060-0001'),
-      j('Kamis', '15:00', '17:00', 'Rangkaian Listrik', 'PTE-2A', PTE, 'Pak Bambang, M.T.', 'Budi', '0812-1060-0002'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: R107 - R. 107 Kuliah =====
-  R107: {
-    kode: 'R107', nama: 'R. 107 Kuliah', bookable: true, kapasitas: 40, fasilitas: ['AC (2 Unit)', 'Proyektor', 'Whiteboard'],
-    jadwal: [
-      j('Selasa', '08:00', '10:30', 'Kimia Teknik', 'PTM-1B', PTM, 'Bu Ratna, M.Si.', 'Revario', '0812-1070-0001'),
-    ],
-  },
-
-  // ===== KODE RUANGAN: RUANG_DOSEN - Ruang Dosen (gabungan bekas toilet) =====
-  RUANG_DOSEN: {
-    kode: 'RUANG_DOSEN', nama: 'Ruang Dosen', bookable: false, keterangan: 'Ruang khusus dosen.',
-    fasilitas: ['AC', 'Meja Kerja Dosen', 'WiFi', 'Printer'],
-    jadwal: [],
-  },
-
-  // ===== KODE RUANGAN: LAB_BENGKEL_MEKANIK_LISTRIK - Lab Bengkel Mekanik dan Instalasi Listrik =====
-  LAB_BENGKEL_MEKANIK_LISTRIK: {
-    kode: 'LAB_BENGKEL_MEKANIK_LISTRIK', nama: 'Lab Bengkel Mekanik Dan Instalasi Listrik', bookable: true, kapasitas: 30,
-    fasilitas: ['Mesin Bubut', 'Mesin Frais', 'Panel Instalasi Listrik', 'Alat K3', 'Ventilasi Industri'],
-    jadwal: [
-      j('Senin', '09:00', '12:00', 'Praktikum Proses Manufaktur', 'PTM-2A', PTM, 'Pak Eko, M.T.', 'Rafif', '0812-1090-0001'),
-      j('Rabu', '13:00', '16:00', 'Praktikum Instalasi Listrik', 'PTE-2B', PTE, 'Pak Bambang, M.T.', 'Siti', '0812-1090-0002'),
-    ],
-  },
-};
-
-export const BOOKABLE_ROOMS = Object.values(ROOMS).filter(r => r.bookable);
-
-// ============================================================================
-// 2. KOMPONEN DENAH SVG (GEDUNG LE - LANTAI 1)
-// ============================================================================
-// ============================================================================
-// 2. KOMPONEN DENAH SVG (GEDUNG LS - LANTAI 1) - Diimpor dari DenahL1LS/DenahL1LS.tsx
-// ============================================================================
-export { DenahL1LS, FloorPlanSvg } from '../DenahL1LS/DenahL1LS';
-import { DenahL1LS, FloorPlanSvg } from '../DenahL1LS/DenahL1LS';
-
-export function FloorPlanLegend({ className = '' }: { className?: string }) {
-  const item = 'flex items-center gap-2 text-xs font-medium text-slate-500';
+export function Legenda({ className = '' }: { className?: string }) {
   return (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${className}`}>
-      <span className={item}><i className="h-3 w-3 rounded-sm border border-slate-400 bg-white" /> Bisa dibooking</span>
-      <span className={item}><i className="h-3 w-3 rounded-sm border border-slate-400 bg-slate-100" /> Tidak bisa dibooking</span>
-      <span className={item}><i className="h-3 w-3 rounded-sm border border-sky-600 bg-sky-200" /> Dipilih</span>
+    <div
+      className={`flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] md:text-xs font-bold text-white ${className}`}
+    >
+      <span className="flex items-center gap-2">
+        <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-white" />
+        Kelas Kosong
+      </span>
+      <span className="flex items-center gap-2">
+        <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#FFEB3B]" />
+        Kelas dalam Pengajuan
+      </span>
+      <span className="flex items-center gap-2">
+        <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#E53935]" />
+        Kelas Dipakai
+      </span>
+      <span className="flex items-center gap-2">
+        <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#757575]" />
+        Fasilitas Umum
+      </span>
     </div>
   );
 }
 
-export function DaftarRuangan({ selected, onSelect, grid = false }: any) {
+export function DaftarRuangan({
+  selected,
+  onSelect,
+  grid = false,
+}: {
+  selected: string | null;
+  onSelect: (k: string) => void;
+  grid?: boolean;
+}) {
   return (
-    <ul className={grid ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}>
-      {Object.values(ROOMS).map((r) => (
+    <ul className={grid ? 'grid grid-cols-2 gap-2 lg:grid-cols-4' : 'flex flex-col gap-2'}>
+      {RUANGAN.map((r) => (
         <li key={r.kode}>
-          <button onClick={() => onSelect(r.kode)} className={`flex w-full items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${selected === r.kode ? 'border-sky-500 bg-sky-50 text-sky-800 shadow-sm' : 'border-slate-100 bg-white text-slate-700 hover:border-slate-200 hover:bg-slate-50'}`}>
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${r.bookable ? 'bg-sky-500 shadow-sm shadow-sky-400' : 'bg-slate-300'}`} /> <span className="truncate">{r.nama}</span>
+          <button
+            onClick={() => onSelect(r.kode)}
+            className={`flex w-full items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm font-semibold transition ${FOCUS} ${
+              selected === r.kode
+                ? 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]'
+                : 'border-[#565656] text-[#E0E0E0] hover:border-[#B3B3B3] hover:bg-[#565656]/40'
+            }`}
+          >
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                r.bookable
+                  ? selected === r.kode
+                    ? 'bg-[#2B2B2B]'
+                    : 'bg-[#E0E0E0]'
+                  : 'border border-[#848484]'
+              }`}
+            />
+            <span className="truncate">{r.nama}</span>
           </button>
         </li>
       ))}
@@ -157,193 +138,418 @@ export function DaftarRuangan({ selected, onSelect, grid = false }: any) {
 }
 
 // ============================================================================
-// 3. UI POP-UP PREMIUM (BOOKING, JADWAL, FASILITAS)
+// PETA INTERAKTIF — tanda hover + zoom saat klik
 // ============================================================================
-type Tab = 'booking' | 'jadwal' | 'fasilitas';
-const INPUT = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition-all focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/10';
-const LABEL = 'mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500';
-
-function TabBooking({ ruangan }: { ruangan: RoomInfo }) {
-  const [form, setForm] = useState({ nama: '', kontak: '', tanggal: '', mulai: '', selesai: '', keperluan: '' });
-  const [terkirim, setTerkirim] = useState(false);
-  const set = (k: keyof typeof form) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const waktuValid = form.mulai !== '' && form.selesai !== '' && form.mulai < form.selesai;
-
-  const bentrok = useMemo(() => {
-    if (!form.tanggal || !waktuValid) return [];
-    const hari = HARI_DARI_INDEX[new Date(`${form.tanggal}T00:00:00`).getDay()];
-    return ruangan.jadwal.filter((s) => s.hari === hari && form.mulai < s.selesai && form.selesai > s.mulai);
-  }, [form, waktuValid, ruangan.jadwal]);
-
-  const lengkap = form.nama.trim() !== '' && form.kontak.trim() !== '' && form.tanggal !== '' && waktuValid;
-
-  if (!ruangan.bookable) return <div className="rounded-xl bg-slate-50 p-6 text-center"><span className="mb-2 block text-3xl">🔒</span><h4 className="font-bold text-slate-800">Ruangan Terkunci</h4><p className="text-sm text-slate-500">{ruangan.keterangan}</p></div>;
-  if (terkirim) return <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-6 text-center"><span className="mb-3 block text-4xl">✅</span><h4 className="text-lg font-bold text-emerald-800">Booking Berhasil Diajukan!</h4><p className="mt-2 text-sm text-emerald-700"><strong>{ruangan.nama}</strong><br />{form.tanggal} | {form.mulai} – {form.selesai}</p><button onClick={() => setTerkirim(false)} className="mt-5 w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700">Booking Jadwal Lain</button></div>;
-
+function KartuRuangan({
+  ruangan,
+  onLanjut,
+  onReset,
+  compact,
+}: {
+  ruangan: Ruangan;
+  onLanjut: () => void;
+  onReset: () => void;
+  compact: boolean;
+}) {
+  const hari = useHariIni();
   return (
-    <div className="space-y-4">
-      <div><label className={LABEL}>Nama Peminjam</label><input className={INPUT} value={form.nama} onChange={set('nama')} placeholder="Masukkan nama lengkap..." /></div>
-      <div><label className={LABEL}>Kontak (WA / Akun)</label><input className={INPUT} value={form.kontak} onChange={set('kontak')} placeholder="0812xxxx / @username" /></div>
-      <div><label className={LABEL}>Tanggal Booking</label><input type="date" className={INPUT} value={form.tanggal} onChange={set('tanggal')} min={new Date().toISOString().slice(0, 10)} /></div>
-      <div className="grid grid-cols-2 gap-4">
-        <div><label className={LABEL}>Jam Mulai</label><input type="time" className={INPUT} value={form.mulai} onChange={set('mulai')} /></div>
-        <div><label className={LABEL}>Jam Selesai</label><input type="time" className={INPUT} value={form.selesai} onChange={set('selesai')} /></div>
+    <div
+      className={`sfd-in rounded-2xl bg-white p-4 text-[#2B2B2B] shadow-xl ${
+        compact ? 'mt-3' : 'absolute bottom-4 left-4 w-[min(260px,calc(100%-2rem))]'
+      }`}
+    >
+      <p className="flex items-center gap-1 text-[10px] font-semibold text-[#565656]">
+        <span aria-hidden>◂</span>
+        {ruangan.kode}
+      </p>
+      <h3 className="mt-0.5 text-base font-extrabold tracking-tight">{ruangan.nama}</h3>
+      <p className="mt-1.5 line-clamp-2 text-[10px] leading-snug text-[#565656]">
+        {ruangan.deskripsi ?? ruangan.keterangan}
+      </p>
+      <div className="mt-2.5 flex flex-wrap gap-1.5 text-[9px] font-semibold text-[#2B2B2B]">
+        {ruangan.kapasitas && (
+          <span className="rounded-full border border-[#B3B3B3] px-2 py-0.5">{ruangan.kapasitas} orang</span>
+        )}
+        <span className="rounded-full border border-[#B3B3B3] px-2 py-0.5">{statusHari(ruangan, hari)}</span>
       </div>
-      {form.mulai && form.selesai && !waktuValid && <p className="text-xs font-medium text-rose-500">⚠️ Jam selesai harus setelah jam mulai.</p>}
-      <div><label className={LABEL}>Keperluan</label><textarea className={INPUT} rows={2} value={form.keperluan} onChange={set('keperluan')} placeholder="Contoh: Praktikum pengganti..." /></div>
-
-      {bentrok.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-bold text-amber-900">⚠️ Jadwal Bentrok!</p><ul className="mt-3 space-y-3">{bentrok.map((s) => (<li key={`${s.hari}-${s.mulai}`} className="rounded-lg bg-white p-3 text-sm border border-amber-100 shadow-sm"><span className="font-bold text-slate-800">{s.kegiatan}</span> <span className="text-sky-600">({s.mulai}–{s.selesai})</span><p className="mt-1 text-xs text-slate-500">PJ: {s.pj} <span className="font-bold text-amber-700">({s.kontak})</span></p></li>))}</ul></div>
-      )}
-      <button onClick={() => setTerkirim(true)} disabled={!lengkap} className="mt-2 w-full rounded-xl bg-linear-to-r from-sky-600 to-blue-600 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:scale-[1.01] hover:shadow-lg disabled:opacity-50 disabled:pointer-events-none">{bentrok.length > 0 ? 'Ajukan Paksa' : 'Ajukan Booking Sekarang'}</button>
-    </div>
-  );
-}
-
-function TabJadwal({ ruangan }: { ruangan: RoomInfo }) {
-  const [hariAktif, setHariAktif] = useState<Hari>(HARI_DARI_INDEX[new Date().getDay()]);
-  if (ruangan.jadwal.length === 0) return <div className="rounded-xl bg-slate-50 p-6 text-center"><span className="mb-2 block text-3xl">📅</span><p className="text-sm font-medium text-slate-500">Belum ada jadwal terdaftar untuk ruangan ini.</p></div>;
-
-  const jadwalHariIni = ruangan.jadwal.filter((s) => s.hari === hariAktif).sort((a, b) => a.mulai.localeCompare(b.mulai));
-
-  return (
-    <div className="space-y-5 pb-8">
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 scrollbar-hide">
-        {URUTAN_HARI.map((h) => (
-          <button key={h} onClick={() => setHariAktif(h)} className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-all ${hariAktif === h ? 'bg-sky-600 text-white shadow-md shadow-sky-500/30' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{h}</button>
-        ))}
-      </div>
-      {jadwalHariIni.length === 0 ? <p className="rounded-xl border border-slate-100 bg-slate-50 p-6 text-center text-sm font-medium text-slate-500">Tidak ada kelas di hari {hariAktif}. Ruangan kosong! 🎉</p> : (
-        <ul className="space-y-4">
-          {jadwalHariIni.map((s) => (
-            <li key={`${s.hari}-${s.mulai}`} className="relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-sky-300 hover:shadow-md p-5 pl-6">
-              <div className="absolute bottom-0 left-0 top-0 w-2 bg-sky-500" />
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <h4 className="font-bold text-slate-800 text-base">{s.kegiatan}</h4>
-                  <p className="text-xs font-semibold text-sky-600 mt-0.5">{s.kelas} · {s.prodi}</p>
-                </div>
-                <span className="rounded-md bg-sky-100 px-2 py-1 text-xs font-black text-sky-700 shrink-0">{s.mulai} – {s.selesai}</span>
-              </div>
-              <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs text-slate-600">
-                <span className="font-semibold text-slate-400">Dosen</span><span className="font-semibold text-slate-700">{s.dosen}</span>
-                <span className="font-semibold text-slate-400">PJ Kelas</span><span className="font-semibold text-slate-700">{s.pj} <span className="text-sky-600 ml-1">({s.kontak})</span></span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function TabFasilitas({ ruangan }: { ruangan: RoomInfo }) {
-  return (
-    <div className="space-y-5">
-      {(ruangan.kapasitas || ruangan.keterangan) && (
-        <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-          {ruangan.kapasitas && <p className="font-bold text-blue-900">👥 Kapasitas Maksimal: {ruangan.kapasitas} Orang</p>}
-          {ruangan.keterangan && <p className="mt-1 text-xs text-blue-700">{ruangan.keterangan}</p>}
-        </div>
-      )}
-      <div>
-        <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Daftar Fasilitas</h4>
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {ruangan.fasilitas.map((f) => (
-            <li key={f} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-sky-200 hover:bg-sky-50/50">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-600">✔️</div><span className="text-sm font-semibold text-slate-700">{f}</span>
-            </li>
-          ))}
-        </ul>
+      <div className="mt-3 flex flex-col gap-1.5">
+        <button
+          onClick={onLanjut}
+          className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#2B2B2B] px-4 py-2 text-[11px] font-bold text-white transition hover:bg-black ${FOCUS}`}
+        >
+          Cek jadwal ruangan <span aria-hidden>→</span>
+        </button>
+        <button
+          onClick={onReset}
+          className={`w-full rounded-full border border-[#2B2B2B] bg-white px-4 py-2 text-[11px] font-bold text-[#2B2B2B] transition hover:bg-[#E0E0E0] ${FOCUS}`}
+        >
+          Denah penuh
+        </button>
       </div>
     </div>
   );
 }
 
-export function RoomPopup({ ruangan, onClose }: { ruangan: RoomInfo; onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>(ruangan.bookable ? 'booking' : 'jadwal');
-  const [isOpening, setIsOpening] = useState(false);
+export function PetaInteraktif({
+  selectedCode,
+  onSelect,
+  onLanjut,
+  compact = false,
+}: {
+  selectedCode: string | null;
+  onSelect: (kode: string | null) => void;
+  onLanjut: (kode: string) => void;
+  compact?: boolean;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ kode: string | null; x: number; y: number; w: number } | null>(null);
+  const box = useAnimatedBox(useMemo(() => boxFokus(selectedCode), [selectedCode]));
+  const vb = box.map((n) => n.toFixed(1)).join(' ');
+  const selectedRoom = selectedCode ? cariRuangan(selectedCode) : null;
+  const hovered = hover?.kode ? cariRuangan(hover.kode) : null;
 
-  useEffect(() => {
-    // Animasi muncul (Scale up / Fade In)
-    requestAnimationFrame(() => setIsOpening(true));
+  const onHover = (kode: string | null, pos: { x: number; y: number } | null) => {
+    const r = wrap.current?.getBoundingClientRect();
+    setHover({ kode, x: pos && r ? pos.x - r.left : -1, y: pos && r ? pos.y - r.top : -1, w: r?.width ?? 0 });
+  };
 
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
-    window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, []);
+  return (
+    <div className="relative">
+      {!compact && selectedRoom && (
+        <p className="absolute -top-6 right-6 text-[11px] font-medium text-white/60">
+          {LANTAI_LABEL}
+        </p>
+      )}
 
-  // Animasi hilang (Scale down / Fade Out) sebelum function onClose dipanggil
-  const handleClose = () => {
-    setIsOpening(false);
+      <div
+        ref={wrap}
+        className="relative overflow-hidden rounded-[2.5rem] border-2 border-white backdrop-blur-[2px]"
+        style={{ background: 'rgba(20,20,20,.30)' }}
+      >
+        <DenahL1LE
+          tema="gelap"
+          selectedCode={selectedCode}
+          onSelectRoom={onSelect}
+          viewBox={vb}
+          hoveredCode={hover?.kode ?? null}
+          onHoverRoom={onHover}
+          className="block h-auto w-full"
+        />
+
+        {!compact && hovered && hover && hover.x >= 0 && (
+          <div
+            className="pointer-events-none absolute z-10 rounded-2xl border border-[#848484] bg-[#2B2B2B]/90 px-5 py-3 backdrop-blur"
+            style={{
+              left: hover.x,
+              top: hover.y,
+              transform: `translate(${hover.x > hover.w - 280 ? 'calc(-100% - 18px)' : '18px'}, 18px)`,
+            }}
+          >
+            <p className="text-[11px] font-semibold tracking-widest text-[#B3B3B3]">RUANGAN</p>
+            <p className="text-lg font-extrabold leading-tight text-[#E0E0E0]">{hovered.nama}</p>
+            <p className="mt-0.5 text-xs text-[#B3B3B3]">{hovered.kode} · klik untuk zoom</p>
+          </div>
+        )}
+
+        {!compact && selectedRoom && (
+          <KartuRuangan
+            ruangan={selectedRoom}
+            compact={false}
+            onLanjut={() => onLanjut(selectedRoom.kode)}
+            onReset={() => onSelect(null)}
+          />
+        )}
+      </div>
+
+      {compact && selectedRoom && (
+        <KartuRuangan
+          ruangan={selectedRoom}
+          compact
+          onLanjut={() => onLanjut(selectedRoom.kode)}
+          onReset={() => onSelect(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// ALUR RUANGAN: Jadwal → Fasilitas → Lokasi → Booking
+// ============================================================================
+const LANGKAH = ['Denah', 'Jadwal', 'Fasilitas', 'Lokasi', 'Booking'];
+const STEP_JADWAL = 1;
+const STEP_FASILITAS = 2;
+const STEP_LOKASI = 3;
+const STEP_BOOKING = 4;
+
+export function RoomFlow({ ruangan, onClose }: { ruangan: Ruangan; onClose: () => void }) {
+  const [step, setStep] = useState(1);
+  const [maks, setMaks] = useState(1);
+  const [buka, setBuka] = useState(false);
+  const body = useRef<HTMLDivElement>(null);
+
+  const terang =
+    step === STEP_JADWAL || step === STEP_FASILITAS || step === STEP_LOKASI || step === STEP_BOOKING;
+
+  const tutup = () => {
+    setBuka(false);
     setTimeout(onClose, 300);
   };
 
-  const tombol: { id: Tab; label: string }[] = [{ id: 'booking', label: ' Booking' }, { id: 'jadwal', label: ' Jadwal' }, { id: 'fasilitas', label: ' Fasilitas' }];
+  useEffect(() => {
+    requestAnimationFrame(() => setBuka(true));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setBuka(false);
+        setTimeout(onClose, 300);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const ke = (n: number) => {
+    if (n === 0) return tutup();
+    setStep(n);
+    setMaks((m) => Math.max(m, n));
+    body.current?.scrollTo({ top: 0 });
+  };
+  const lanjutLabel = ['', 'Lanjut ke fasilitas', 'Lanjut ke lokasi', 'Lanjut ke booking'][step];
+  const garisBatas = terang ? 'border-[#E0E0E0]' : 'border-[#565656]';
 
   return (
     <div
-      className={`fixed inset-0 z-999 flex flex-col justify-end sm:items-center sm:justify-center transition-colors duration-300 ${isOpening ? 'bg-slate-900/60 backdrop-blur-sm' : 'bg-transparent backdrop-blur-none'}`}
-      onClick={handleClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${ruangan.nama}, alur ruangan`}
+      className={`fixed inset-0 z-50 flex flex-col transition-[opacity,transform,background-color,color] duration-300 ease-out ${
+        terang ? 'bg-white text-[#2B2B2B]' : 'bg-[#2B2B2B] text-[#E0E0E0]'
+      } ${buka ? 'scale-100 opacity-100' : 'scale-[1.03] opacity-0'}`}
+      style={{ fontFamily: FONT }}
     >
-      <div
-        className={`flex w-full flex-col overflow-hidden bg-white shadow-2xl transition-all duration-300 transform 
-          ${isOpening ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-20 sm:translate-y-0 sm:scale-95 opacity-0'}
-          h-[92vh] sm:h-auto sm:max-h-[90vh] sm:max-w-lg rounded-t-4xl sm:rounded-4xl`}
-        onClick={(e) => e.stopPropagation()}
+      <header
+        className={`flex items-center justify-between gap-4 border-b px-5 py-4 md:px-10 ${garisBatas} ${
+          terang ? 'bg-white' : ''
+        }`}
       >
-        <div className="relative bg-linear-to-br from-blue-600 to-sky-500 p-6 pt-10 sm:pt-8 text-white">
-          <button onClick={handleClose} className="absolute right-5 top-6 sm:top-5 rounded-full bg-white/20 p-2 text-white backdrop-blur-md transition hover:bg-white/40">✕</button>
-          <span className="mb-2 inline-block rounded-md bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wider">{ruangan.kode} · Lantai 1</span>
-          <h3 className="text-2xl font-black tracking-tight">{ruangan.nama}</h3>
+        <div className="min-w-0">
+          <p className={`text-xs font-semibold ${terang ? 'text-[#565656]' : 'text-[#B3B3B3]'}`}>
+            {ruangan.kode} · {LANTAI_LABEL}
+          </p>
+          <h2 className="truncate text-lg font-extrabold tracking-tight md:text-xl">{ruangan.nama}</h2>
         </div>
-        <div className="px-5 pt-5">
-          <div className="flex gap-1 rounded-xl bg-slate-100 p-1.5 shadow-inner">
-            {tombol.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition-all ${tab === t.id ? 'bg-white text-sky-600 shadow' : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-800'}`}>{t.label}</button>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
-          {tab === 'booking' && <TabBooking ruangan={ruangan} />} {tab === 'jadwal' && <TabJadwal ruangan={ruangan} />} {tab === 'fasilitas' && <TabFasilitas ruangan={ruangan} />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// 4. MAIN LAYOUT: WEB & TAB (TAMPILAN WEB)
-// ============================================================================
-export default function WebTabLayout() {
-  const [selectedCode, setSelectedCode] = useState<RoomCode | null>(null);
-  const selectedRoom = selectedCode ? ROOMS[selectedCode] : null;
-
-  return (
-    <div className="mx-auto w-full max-w-7xl p-4 md:p-8 bg-slate-50/50 min-h-screen">
-      <header className="mb-6">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Denah Gedung LE · Lantai 1</h2>
-        <p className="text-sm text-slate-500 mt-1 font-medium">Klik pada ruangan interaktif untuk melihat jadwal, fasilitas, atau mengajukan booking.</p>
+        <button
+          onClick={tutup}
+          aria-label="Tutup"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${FOCUS} ${
+            terang ? 'border-[#2B2B2B] hover:bg-[#E0E0E0]' : 'border-[#848484] hover:border-[#E0E0E0]'
+          }`}
+        >
+          ✕
+        </button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm">
-          <div className="mb-5"><FloorPlanLegend /></div>
-          <div className="overflow-x-auto scrollbar-hide">
-            <FloorPlanSvg selectedCode={selectedCode} onSelectRoom={(c) => setSelectedCode(c as RoomCode)} className="block h-auto w-full min-w-175" />
-          </div>
-        </section>
+      <nav aria-label="Langkah" className={`border-b px-5 py-3 md:px-10 ${garisBatas} ${terang ? 'bg-white' : ''}`}>
+        <ol className="mx-auto flex max-w-3xl items-center">
+          {LANGKAH.map((l, i) => {
+            const selesai = i < step,
+              aktif = i === step,
+              bisa = i <= maks;
+            const warnaTeks = aktif
+              ? terang
+                ? 'text-[#2B2B2B]'
+                : 'text-[#E0E0E0]'
+              : bisa
+              ? terang
+                ? 'text-[#565656] hover:text-[#2B2B2B]'
+                : 'text-[#B3B3B3] hover:text-[#E0E0E0]'
+              : terang
+              ? 'text-[#B3B3B3]'
+              : 'text-[#848484]';
+            const warnaBulat = aktif
+              ? terang
+                ? 'border-[#0D0D0D] bg-[#0D0D0D] text-white'
+                : 'border-[#E0E0E0] bg-[#E0E0E0] text-[#2B2B2B]'
+              : selesai
+              ? terang
+                ? 'border-[#2B2B2B] text-[#2B2B2B]'
+                : 'border-[#B3B3B3] text-[#E0E0E0]'
+              : terang
+              ? 'border-[#B3B3B3]'
+              : 'border-[#565656]';
+            const warnaGaris =
+              i < step
+                ? terang
+                  ? 'bg-[#2B2B2B]'
+                  : 'bg-[#B3B3B3]'
+                : terang
+                ? 'bg-[#D0D0D0]'
+                : 'bg-[#565656]';
+            return (
+              <React.Fragment key={l}>
+                <li>
+                  <button
+                    onClick={() => bisa && ke(i)}
+                    disabled={!bisa}
+                    aria-current={aktif ? 'step' : undefined}
+                    className={`flex items-center gap-2 rounded-full py-1 pr-1 text-xs font-bold transition md:pr-3 ${FOCUS} ${warnaTeks}`}
+                  >
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs ${warnaBulat}`}>
+                      {selesai ? '✓' : i + 1}
+                    </span>
+                    <span className="hidden sm:inline">{l}</span>
+                  </button>
+                </li>
+                {i < LANGKAH.length - 1 && <span className={`mx-1 h-px flex-1 ${warnaGaris}`} />}
+              </React.Fragment>
+            );
+          })}
+        </ol>
+      </nav>
 
-        <aside className="rounded-3xl border border-slate-200/60 bg-white p-5 shadow-sm lg:self-start">
-          <h3 className="mb-4 px-1 text-sm font-bold text-slate-800 uppercase tracking-wider">Daftar Ruangan</h3>
-          <DaftarRuangan selected={selectedCode} onSelect={(c: any) => setSelectedCode(c)} />
-        </aside>
+      <div
+        ref={body}
+        className="flex-1 overflow-y-auto px-5 py-8 md:px-10"
+        style={
+          terang
+            ? {
+                backgroundColor: '#FFFFFF',
+                backgroundImage: `url('${BG_BATIK}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }
+            : undefined
+        }
+      >
+        <div key={step} className="sfd-in mx-auto max-w-6xl">
+          {step === 1 && <JadwalStep ruangan={ruangan} tema="terang" />}
+          {step === 2 && <FasilitasStep ruangan={ruangan} tema="terang" />}
+          {step === 3 && <LokasiStep ruangan={ruangan} />}
+          {step === 4 && <BookingStep ruangan={ruangan} tema="terang" />}
+        </div>
       </div>
 
-      {selectedRoom && <RoomPopup key={selectedRoom.kode} ruangan={selectedRoom} onClose={() => setSelectedCode(null)} />}
+      <footer
+        className={`flex items-center justify-between gap-3 border-t px-5 py-4 md:px-10 ${garisBatas} ${
+          terang ? 'bg-white' : ''
+        }`}
+      >
+        <button onClick={() => ke(step - 1)} className={terang ? BTN_TERANG_TEPI : BTN_TEPI}>
+          {step === 1 ? 'Kembali ke denah' : 'Kembali'}
+        </button>
+        {step < 4 && (
+          <button
+            onClick={() => ke(step + 1)}
+            disabled={step === 3 && !ruangan.bookable}
+            className={terang ? BTN_TERANG_UTAMA : BTN_UTAMA}
+          >
+            {step === 3 && !ruangan.bookable ? 'Tidak bisa dibooking' : lanjutLabel}
+          </button>
+        )}
+      </footer>
     </div>
   );
 }
-  
+
+// ============================================================================
+// HALAMAN UTAMA: LE PAGE
+// ============================================================================
+export function LePage({ compact = false }: { compact?: boolean }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [flow, setFlow] = useState<string | null>(null);
+  const jumlah = RUANGAN.filter((r) => r.bookable).length;
+
+  const fakta = [
+    { v: `${jumlah} ruangan`, d: 'Laboratorium, bengkel mekanik, dan ruang kuliah yang bisa dibooking di lantai 1.' },
+    { v: '08.00–17.00', d: 'Jam operasional perkuliahan & praktikum Senin sampai Jumat. Sabtu dan Minggu tutup.' },
+    { v: 'Koridor Tengah', d: 'Titik "You are here" berada di koridor tengah lantai 1, di depan Lab Perancangan.' },
+  ];
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#111111] text-white antialiased" style={{ fontFamily: FONT }}>
+      <SfdStyle />
+
+      {/* Latar belakang foto gedung + overlay gelap */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url('${BG_GEDUNG}')` }}
+      />
+      <div aria-hidden className="absolute inset-0 bg-black/75" />
+
+      {/* Header */}
+      <header className="fixed inset-x-0 top-0 z-30 grid h-20 grid-cols-3 items-center border-b border-white/70 bg-[#111111]/90 px-6 backdrop-blur-md md:h-24 md:px-12">
+        <span className="text-lg font-bold tracking-tight text-white md:text-2xl lg:text-[26px]">Gedung L Elektro</span>
+        <span className="flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={LOGO_SIRUANG}
+            alt="SiRuang"
+            className="h-11 w-auto select-none object-contain md:h-14 lg:h-16"
+            draggable={false}
+          />
+        </span>
+        <span className="text-right text-lg font-bold tracking-tight text-white md:text-2xl lg:text-[26px]">
+          Lantai {NOMOR_LANTAI}
+        </span>
+      </header>
+
+      <section id="peta" className="relative z-10 flex min-h-screen items-center px-5 pb-12 pt-32 md:px-10 md:pt-36 lg:px-14">
+        <div className="grid w-full items-center gap-10 lg:grid-cols-[minmax(230px,290px)_minmax(0,1fr)_minmax(210px,260px)] lg:gap-8">
+          {/* Kiri: judul + deskripsi */}
+          <div>
+            <h1 className="text-5xl font-bold leading-none tracking-tight text-white lg:text-[56px]">
+              Lantai {NOMOR_LANTAI}
+            </h1>
+            <p className="mt-6 max-w-[260px] text-sm font-medium leading-snug text-white md:text-base">
+              Gedung L Elektro lantai 1 berisi laboratorium pneumatik hidrolik, bengkel mekanik listrik, studio gambar, lab perancangan, dan ruang kuliah. Cek jadwal dan fasilitas, lihat rute lorong, lalu ajukan booking.
+            </p>
+            <Link
+              href="/denah-le"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition-all hover:bg-white/20 hover:border-white/40 cursor-pointer"
+            >
+              <ArrowLeft size={16} />
+              Kembali ke Pilih Lantai
+            </Link>
+          </div>
+
+          {/* Tengah: peta + legenda */}
+          <div>
+            <PetaInteraktif selectedCode={selected} onSelect={setSelected} onLanjut={setFlow} compact={compact} />
+            <Legenda className="mt-5" />
+          </div>
+
+          {/* Kanan: timeline fakta */}
+          <div className="relative pl-9">
+            <div className="absolute left-[11px] top-3 bottom-3 w-px bg-white/70" />
+
+            <ul className="space-y-5">
+              {fakta.map((x) => (
+                <li key={x.v} className="relative">
+                  <span className="absolute -left-9 top-0.5 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-white/90 bg-[#1a1a1a]">
+                    <i className="h-2 w-2 rounded-full bg-[#9E9E9E]" />
+                  </span>
+                  <p className="text-lg font-bold leading-snug text-white">{x.v}</p>
+                  <p className="mt-0.5 text-xs font-medium leading-snug text-white/90">{x.d}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {flow && <RoomFlow key={flow} ruangan={cariRuangan(flow)} onClose={() => setFlow(null)} />}
+    </div>
+  );
+}
+
+// Export default
+export default function WebTabLayoutLe() {
+  return <LePage />;
+}

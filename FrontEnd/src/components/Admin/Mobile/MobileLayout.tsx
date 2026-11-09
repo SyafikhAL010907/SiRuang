@@ -18,10 +18,15 @@ import MobileDashboardView from './components/MobileDashboardView';
 import MobileChatListView from './components/MobileChatListView';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileChatRoomView from './components/MobileChatRoomView';
+import AdminProfile from '@/components/Profile/Admin/AdminProfile';
+import RoleAccessView from '../Web&Tab/components/RoleAccessView';
+import ManajemenAkunView from '../Web&Tab/components/ManajemenAkunView';
+import RelasiMataKuliahView from '../Web&Tab/components/RelasiMataKuliahView';
 
 const MobileLayout = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [view, setView] = useState<'LIST' | 'ROOM'>('LIST');
+  const [subView, setSubView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah'>('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -239,13 +244,31 @@ const MobileLayout = () => {
             {/* SCROLLABLE CONTENT AREA */}
             <main className="flex-1 overflow-y-auto px-4 relative z-10 pb-32 pt-2 scrollbar-hide">
               <AnimatePresence mode="wait">
-                {activeTab === 'home' ? (
+                {activeTab === 'home' && subView === 'dashboard' ? (
                   <MobileDashboardView
                     rooms={rooms}
                     isInfoActive={isInfoActive}
                     networkLatency={networkLatency}
                     totalUsersCount={totalUsersCount}
+                    adminName={adminName}
+                    adminGmail={adminGmail}
+                    onOpenProfile={() => setSubView('profile')}
+                    onOpenRoleAccess={() => setSubView('role-access')}
+                    onOpenManajemenAkun={() => setSubView('manajemen-akun')}
+                    onOpenRelasiMataKuliah={() => setSubView('relasi-mata-kuliah')}
                   />
+                ) : activeTab === 'home' && subView === 'profile' ? (
+                  <AdminProfile
+                    adminName={adminName}
+                    adminGmail={adminGmail}
+                    onBack={() => setSubView('dashboard')}
+                  />
+                ) : activeTab === 'home' && subView === 'role-access' ? (
+                  <RoleAccessView onBack={() => setSubView('dashboard')} />
+                ) : activeTab === 'home' && subView === 'manajemen-akun' ? (
+                  <ManajemenAkunView onBack={() => setSubView('dashboard')} />
+                ) : activeTab === 'home' && subView === 'relasi-mata-kuliah' ? (
+                  <RelasiMataKuliahView onBack={() => setSubView('dashboard')} />
                 ) : (
                   <MobileChatListView
                     filteredRooms={filteredRooms}
@@ -276,7 +299,11 @@ const MobileLayout = () => {
               showBlessModal={showBlessModal}
               setShowBlessModal={setShowBlessModal}
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={(tab) => {
+                setActiveTab(tab);
+                // Reset subView ke dashboard saat pindah ke tab home
+                if (tab === 'home') setSubView('dashboard');
+              }}
               setActiveFilter={setActiveFilter}
             />
           </motion.div>

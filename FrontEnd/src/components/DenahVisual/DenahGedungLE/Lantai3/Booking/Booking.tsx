@@ -2,69 +2,360 @@
 
 /**
  * Booking - Gedung LE Lantai 3
- * Komponen tunggal responsive (Mobile, Tablet, Desktop)
+ * Isi: form & langkah "Booking" di popup ruangan (BookingStep) dan halaman daftar booking
+ * — tema Charcoal Noir.
+ *
+ * BookingStep punya 2 tema lewat prop `tema`:
+ *   'gelap'  = Charcoal Noir (default)
+ *   'terang' = desain Figma (putih + garis hitam, di atas latar batik)
  */
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ROOMS } from '../Web&Tab/Web&TabLayout';
+import {
+  RUANGAN,
+  SfdStyle,
+  BTN_TEPI,
+  BTN_UTAMA,
+  INPUT,
+  LABEL,
+  HARI_DARI_INDEX,
+  HARI_KERJA,
+  JAM_BUKA,
+  JAM_TUTUP,
+  statusHari,
+  useHariIni,
+} from '../Jadwal/Jadwal';
+import type { Ruangan } from '../Jadwal/Jadwal';
 
-export default function Booking() {
-  const rooms = Object.values(ROOMS);
+type FormBooking = {
+  nama: string;
+  nim: string;
+  kelas: string;
+  angkatan: string;
+  prodi: string;
+  matkul: string;
+  dosen: string;
+  fakultas: string;
+  tanggal: string;
+  mulai: string;
+  selesai: string;
+};
+
+const FORM_KOSONG: FormBooking = {
+  nama: '',
+  nim: '',
+  kelas: '',
+  angkatan: '',
+  prodi: '',
+  matkul: '',
+  dosen: '',
+  fakultas: 'Fakultas Teknik',
+  tanggal: '',
+  mulai: '',
+  selesai: '',
+};
+
+const TAHUN = new Date().getFullYear();
+const ANGKATAN = Array.from({ length: 7 }, (_, i) => String(TAHUN - i));
+const PRODI = [
+  'Pendidikan Teknik Elektro',
+  'Teknik Elektro',
+  'Teknologi Informasi',
+  'Sistem Komputer',
+  'Pendidikan Vokasional',
+];
+
+const FIELD: { k: keyof FormBooking; label: string; ph: string; mode?: 'numeric' }[] = [
+  { k: 'nama', label: 'Nama', ph: 'Nama lengkap' },
+  { k: 'nim', label: 'NIM', ph: 'Contoh: 1512625004', mode: 'numeric' },
+  { k: 'kelas', label: 'Kelas', ph: 'Contoh: PTE-3A / TE-2B' },
+  { k: 'prodi', label: 'Prodi', ph: 'Pilih atau ketik prodi' },
+  { k: 'matkul', label: 'Mata kuliah', ph: 'Contoh: Multimedia Interaktif' },
+  { k: 'dosen', label: 'Dosen pengampu', ph: 'Nama dosen' },
+  { k: 'fakultas', label: 'Fakultas', ph: 'Contoh: Fakultas Teknik' },
+];
+
+export type TemaBooking = 'gelap' | 'terang';
+
+const TEMA_BOOKING = {
+  gelap: {
+    judul: '',
+    sub: 'text-sm text-[#B3B3B3]',
+    label: LABEL,
+    input: INPUT,
+    btnUtama: BTN_UTAMA,
+    btnTepi: BTN_TEPI,
+    pesan: 'font-semibold text-[#E0E0E0]',
+    kotakBentrok: 'rounded-2xl border border-[#E0E0E0] p-4',
+    listBentrok: 'mt-2 space-y-1 text-[#B3B3B3]',
+    kartuTutup: 'rounded-3xl border border-[#565656] p-8',
+    kartuOk: 'rounded-3xl border border-[#E0E0E0] p-8',
+    dt: 'text-[#B3B3B3]',
+  },
+  terang: {
+    judul: 'text-[#0D0D0D]',
+    sub: 'text-xs text-[#3A3A3A]',
+    label: 'mb-1 block text-[10px] font-bold text-[#0D0D0D]',
+    input:
+      'w-full rounded-xl border border-[#0D0D0D] bg-white px-4 py-2.5 text-xs text-[#0D0D0D] outline-none transition placeholder:text-[#9A9A9A] focus:ring-4 focus:ring-black/10 [color-scheme:light]',
+    btnUtama:
+      'inline-flex items-center justify-center gap-2 rounded-full bg-[#0D0D0D] px-6 py-3 text-sm font-bold text-white transition hover:bg-black disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]',
+    btnTepi:
+      'inline-flex items-center justify-center gap-2 rounded-full border border-[#0D0D0D] bg-white px-6 py-3 text-sm font-semibold text-[#0D0D0D] transition hover:bg-[#F0F0F0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]',
+    pesan: 'text-xs font-bold text-[#0D0D0D]',
+    kotakBentrok: 'rounded-2xl border border-[#0D0D0D] bg-white p-4',
+    listBentrok: 'mt-2 space-y-1 text-[#3A3A3A]',
+    kartuTutup: 'rounded-3xl border border-[#0D0D0D] bg-white p-8',
+    kartuOk: 'rounded-3xl border border-[#0D0D0D] bg-white p-8',
+    dt: 'text-[#3A3A3A]',
+  },
+} as const;
+
+export function BookingStep({ ruangan, tema = 'gelap' }: { ruangan: Ruangan; tema?: TemaBooking }) {
+  const T = TEMA_BOOKING[tema];
+  const terang = tema === 'terang';
+  const [f, setF] = useState<FormBooking>(FORM_KOSONG);
+  const [terkirim, setTerkirim] = useState(false);
+  const set =
+    (k: keyof FormBooking) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setF((x) => ({ ...x, [k]: e.target.value }));
+
+  const hari = f.tanggal ? HARI_DARI_INDEX[new Date(`${f.tanggal}T00:00:00`).getDay()] : null;
+  const hariOk = !hari || HARI_KERJA.includes(hari);
+  const urut = f.mulai !== '' && f.selesai !== '' && f.mulai < f.selesai;
+  const jamOk = urut && f.mulai >= JAM_BUKA && f.selesai <= JAM_TUTUP;
+  const bentrok = useMemo(
+    () =>
+      hari && urut
+        ? ruangan.jadwal.filter((s) => s.hari === hari && f.mulai < s.selesai && f.selesai > s.mulai)
+        : [],
+    [hari, urut, f.mulai, f.selesai, ruangan.jadwal]
+  );
+  const nimOk = /^\d+$/.test(f.nim.trim());
+  const lengkap =
+    FIELD.every(({ k }) => f[k].trim() !== '') &&
+    f.angkatan !== '' &&
+    f.tanggal !== '' &&
+    nimOk &&
+    hariOk &&
+    jamOk &&
+    bentrok.length === 0;
+
+  if (!ruangan.bookable) {
+    return (
+      <div className={`mx-auto max-w-md text-center ${T.kartuTutup}`}>
+        <h3 className={`text-xl font-extrabold ${T.judul}`}>Ruangan ini tidak bisa dibooking</h3>
+        <p className={`mt-2 text-sm leading-relaxed ${T.dt}`}>{ruangan.keterangan ?? 'Ruangan khusus teknisi / fasilitas umum.'}</p>
+      </div>
+    );
+  }
+
+  if (terkirim) {
+    return (
+      <div className={`sfd-in mx-auto max-w-lg ${T.kartuOk}`}>
+        <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Booking diajukan</h3>
+        <p className={`mt-2 text-sm ${T.dt}`}>Simpan ringkasan ini. Pengajuan akan ditinjau pengelola ruangan.</p>
+        <dl className={`mt-6 grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm ${terang ? 'text-[#0D0D0D]' : ''}`}>
+          {[
+            ['Ruangan', `${ruangan.kode} · ${ruangan.nama}`],
+            ['Waktu', `${hari}, ${f.tanggal} · ${f.mulai}–${f.selesai}`],
+            ['Peminjam', `${f.nama} (${f.nim})`],
+            ['Kelas', `${f.kelas} · angkatan ${f.angkatan}`],
+            ['Prodi', `${f.prodi} · ${f.fakultas}`],
+            ['Mata kuliah', `${f.matkul} · ${f.dosen}`],
+          ].map(([a, b]) => (
+            <React.Fragment key={a}>
+              <dt className={T.dt}>{a}</dt>
+              <dd className="font-semibold">{b}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+        <button
+          onClick={() => {
+            setF(FORM_KOSONG);
+            setTerkirim(false);
+          }}
+          className={`${T.btnTepi} mt-7 w-full`}
+        >
+          Booking jadwal lain
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto w-full max-w-5xl p-4 md:p-8 min-h-screen bg-slate-50/50 space-y-4 md:space-y-6">
-      <header className="rounded-2xl border border-slate-100 bg-white p-5 md:p-6 shadow-sm">
-        <Link
-          href="/denah-le/lantai3"
-          className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-sky-600 hover:text-sky-700 transition"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Kembali ke Denah Lantai 3
-        </Link>
-        <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-          Booking · Gedung LE · Lantai 3
-        </h2>
-        <p className="text-sm text-slate-500 mt-1 font-medium">
-          Daftar status booking di semua ruangan lantai 3.
-        </p>
-      </header>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {rooms.map((r) => (
-          <Link
-            key={r.kode}
-            href={`/denah-le/lantai3/${encodeURIComponent(r.kode)}`}
-            className="group flex items-center md:items-start justify-between md:flex-col rounded-2xl border border-slate-200/60 bg-white p-4 md:p-5 shadow-sm transition-all hover:border-sky-300 hover:shadow-md active:bg-slate-50"
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className={`h-3 w-3 shrink-0 rounded-full ${
-                  r.bookable ? 'bg-sky-500 shadow-sm shadow-sky-400' : 'bg-slate-300'
-                }`}
-              />
-              <div>
-                <h3 className="font-bold text-slate-800 group-hover:text-sky-700 transition-colors">
-                  {r.nama}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {r.bookable ? 'Tersedia untuk Booking' : 'Tidak Tersedia'}
-                </p>
-              </div>
-            </div>
-            <svg
-              className="h-5 w-5 text-slate-400 md:hidden shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </svg>
-          </Link>
+    <div className={`mx-auto ${terang ? 'max-w-[640px]' : 'max-w-3xl'}`}>
+      <h3 className={`text-2xl font-extrabold tracking-tight ${T.judul}`}>Booking {ruangan.nama}</h3>
+      <p className={`mt-1.5 ${T.sub}`}>
+        Semua kolom wajib diisi. Peminjaman hanya Senin–Jumat, {JAM_BUKA.replace(':', '.')}–{JAM_TUTUP.replace(':', '.')}.
+      </p>
+      <datalist id="daftar-prodi">
+        {PRODI.map((p) => (
+          <option key={p} value={p} />
         ))}
+      </datalist>
+      <div className={`grid sm:grid-cols-2 ${terang ? 'mt-5 gap-x-5 gap-y-3' : 'mt-6 gap-4'}`}>
+        {FIELD.map(({ k, label, ph, mode }) => (
+          <div key={k}>
+            <label htmlFor={`bk-${k}`} className={T.label}>
+              {label}
+            </label>
+            <input
+              id={`bk-${k}`}
+              className={T.input}
+              value={f[k]}
+              onChange={set(k)}
+              placeholder={ph}
+              inputMode={mode}
+              list={k === 'prodi' ? 'daftar-prodi' : undefined}
+              autoComplete="off"
+            />
+          </div>
+        ))}
+        <div>
+          <label htmlFor="bk-angkatan" className={T.label}>
+            Angkatan
+          </label>
+          <select id="bk-angkatan" className={T.input} value={f.angkatan} onChange={set('angkatan')}>
+            <option value="">Pilih angkatan</option>
+            {ANGKATAN.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="bk-tanggal" className={T.label}>
+            Tanggal
+          </label>
+          <input
+            id="bk-tanggal"
+            type="date"
+            className={T.input}
+            value={f.tanggal}
+            onChange={set('tanggal')}
+            min={new Date().toISOString().slice(0, 10)}
+          />
+        </div>
+        <div className={`grid grid-cols-2 sm:col-span-2 ${terang ? 'gap-x-5' : 'gap-4'}`}>
+          <div>
+            <label htmlFor="bk-mulai" className={T.label}>
+              Jam mulai
+            </label>
+            <input
+              id="bk-mulai"
+              type="time"
+              className={T.input}
+              value={f.mulai}
+              onChange={set('mulai')}
+              min={JAM_BUKA}
+              max={JAM_TUTUP}
+            />
+          </div>
+          <div>
+            <label htmlFor="bk-selesai" className={T.label}>
+              Jam selesai
+            </label>
+            <input
+              id="bk-selesai"
+              type="time"
+              className={T.input}
+              value={f.selesai}
+              onChange={set('selesai')}
+              min={JAM_BUKA}
+              max={JAM_TUTUP}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2 text-sm" role="status">
+        {f.nim && !nimOk && <p className={T.pesan}>NIM hanya boleh berisi angka.</p>}
+        {!hariOk && <p className={T.pesan}>Tanggal ini jatuh di hari {hari}. Pilih tanggal Senin sampai Jumat.</p>}
+        {f.mulai && f.selesai && !urut && <p className={T.pesan}>Jam selesai harus setelah jam mulai.</p>}
+        {urut && !jamOk && (
+          <p className={T.pesan}>
+            Waktu harus berada di antara {JAM_BUKA} dan {JAM_TUTUP}.
+          </p>
+        )}
+        {bentrok.length > 0 && (
+          <div className={T.kotakBentrok}>
+            <p className={`font-bold ${terang ? 'text-[#0D0D0D]' : ''}`}>Jadwal bentrok. Ubah jam atau tanggal.</p>
+            <ul className={T.listBentrok}>
+              {bentrok.map((s) => (
+                <li key={s.mulai}>
+                  {s.kegiatan} ({s.mulai}–{s.selesai}) · PJ {s.pj}, {s.kontak}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <button onClick={() => setTerkirim(true)} disabled={!lengkap} className={`${T.btnUtama} mt-6 w-full sm:w-auto`}>
+        Ajukan booking
+      </button>
+    </div>
+  );
+}
+
+export default function Booking() {
+  const hariIni = useHariIni();
+  const rooms = [...RUANGAN].sort((a, b) => Number(b.bookable) - Number(a.bookable));
+
+  return (
+    <div
+      className="min-h-screen bg-[#2B2B2B] text-[#E0E0E0]"
+      style={{ fontFamily: "'Montserrat', ui-sans-serif, system-ui, sans-serif" }}
+    >
+      <SfdStyle />
+      <div className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-8">
+        <header className="rounded-3xl border border-[#565656] p-5 md:p-7">
+          <Link
+            href="/denah-le/lantai3"
+            className="mb-4 inline-flex items-center gap-2 rounded-full text-sm font-bold text-[#B3B3B3] transition hover:text-[#E0E0E0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E0E0E0]"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+            Kembali ke denah lantai 3
+          </Link>
+          <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">Booking ruangan · Gedung LE · Lantai 3</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#B3B3B3]">
+            Peminjaman Senin–Jumat, {JAM_BUKA.replace(':', '.')}–{JAM_TUTUP.replace(':', '.')}. Sebaiknya cek jadwal dan fasilitas dulu sebelum booking.
+          </p>
+        </header>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {rooms.map((r) => (
+            <Link
+              key={r.kode}
+              href={`/denah-le/lantai3/${encodeURIComponent(r.kode)}`}
+              className={`group flex items-center justify-between rounded-2xl border p-4 transition hover:border-[#E0E0E0] hover:bg-[#565656]/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E0E0E0] md:flex-col md:items-start md:gap-3 md:p-5 ${
+                r.bookable ? 'border-[#565656]' : 'border-[#565656]/60 opacity-70'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className={`h-3 w-3 shrink-0 rounded-full ${
+                    r.bookable ? 'bg-[#E0E0E0]' : 'border border-[#848484]'
+                  }`}
+                />
+                <div>
+                  <h3 className="font-bold">{r.nama}</h3>
+                  <p className="mt-0.5 text-xs text-[#B3B3B3]">
+                    {r.bookable ? `${r.kode} · ${r.kapasitas} orang` : `${r.kode} · tidak bisa dibooking`}
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-full border border-[#565656] px-3 py-1 text-xs font-semibold text-[#B3B3B3] group-hover:border-[#B3B3B3]">
+                {statusHari(r, hariIni)}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
