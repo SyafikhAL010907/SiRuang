@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserChat } from '../Shared/hooks/useUserChat';
 import { useUserMessageSearch } from '../Shared/hooks/useUserMessageSearch';
@@ -51,12 +51,23 @@ export const WebTabLayout = () => {
     }
   }, []);
 
+  // Ref untuk melacak apakah user sedang aktif di room chat (bukan di dashboard/profil)
+  const isChatRoomOpenRef = useRef(false);
+  useEffect(() => {
+    isChatRoomOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
+
   // Listener postMessage dari service worker via navigator.serviceWorker
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'OPEN_ROOM') {
         setIsChatOpen(true);
+      } else if (event.data?.type === 'CHECK_CHAT_ACTIVE') {
+        // Balas ke Service Worker apakah user sedang aktif membuka room chat
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ isChatOpen: isChatRoomOpenRef.current });
+        }
       }
     };
     navigator.serviceWorker.addEventListener('message', handler);

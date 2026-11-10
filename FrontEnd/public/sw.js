@@ -26,18 +26,41 @@ self.addEventListener('push', (event) => {
   const defaultTitle = payload.title || 'Pesan baru dari Admin';
   const tag = payload.tag || 'siruang-push';
 
-  // Cek apakah tab USER sedang aktif dan sedang difokuskan oleh pengguna.
-  // Jangan gunakan clientList.some(c => c.visibilityState === 'visible') mentah-mentah,
-  // karena jika Admin sedang membuka tab /admin di localhost yang sama, notifikasi User akan tertahan/terblokir.
+  // Cek apakah ada tab USER yang sedang aktif membuka room chat.
+  // Jika user sedang di home, denah, booking, profile, atau chat list -> notifikasi TETAP MUNCUL!
+  // Notifikasi HANYA ditahan jika user sedang aktif berada di dalam room chat itu sendiri.
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then(async (clientList) => {
-        const isUserFocused = clientList.some(
-          (c) => c.visibilityState === 'visible' && c.focused && !c.url.includes('/admin')
-        );
-        if (isUserFocused) {
-          // Pengguna sedang aktif fokus melihat chat user di aplikasi -> jangan munculkan notifikasi sistem
+        let isUserViewingChatRoom = false;
+
+        for (const client of clientList) {
+          if (client.visibilityState === 'visible' && !client.url.includes('/admin')) {
+            try {
+              const messageChannel = new MessageChannel();
+              const replyPromise = new Promise((resolve) => {
+                const timer = setTimeout(() => resolve(false), 250);
+                messageChannel.port1.onmessage = (msgEvent) => {
+                  clearTimeout(timer);
+                  resolve(Boolean(msgEvent.data && msgEvent.data.isChatOpen));
+                };
+              });
+
+              client.postMessage({ type: 'CHECK_CHAT_ACTIVE' }, [messageChannel.port2]);
+              const isOpen = await replyPromise;
+              if (isOpen) {
+                isUserViewingChatRoom = true;
+                break;
+              }
+            } catch {
+              // Abaikan jika tidak mendukung MessageChannel
+            }
+          }
+        }
+
+        if (isUserViewingChatRoom) {
+          // Pengguna sedang aktif membuka room chat -> jangan munculkan notifikasi sistem
           return;
         }
 
