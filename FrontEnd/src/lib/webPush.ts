@@ -48,7 +48,7 @@ export async function sendOneNotification(
   }
 
   try {
-    await webpush.sendNotification(subscription, payload);
+    await webpush.sendNotification(subscription, payload, { urgency: 'high', TTL: 60 });
     return { success: true, expired: false };
   } catch (err: any) {
     const statusCode = err?.statusCode || err?.status;

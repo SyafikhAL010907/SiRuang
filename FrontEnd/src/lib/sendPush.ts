@@ -53,12 +53,23 @@ export async function notifyRecipient(
       return;
     }
 
-    // 3. Ambil role dan username penerima dari tabel authentication
-    const { data: recipientAuth, error: authError } = await supabaseServer
-      .from('authentication')
-      .select('role, username')
-      .eq('identifier', room.user_identifier)
-      .maybeSingle();
+    const recipientIdentifier = room.user_identifier;
+
+    // 3. Ambil role penerima dan subscriptions secara paralel (Promise.all)
+    const [authRes, subRes] = await Promise.all([
+      supabaseServer
+        .from('authentication')
+        .select('role, username')
+        .eq('identifier', recipientIdentifier)
+        .maybeSingle(),
+      supabaseServer
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth')
+        .eq('user_identifier', recipientIdentifier),
+    ]);
+
+    const { data: recipientAuth, error: authError } = authRes;
+    const { data: subscriptions, error: subError } = subRes;
 
     if (authError || !recipientAuth) {
       return;
@@ -72,7 +83,6 @@ export async function notifyRecipient(
     // 5. Pengirim yang bukan pemilik room pasti admin atau bot admin_ai
     const senderRole = 'admin';
     const displayName = 'Admin';
-    const recipientIdentifier = room.user_identifier;
     const recipientRole = recipientAuth.role;
 
     // 6. Cek aturan push (shouldPush)
@@ -80,20 +90,14 @@ export async function notifyRecipient(
       return;
     }
 
-    // 7. Ambil subscriptions milik penerima
-    const { data: subscriptions, error: subError } = await supabaseServer
-      .from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth')
-      .eq('user_identifier', recipientIdentifier);
-
     if (subError || !subscriptions || subscriptions.length === 0) {
       return;
     }
 
-    // 8. Susun body sesuai messageType
+    // 7. Susun body sesuai messageType
     const body = formatMessageBody(messageBody, messageType);
 
-    // 9. Susun payload JSON standar Web Push
+    // 8. Susun payload JSON standar Web Push
     const payload = JSON.stringify({
       title: `Pesan baru dari ${displayName}`,
       body,
@@ -106,21 +110,23 @@ export async function notifyRecipient(
       },
     });
 
-    // 10. Kirim ke semua subscription milik penerima
-    for (const sub of subscriptions) {
-      const res = await sendOneNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        payload
-      );
+    // 9. Kirim ke semua subscription secara paralel (Promise.allSettled)
+    await Promise.allSettled(
+      subscriptions.map(async (sub) => {
+        const res = await sendOneNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload
+        );
 
-      // Jika endpoint sudah 404 / 410 Gone, hapus dari database
-      if (res.expired) {
-        await supabaseServer
-          .from('push_subscriptions')
-          .delete()
-          .eq('endpoint', sub.endpoint);
-      }
-    }
+        // Jika endpoint sudah 404 / 410 Gone, hapus dari database
+        if (res.expired) {
+          await supabaseServer
+            .from('push_subscriptions')
+            .delete()
+            .eq('endpoint', sub.endpoint);
+        }
+      })
+    );
   } catch (err: any) {
     console.warn('[sendPush] Error di notifyRecipient:', err?.message || err);
   }
