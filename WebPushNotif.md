@@ -10,8 +10,8 @@
 | Fase | Deskripsi | Status |
 |------|-----------|--------|
 | Riset | Baca kode & skema | [x] |
-| F1 | SQL + Env + pushRules.ts + webPush.ts | [ ] |
-| F2 | API /api/push/subscribe & /unsubscribe | [ ] |
+| F1 | SQL + Env + pushRules.ts + webPush.ts | [x] |
+| F2 | API /api/push/subscribe & /unsubscribe | [x] |
 | F3 | lib/sendPush.ts (notifyRecipient) + integrasi jalur pesan | [ ] |
 | F4 | public/sw.js (service worker) | [ ] |
 | F5 | Deep link support | [ ] |
@@ -1186,11 +1186,10 @@ const handleLoginSuccess = (userData: any) => {
 
 ## 9. LANGKAH BERIKUTNYA
 
-Eksekusi dimulai dari **Fase 1**:
-1. Install `web-push` dan `@types/web-push` di `FrontEnd/`: `npm install web-push && npm install --save-dev @types/web-push`
-2. Generate VAPID keys: `npx web-push generate-vapid-keys`
-3. Isi `.env.local` dengan `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
-4. Buat `push_subscriptions.sql` di root project → jalankan di Supabase SQL Editor
-5. Buat `FrontEnd/src/lib/pushRules.ts` dan `FrontEnd/src/lib/webPush.ts`
-6. Verifikasi `tsc --noEmit` → update checklist F1 → `[x]`, lanjut F2
-7. Urutan fase selanjutnya: **F2 → F3 → F4 → F5 → F6 → F7 → F8 (opsional)**
+Status: **Fase 1 dan Fase 2 telah selesai.**
+Langkah berikutnya: **Fase 3 — `lib/sendPush.ts` (notifyRecipient & notifyBroadcast) + Integrasi Jalur Pesan**
+1. Buat `FrontEnd/src/lib/sendPush.ts` (`notifyRecipient` dan `notifyBroadcast`).
+2. Integrasikan `notifyRecipient` ke `FrontEnd/src/app/api/chat/send/route.ts` (jalur pengiriman pesan utama di dalam `after()`, dan jalur reply bot `admin_ai` di dalam `.then()`).
+3. Integrasikan `notifyBroadcast` ke `FrontEnd/src/app/api/admin/chat/broadcast/route.ts` di dalam `after()`.
+4. Jalankan `npx tsc --noEmit` untuk verifikasi.
+5. Update checklist F3 → `[x]`, lanjut ke Fase 4 (service worker `public/sw.js`).
