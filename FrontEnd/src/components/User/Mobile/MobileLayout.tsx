@@ -97,6 +97,30 @@ const MobileLayout = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const { token } = JSON.parse(storedUser);
+
+      // Cabut subscription push SEBELUM logout (token masih aktif, tidak boleh memblokir logout)
+      try {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+          const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+          if (reg) {
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) {
+              await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/unsubscribe`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ endpoint: sub.endpoint }),
+              });
+              await sub.unsubscribe();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Push] Gagal cabut subscription saat logout:', err);
+      }
+
       try {
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
           method: 'POST',

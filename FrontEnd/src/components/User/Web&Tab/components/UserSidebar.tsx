@@ -11,10 +11,13 @@ import {
   ChevronLeft,
   Paperclip,
   Image as ImageIcon,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '@/components/Shared/Avatar';
 import { cn } from '@/lib/utils';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 export interface UserSidebarProps {
   userName: string;
@@ -45,6 +48,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   adminAvatarSrc,
 }) => {
   const adminAvatar = adminAvatarSrc || '/LogoSiRuangPolos.png';
+  const { status, isLoading, subscribe, unsubscribe } = usePushNotifications();
   // State room chat yang dipilih (admin atau dosen)
   const [selectedRoom, setSelectedRoom] = useState<'admin' | 'dosen'>(activeRoom);
 
@@ -410,8 +414,47 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
             </div>
           </div>
 
-          {/* LOGOUT BUTTON AT BOTTOM (Sama persis AdminSidebar) */}
-          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 mt-auto">
+          {/* TOMBOL WEB PUSH & LOGOUT AT BOTTOM */}
+          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 mt-auto space-y-2">
+            {status !== 'unsupported' ? (
+              <button
+                type="button"
+                onClick={status === 'granted' ? unsubscribe : subscribe}
+                disabled={isLoading || status === 'denied'}
+                title={status === 'denied' ? 'Izin notifikasi diblokir di browser' : undefined}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-sm cursor-pointer active:scale-[0.98]",
+                  status === 'granted'
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100"
+                    : status === 'denied'
+                    ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                    : "bg-white border border-slate-200 text-slate-700 hover:bg-[#183449] hover:text-white hover:border-[#183449]"
+                )}
+              >
+                {isLoading ? (
+                  'Memuat...'
+                ) : status === 'granted' ? (
+                  <>
+                    <BellOff size={15} /> Notifikasi Aktif (Nonaktifkan)
+                  </>
+                ) : status === 'denied' ? (
+                  <>
+                    <BellOff size={15} /> Izin Ditolak
+                  </>
+                ) : (
+                  <>
+                    <Bell size={15} /> Aktifkan Notifikasi
+                  </>
+                )}
+              </button>
+            ) : (
+              typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent) && (
+                <p className="text-[10px] text-slate-400 text-center leading-tight py-1">
+                  Di iOS: tambahkan ke Home Screen untuk aktifkan notifikasi
+                </p>
+              )
+            )}
+
             <button
               onClick={onLogout}
               className="w-full flex items-center justify-center gap-3 py-2.5 bg-white border border-rose-100 text-rose-600 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all duration-300 shadow-sm active:scale-[0.98]"
@@ -570,8 +613,35 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
             </button>
           </div>
 
-          {/* Tombol Logout di Rail */}
-          <div className="w-full px-2 pt-2 border-t border-slate-100 flex justify-center">
+          {/* Tombol Push Notif & Logout di Rail */}
+          <div className="w-full px-2 pt-2 border-t border-slate-100 flex flex-col items-center gap-2">
+            {status !== 'unsupported' && (
+              <button
+                type="button"
+                onClick={status === 'granted' ? unsubscribe : subscribe}
+                disabled={isLoading || status === 'denied'}
+                onMouseEnter={(e) =>
+                  showRailTip(e, {
+                    title: status === 'granted' ? 'Notifikasi Aktif' : status === 'denied' ? 'Izin Ditolak' : 'Notifikasi Web Push',
+                    subtitle: status === 'granted' ? 'Klik untuk nonaktifkan' : status === 'denied' ? 'Izin diblokir di browser' : 'Klik untuk mengaktifkan',
+                  })
+                }
+                onMouseLeave={hideRailTip}
+                aria-label="Notifikasi Web Push"
+                tabIndex={isOpen ? -1 : 0}
+                className={cn(
+                  "w-10 h-10 rounded-2xl border flex items-center justify-center transition-all duration-300 cursor-pointer active:scale-90",
+                  status === 'granted'
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
+                    : status === 'denied'
+                    ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-[#183449] hover:text-white"
+                )}
+              >
+                {status === 'granted' ? <BellOff size={16} /> : <Bell size={16} />}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onLogout}

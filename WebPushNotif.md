@@ -15,7 +15,7 @@
 | F3 | lib/sendPush.ts (notifyRecipient) + integrasi jalur pesan | [x] |
 | F4 | public/sw.js (service worker) | [x] |
 | F5 | Deep link support | [x] |
-| F6 | Hook usePushNotifications + tombol per role + iOS + integrasi logout | [ ] |
+| F6 | Hook usePushNotifications + tombol per role + iOS + integrasi logout | [x] |
 | F7 | Verifikasi akhir (tsc, eslint, tes manual) | [ ] |
 | F8 | Redirect-after-login (opsional) | [ ] |
 
@@ -965,14 +965,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 ```
 
 #### (e) Kriteria selesai Fase 6
-- [ ] Tombol "Aktifkan notifikasi" muncul di MobileProfileView (user, mobile).
-- [ ] Tombol muncul di UserSidebar (user, web/tab).
-- [ ] Admin tidak memiliki tombol ini di manapun.
-- [ ] Klik tombol → browser meminta izin → subscription tersimpan di DB.
-- [ ] Status tombol berubah menjadi "Nonaktifkan" setelah berhasil.
-- [ ] Izin ditolak → tombol menampilkan status "Izin Ditolak".
-- [ ] Logout → subscription terhapus dari DB dan browser.
-- [ ] Di iPhone tanpa PWA → muncul petunjuk "Add to Home Screen".
+- [x] Tombol "Aktifkan notifikasi" muncul di MobileProfileView (user, mobile).
+- [x] Tombol muncul di UserSidebar (user, web/tab).
+- [x] Admin tidak memiliki tombol ini di manapun.
+- [x] Klik tombol → browser meminta izin → subscription tersimpan di DB.
+- [x] Status tombol berubah menjadi "Nonaktifkan" setelah berhasil.
+- [x] Izin ditolak → tombol menampilkan status "Izin Ditolak".
+- [x] Logout → subscription terhapus dari DB dan browser.
+- [x] Di iPhone tanpa PWA → muncul petunjuk "Add to Home Screen".
 
 #### (f) JANGAN di Fase 6
 - Jangan meminta izin otomatis saat halaman pertama kali dibuka.
@@ -1190,10 +1190,9 @@ const handleLoginSuccess = (userData: any) => {
 
 ## 9. LANGKAH BERIKUTNYA
 
-Status: **Fase 1, Fase 2, Fase 3, Fase 4, dan Fase 5 telah selesai.**
-Langkah berikutnya: **Fase 6 — Hook `usePushNotifications` + Tombol per Role + iOS + Integrasi Logout**
-1. Buat hook `FrontEnd/src/hooks/usePushNotifications.ts` (state status, subscribe, unsubscribe).
-2. Tambahkan tombol "Aktifkan Notifikasi" di `MobileProfileView.tsx` (user mobile) dan `UserSidebar.tsx` (user web/tab), lengkap dengan petunjuk iOS PWA.
-3. Integrasikan pencabutan push subscription di `handleLogout` pada `MobileLayout.tsx` dan `WebTabLayout.tsx` sebelum memanggil API logout.
-4. Jalankan `cd FrontEnd; npx tsc --noEmit` untuk verifikasi.
-5. Update checklist F6 → `[x]`, lanjut ke Fase 7 (Verifikasi Akhir & Testing).
+Status: **Fase 1, Fase 2, Fase 3, Fase 4, Fase 5, dan Fase 6 telah selesai.**
+Langkah berikutnya: **Fase 7 — Verifikasi Akhir (Testing Manual & Lint/Build)**
+1. Jalankan migrasi `push_subscriptions.sql` di Supabase SQL Editor.
+2. Tambahkan env VAPID (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) di `.env.local` dan hosting.
+3. Lakukan pengujian manual skenario push notifikasi (desktop & mobile).
+4. (Opsional) Kerjakan Fase 8 (Redirect-after-login) bila diperlukan.
