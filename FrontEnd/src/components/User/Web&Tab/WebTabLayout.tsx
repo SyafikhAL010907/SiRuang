@@ -97,6 +97,7 @@ export const WebTabLayout = () => {
                     Authorization: `Bearer ${token}`,
                   },
                   body: JSON.stringify({ endpoint: sub.endpoint }),
+                  signal: AbortSignal.timeout(3000),
                 });
                 await sub.unsubscribe();
               }

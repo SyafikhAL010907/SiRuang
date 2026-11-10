@@ -49,7 +49,7 @@ function truncateFileName(fileName: string, maxLen = 25): string {
 /**
  * Potong string teks maksimal maxLen karakter, akhiri "..." HANYA jika terpotong.
  */
-function truncateText(text: string, maxLen = 80): string {
+function truncateText(text: string, maxLen = 200): string {
   const trimmed = (text || '').trim();
   if (trimmed.length <= maxLen) return trimmed;
   return trimmed.substring(0, maxLen) + '...';
@@ -98,16 +98,16 @@ function formatMessageBody(messageBody: string, messageType: 'text' | 'image' | 
       }
 
       if (fileNames.length > 0) {
-        const formattedList = fileNames.map((n) => truncateFileName(n, 20)).join(', ');
+        const formattedList = fileNames.map((n) => truncateFileName(n, 25)).join(', ');
         const result = `📎 ${fileNames.length} file: ${formattedList}`;
-        return truncateText(result, 80);
+        return truncateText(result, 200);
       }
       return '📎 Lampiran File';
     }
 
     case 'text':
     default:
-      return truncateText(messageBody, 80);
+      return truncateText(messageBody, 200);
   }
 }
 

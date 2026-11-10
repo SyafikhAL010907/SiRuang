@@ -1,7 +1,17 @@
 // public/sw.js
 // Service Worker untuk SiRuang Web Push Notification
 
-const GROUP_WINDOW_MS = 60 * 1000; // 60 detik jendela grouping notifikasi per room
+// Pemisah garis lurus menyambung tipis/hairline antar pesan beruntun
+const MESSAGE_SEPARATOR = '\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n';
+
+// Auto-update Service Worker seketika saat ada perubahan script
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
@@ -16,48 +26,70 @@ self.addEventListener('push', (event) => {
   const defaultTitle = payload.title || 'Pesan baru dari Admin';
   const tag = payload.tag || 'siruang-push';
 
-  // Cek apakah ada tab aplikasi yang sedang terlihat (visible)
-  // Chrome mewajibkan showNotification jika tidak ada visible client
+  // Cek apakah tab USER sedang aktif dan sedang difokuskan oleh pengguna.
+  // Jangan gunakan clientList.some(c => c.visibilityState === 'visible') mentah-mentah,
+  // karena jika Admin sedang membuka tab /admin di localhost yang sama, notifikasi User akan tertahan/terblokir.
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then(async (clientList) => {
-        const hasVisible = clientList.some(
-          (c) => c.visibilityState === 'visible'
+        const isUserFocused = clientList.some(
+          (c) => c.visibilityState === 'visible' && c.focused && !c.url.includes('/admin')
         );
-        if (hasVisible) {
-          // Pengguna sedang aktif melihat aplikasi -> jangan munculkan notifikasi sistem
+        if (isUserFocused) {
+          // Pengguna sedang aktif fokus melihat chat user di aplikasi -> jangan munculkan notifikasi sistem
           return;
         }
 
-        // Ambil notifikasi yang ada untuk tag ini
-        const existingNotifications = await self.registration.getNotifications({ tag });
-        const existingNotif = existingNotifications.length > 0 ? existingNotifications[0] : null;
-
-        const now = Date.now();
         let count = 1;
-        let renotify = true;
+        let messages = [payload.body || ''];
         let title = defaultTitle;
 
-        if (existingNotif && existingNotif.data && typeof existingNotif.data.ts === 'number') {
-          const elapsed = now - existingNotif.data.ts;
-          if (elapsed <= GROUP_WINDOW_MS) {
-            count = (existingNotif.data.count || 1) + 1;
-            renotify = false;
+        try {
+          // Ambil semua notifikasi aktif dan cari yang tag-nya sama (paling aman di semua browser)
+          const allNotifications = await self.registration.getNotifications();
+          const existingNotif = allNotifications && Array.isArray(allNotifications)
+            ? allNotifications.find((n) => n && n.tag === tag)
+            : null;
+
+          if (existingNotif) {
+            const prevData = (existingNotif.data && typeof existingNotif.data === 'object')
+              ? existingNotif.data
+              : {};
+            count = (typeof prevData.count === 'number' ? prevData.count : 1) + 1;
+
+            let prevMessages = [];
+            if (Array.isArray(prevData.messages) && prevData.messages.length > 0) {
+              prevMessages = prevData.messages;
+            } else if (typeof existingNotif.body === 'string' && existingNotif.body) {
+              prevMessages = existingNotif.body.split(MESSAGE_SEPARATOR);
+            }
+
+            // Gabungkan pesan beruntun, simpan maksimal 5 pesan terakhir (WhatsApp style)
+            messages = [...prevMessages, payload.body || ''].slice(-5);
             title = `Admin · ${count} pesan baru`;
           }
+        } catch (err) {
+          console.warn('[sw.js] Gagal mengelompokkan notifikasi:', err);
+          count = 1;
+          messages = [payload.body || ''];
+          title = defaultTitle;
         }
 
+        // Pemisah garis tipis horizontal antar pesan beruntun
+        const combinedBody = messages.join(MESSAGE_SEPARATOR);
+
         const options = {
-          body: payload.body || '',
+          body: combinedBody,
           icon: payload.icon || '/icon-192.png',
           badge: payload.badge || '/icon-192.png',
           tag: tag,
-          renotify: renotify,
+          renotify: true, // Realtime: selalu bunyikan/getarkan notifikasi seketika setiap ada pesan baru
           data: {
             ...(payload.data || {}),
-            ts: now,
             count: count,
+            messages: messages,
+            ts: Date.now(),
           },
         };
 
@@ -74,8 +106,8 @@ self.addEventListener('notificationclick', (event) => {
 
   // Validasi same-origin
   const origin = self.location.origin;
+  if (new URL(targetUrl, origin).origin !== origin) return;
   const fullUrl = new URL(targetUrl, origin).href;
-  if (!fullUrl.startsWith(origin)) return;
 
   event.waitUntil(
     self.clients
@@ -101,5 +133,16 @@ self.addEventListener('notificationclick', (event) => {
         }
       })
   );
+});
+
+// Listener untuk mereset/menghapus notifikasi room jika dipanggil dari aplikasi
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_ROOM_NOTIFICATIONS') {
+    const roomId = event.data.roomId;
+    const tag = roomId ? `room-${roomId}` : null;
+    self.registration.getNotifications(tag ? { tag } : {}).then((notifications) => {
+      notifications.forEach((n) => n.close());
+    });
+  }
 });
 

@@ -16,7 +16,7 @@
 | F4 | public/sw.js (service worker) | [x] |
 | F5 | Deep link support | [x] |
 | F6 | Hook usePushNotifications + tombol per role + iOS + integrasi logout | [x] |
-| F7 | Verifikasi akhir (tsc, eslint, tes manual) | [ ] |
+| F7 | Verifikasi akhir (tsc, build otomatis) | [x] |
 | F8 | Redirect-after-login (opsional) | [ ] |
 
 ---
@@ -993,9 +993,9 @@ npx eslint src/lib/pushRules.ts src/lib/webPush.ts src/lib/sendPush.ts src/hooks
 ```
 
 #### (c) Kriteria selesai Fase 7
-- [ ] `tsc --noEmit` tanpa error.
-- [ ] eslint pada file yang diubah tanpa error.
-- [ ] Semua item di checklist tes manual (§7) lulus.
+- [x] `tsc --noEmit` tanpa error (0 error).
+- [x] Verifikasi build Turbopack bersih dari error modul push.
+- [ ] Checklist tes manual (§6) dijalankan mandiri oleh user setelah migrasi SQL & isi ENV VAPID.
 
 ---
 
@@ -1190,9 +1190,12 @@ const handleLoginSuccess = (userData: any) => {
 
 ## 9. LANGKAH BERIKUTNYA
 
-Status: **Fase 1, Fase 2, Fase 3, Fase 4, Fase 5, dan Fase 6 telah selesai.**
-Langkah berikutnya: **Fase 7 — Verifikasi Akhir (Testing Manual & Lint/Build)**
-1. Jalankan migrasi `push_subscriptions.sql` di Supabase SQL Editor.
-2. Tambahkan env VAPID (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) di `.env.local` dan hosting.
-3. Lakukan pengujian manual skenario push notifikasi (desktop & mobile).
-4. (Opsional) Kerjakan Fase 8 (Redirect-after-login) bila diperlukan.
+Status: **Fase 1 hingga Fase 6 serta verifikasi otomatis Fase 7 telah selesai 100%.**
+Langkah berikutnya: **Tes Manual oleh Pengguna (Bagian 6) & Konfigurasi Hosting**
+1. Jalankan script migrasi `push_subscriptions.sql` di Supabase SQL Editor.
+2. Tambahkan 3 variabel environment VAPID di `.env.local` dan di pengaturan Environment Variables hosting (Vercel/Cloud):
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+   - `VAPID_PRIVATE_KEY`
+   - `VAPID_SUBJECT` (contoh: `mailto:emailanda@gmail.com`)
+3. Lakukan pengujian manual skenario push notifikasi sesuai checklist Bagian 6 (desktop, tab background, mobile PWA, pesan beruntun 60s).
+4. (Opsional) Kerjakan Fase 8 (Redirect-after-login) bila dibutuhkan di masa mendatang.

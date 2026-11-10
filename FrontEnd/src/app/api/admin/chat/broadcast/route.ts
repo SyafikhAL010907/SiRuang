@@ -96,7 +96,7 @@ export async function POST(request: Request) {
           await notifyBroadcast(
             adminIdentifier,
             finalMsg,
-            finalType as any,
+            finalType as 'text' | 'image' | 'file' | 'multi_file',
             roomMap,
             targetIdentifiers
           );
