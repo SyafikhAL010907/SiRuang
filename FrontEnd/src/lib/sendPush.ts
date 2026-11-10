@@ -3,20 +3,111 @@ import { shouldPush } from '@/lib/pushRules';
 import { sendOneNotification } from '@/lib/webPush';
 
 /**
+ * Bersihkan nama file dari path/URL, URL-encoding, dan prefix timestamp/random.
+ */
+function cleanFileName(raw: string): string {
+  let name = (raw || '').trim();
+  if (!name || name.startsWith('data:')) return '';
+
+  if (name.includes('/') || name.includes('\\')) {
+    try {
+      const url = new URL(name, 'http://localhost');
+      name = url.pathname.split('/').filter(Boolean).pop() || name;
+    } catch {
+      name = name.split(/[/\\]/).filter(Boolean).pop() || name;
+    }
+  }
+
+  try {
+    name = decodeURIComponent(name);
+  } catch {
+    // abaikan jika bukan URI component valid
+  }
+
+  // Buang prefix timestamp / hex random (misal: 1715000000000-file.pdf atau a1b2c3d4_file.pdf)
+  name = name.replace(/^(\d{10,14}|[a-f0-9]{8,32})[-_]/i, '');
+  return name.trim();
+}
+
+/**
+ * Potong nama file panjang dengan "..." tapi pertahankan ekstensinya.
+ */
+function truncateFileName(fileName: string, maxLen = 25): string {
+  if (fileName.length <= maxLen) return fileName;
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot > 0 && lastDot >= fileName.length - 8) {
+    const ext = fileName.slice(lastDot);
+    const base = fileName.slice(0, lastDot);
+    const availBaseLen = maxLen - ext.length - 3;
+    if (availBaseLen > 2) {
+      return base.slice(0, availBaseLen) + '...' + ext;
+    }
+  }
+  return fileName.slice(0, maxLen - 3) + '...';
+}
+
+/**
+ * Potong string teks maksimal maxLen karakter, akhiri "..." HANYA jika terpotong.
+ */
+function truncateText(text: string, maxLen = 80): string {
+  const trimmed = (text || '').trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return trimmed.substring(0, maxLen) + '...';
+}
+
+/**
  * Format body notifikasi berdasarkan messageType.
- * Mencegah menampilkan URL, nama file mentah, atau base64.
+ * Mencegah menampilkan URL, base64, atau metadata mentah.
  */
 function formatMessageBody(messageBody: string, messageType: 'text' | 'image' | 'file' | 'multi_file'): string {
   switch (messageType) {
-    case 'image':
+    case 'image': {
+      const parts = (messageBody || '').split('|');
+      const raw = parts[0]?.trim();
+      const name = cleanFileName(raw);
+      if (name && !name.startsWith('data:')) {
+        return `📷 ${truncateFileName(name)}`;
+      }
       return '📷 Gambar';
-    case 'file':
-      return '📎 File';
-    case 'multi_file':
+    }
+
+    case 'file': {
+      const parts = (messageBody || '').split('|');
+      const raw = parts[0]?.trim();
+      const name = cleanFileName(raw);
+      if (name && !name.startsWith('data:')) {
+        return `📎 ${truncateFileName(name)}`;
+      }
+      return '📎 Dokumen';
+    }
+
+    case 'multi_file': {
+      const trimmed = (messageBody || '').trim();
+      let fileNames: string[] = [];
+      if (trimmed.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed.files)) {
+            fileNames = parsed.files
+              .map((f: any) => cleanFileName(f.name || ''))
+              .filter(Boolean);
+          }
+        } catch {
+          // fallback
+        }
+      }
+
+      if (fileNames.length > 0) {
+        const formattedList = fileNames.map((n) => truncateFileName(n, 20)).join(', ');
+        const result = `📎 ${fileNames.length} file: ${formattedList}`;
+        return truncateText(result, 80);
+      }
       return '📎 Lampiran File';
+    }
+
     case 'text':
     default:
-      return messageBody.trim().substring(0, 80);
+      return truncateText(messageBody, 80);
   }
 }
 

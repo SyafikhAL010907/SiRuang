@@ -1,6 +1,8 @@
 // public/sw.js
 // Service Worker untuk SiRuang Web Push Notification
 
+const GROUP_WINDOW_MS = 60 * 1000; // 60 detik jendela grouping notifikasi per room
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -8,25 +10,18 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: 'Pesan baru', body: event.data.text(), data: { url: '/user?openChat=1' } };
+    payload = { title: 'Pesan baru dari Admin', body: event.data.text(), data: { url: '/user?openChat=1' } };
   }
 
-  const title = payload.title || 'Pesan baru';
-  const options = {
-    body: payload.body || '',
-    icon: payload.icon || '/icon-192.png',
-    badge: payload.badge || '/icon-192.png',
-    tag: payload.tag || 'siruang-push',
-    renotify: true, // dengan tag per room: ganti notif lama dan bunyikan notifikasi baru
-    data: payload.data || {},
-  };
+  const defaultTitle = payload.title || 'Pesan baru dari Admin';
+  const tag = payload.tag || 'siruang-push';
 
   // Cek apakah ada tab aplikasi yang sedang terlihat (visible)
   // Chrome mewajibkan showNotification jika tidak ada visible client
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
+      .then(async (clientList) => {
         const hasVisible = clientList.some(
           (c) => c.visibilityState === 'visible'
         );
@@ -34,7 +29,38 @@ self.addEventListener('push', (event) => {
           // Pengguna sedang aktif melihat aplikasi -> jangan munculkan notifikasi sistem
           return;
         }
-        // Tab tidak terlihat / web ditutup -> tampilkan notifikasi sistem
+
+        // Ambil notifikasi yang ada untuk tag ini
+        const existingNotifications = await self.registration.getNotifications({ tag });
+        const existingNotif = existingNotifications.length > 0 ? existingNotifications[0] : null;
+
+        const now = Date.now();
+        let count = 1;
+        let renotify = true;
+        let title = defaultTitle;
+
+        if (existingNotif && existingNotif.data && typeof existingNotif.data.ts === 'number') {
+          const elapsed = now - existingNotif.data.ts;
+          if (elapsed <= GROUP_WINDOW_MS) {
+            count = (existingNotif.data.count || 1) + 1;
+            renotify = false;
+            title = `Admin · ${count} pesan baru`;
+          }
+        }
+
+        const options = {
+          body: payload.body || '',
+          icon: payload.icon || '/icon-192.png',
+          badge: payload.badge || '/icon-192.png',
+          tag: tag,
+          renotify: renotify,
+          data: {
+            ...(payload.data || {}),
+            ts: now,
+            count: count,
+          },
+        };
+
         return self.registration.showNotification(title, options);
       })
   );
