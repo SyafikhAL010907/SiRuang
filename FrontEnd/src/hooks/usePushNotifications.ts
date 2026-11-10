@@ -143,7 +143,8 @@ export function usePushNotifications(explicitToken?: string | null): UsePushNoti
       }
 
       // 4. Simpan subscription ke server
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscribe`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+      const res = await fetch(`${apiUrl}/push/subscribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,7 +182,8 @@ export function usePushNotifications(explicitToken?: string | null): UsePushNoti
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
           if (token) {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/unsubscribe`, {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+            await fetch(`${apiUrl}/push/unsubscribe`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

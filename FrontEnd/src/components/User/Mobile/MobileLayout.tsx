@@ -105,7 +105,8 @@ const MobileLayout = () => {
           if (reg) {
             const sub = await reg.pushManager.getSubscription();
             if (sub) {
-              await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/unsubscribe`, {
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+              await fetch(`${apiUrl}/push/unsubscribe`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
