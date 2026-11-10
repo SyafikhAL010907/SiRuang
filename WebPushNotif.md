@@ -13,8 +13,8 @@
 | F1 | SQL + Env + pushRules.ts + webPush.ts | [x] |
 | F2 | API /api/push/subscribe & /unsubscribe | [x] |
 | F3 | lib/sendPush.ts (notifyRecipient) + integrasi jalur pesan | [x] |
-| F4 | public/sw.js (service worker) | [ ] |
-| F5 | Deep link support | [ ] |
+| F4 | public/sw.js (service worker) | [x] |
+| F5 | Deep link support | [x] |
 | F6 | Hook usePushNotifications + tombol per role + iOS + integrasi logout | [ ] |
 | F7 | Verifikasi akhir (tsc, eslint, tes manual) | [ ] |
 | F8 | Redirect-after-login (opsional) | [ ] |
@@ -822,10 +822,12 @@ useEffect(() => {
 #### (d) Tidak ada kode tricky tambahan — semua sudah di (b).
 
 #### (e) Kriteria selesai Fase 5
-- [ ] Buka `/user?openChat=1` di tab baru → langsung masuk ke chat room.
-- [ ] Klik notifikasi (Fase 4 sudah jalan) → tab difokuskan dan chat terbuka.
-- [ ] postMessage `{type:'OPEN_ROOM'}` dari DevTools console → chat terbuka.
-- [ ] Parameter `openChat` tanpa nilai atau nilai lain → tidak berpengaruh.
+- [x] Buka `/user?openChat=1` di tab baru → langsung masuk ke chat room.
+- [x] Klik notifikasi (Fase 4 sudah jalan) → tab difokuskan dan chat terbuka.
+- [x] postMessage `{type:'OPEN_ROOM'}` dari DevTools console → chat terbuka.
+- [x] Parameter `openChat` tanpa nilai atau nilai lain → tidak berpengaruh.
+
+> **Catatan Penyesuaian Realisasi (Fase 5):** Di `WebTabLayout`, state yang digunakan adalah `isChatOpen` / `setIsChatOpen`. Di `MobileLayout`, state navigasi adalah `setActiveTab('chats')` dan `setChatView('ROOM')`. Keduanya membersihkan parameter URL via `history.replaceState(null, '', window.location.pathname)` dan mendengarkan pesan SW via `navigator.serviceWorker.addEventListener('message', ...)`. Di `next.config.ts`, header `/sw.js` digabungkan ke dalam method `headers()` tanpa menimpa konfigurasi yang sudah ada.
 
 #### (f) JANGAN di Fase 5
 - Jangan ubah routing/URL app secara fundamental.
@@ -1188,9 +1190,10 @@ const handleLoginSuccess = (userData: any) => {
 
 ## 9. LANGKAH BERIKUTNYA
 
-Status: **Fase 1, Fase 2, dan Fase 3 telah selesai.**
-Langkah berikutnya: **Fase 4 — `public/sw.js` (Service Worker) + Header Cache-Control**
-1. Buat file `FrontEnd/public/sw.js` (listener `push` dengan filter visibility dan fallback `showNotification`, listener `notificationclick` dengan `clients.matchAll` dan `postMessage 'OPEN_ROOM'`).
-2. Perbarui `FrontEnd/next.config.ts` untuk menambahkan header `Cache-Control: no-cache, no-store, must-revalidate` dan `Service-Worker-Allowed: /` khusus file `/sw.js`.
-3. Jalankan `cd FrontEnd; npx tsc --noEmit` untuk verifikasi.
-4. Update checklist F4 → `[x]`, lanjut ke Fase 5 (Deep Link Support di sisi komponen aplikasi).
+Status: **Fase 1, Fase 2, Fase 3, Fase 4, dan Fase 5 telah selesai.**
+Langkah berikutnya: **Fase 6 — Hook `usePushNotifications` + Tombol per Role + iOS + Integrasi Logout**
+1. Buat hook `FrontEnd/src/hooks/usePushNotifications.ts` (state status, subscribe, unsubscribe).
+2. Tambahkan tombol "Aktifkan Notifikasi" di `MobileProfileView.tsx` (user mobile) dan `UserSidebar.tsx` (user web/tab), lengkap dengan petunjuk iOS PWA.
+3. Integrasikan pencabutan push subscription di `handleLogout` pada `MobileLayout.tsx` dan `WebTabLayout.tsx` sebelum memanggil API logout.
+4. Jalankan `cd FrontEnd; npx tsc --noEmit` untuk verifikasi.
+5. Update checklist F6 → `[x]`, lanjut ke Fase 7 (Verifikasi Akhir & Testing).

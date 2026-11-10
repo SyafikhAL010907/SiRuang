@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserChat } from '../Shared/hooks/useUserChat';
 import { useUserMessageSearch } from '../Shared/hooks/useUserMessageSearch';
@@ -41,6 +41,27 @@ export const WebTabLayout = () => {
     showAlert,
     fileInputRef: chat.fileInputRef,
   });
+
+  // Deep link support: buka chat jika URL param openChat=1
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openChat') === '1') {
+      setIsChatOpen(true);
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
+  // Listener postMessage dari service worker via navigator.serviceWorker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'OPEN_ROOM') {
+        setIsChatOpen(true);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
 
   // Tombol "Buka chat sekarang" di dashboard (persis seperti aslinya)
   const handleOpenChatFromDashboard = () => {

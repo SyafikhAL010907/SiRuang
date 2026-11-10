@@ -55,6 +55,29 @@ const MobileLayout = () => {
     fileInputRef: chat.fileInputRef,
   });
 
+  // Deep link support: buka chat jika URL param openChat=1
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openChat') === '1') {
+      setActiveTab('chats');
+      setChatView('ROOM');
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
+  // Listener postMessage dari service worker via navigator.serviceWorker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'OPEN_ROOM') {
+        setActiveTab('chats');
+        setChatView('ROOM');
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
+
   const handleOpenChatFromHome = () => {
     setActiveTab('chats');
     setChatView('ROOM');
