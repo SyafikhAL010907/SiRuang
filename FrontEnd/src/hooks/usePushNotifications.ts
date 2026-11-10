@@ -92,9 +92,23 @@ export function usePushNotifications(explicitToken?: string | null): UsePushNoti
       return;
     }
 
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapidKey) {
-      console.warn('[usePushNotifications] NEXT_PUBLIC_VAPID_PUBLIC_KEY belum dikonfigurasi.');
+      // Fallback: ambil secara dinamis dari API server jika bundle client belum memuat env (misal karena Vercel build cache)
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+        const keyRes = await fetch(`${apiUrl}/push/vapid-public-key`);
+        if (keyRes.ok) {
+          const keyData = await keyRes.json();
+          vapidKey = keyData.publicKey;
+        }
+      } catch (e) {
+        console.warn('[usePushNotifications] Gagal mengambil VAPID key dari server:', e);
+      }
+    }
+
+    if (!vapidKey) {
+      console.warn('[usePushNotifications] NEXT_PUBLIC_VAPID_PUBLIC_KEY belum dikonfigurasi di client maupun server.');
       return;
     }
 
