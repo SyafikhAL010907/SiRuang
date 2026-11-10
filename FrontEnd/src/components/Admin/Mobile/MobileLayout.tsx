@@ -138,12 +138,31 @@ const MobileLayout = () => {
       // ⚠️  DISABLE: Comment baris fetchAIStatus di bawah jika tidak pakai AI
       fetchAIStatus(parsed.token);
 
-      // Fallback polling santai sebagai safety net (15 detik) karena Realtime WebSocket sudah aktif 0ms
+      // Fallback polling santai sebagai safety net (60 detik) karena Realtime WebSocket sudah aktif 0ms
       const interval = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
         fetchRooms(parsed.token);
         fetchStats(parsed.token);
-      }, 15000);
-      return () => clearInterval(interval);
+      }, 60000);
+
+      // Refetch instan 1x saat tab admin kembali aktif (debounce 5 detik)
+      let lastTabActiveFetch = Date.now();
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          const now = Date.now();
+          if (now - lastTabActiveFetch >= 5000) {
+            lastTabActiveFetch = now;
+            fetchRooms(parsed.token);
+            fetchStats(parsed.token);
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
   }, [fetchRooms, fetchStats, fetchAllUsers, fetchAIStatus, setAdminName, setAdminGmail]);
 
@@ -154,9 +173,28 @@ const MobileLayout = () => {
       fetchMessages(selectedChat.id, token);
       markAsRead(selectedChat.id);
 
-      // Fallback polling pesan (10 detik) jika WebSocket sempat terputus
-      const interval = setInterval(() => fetchMessages(selectedChat.id, token), 10000);
-      return () => clearInterval(interval);
+      // Fallback polling pesan (60 detik) jika WebSocket sempat terputus
+      const interval = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+        fetchMessages(selectedChat.id, token);
+      }, 60000);
+
+      let lastTabActiveMsgFetch = Date.now();
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          const now = Date.now();
+          if (now - lastTabActiveMsgFetch >= 5000) {
+            lastTabActiveMsgFetch = now;
+            fetchMessages(selectedChat.id, token);
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
   }, [selectedChat?.id, view, fetchMessages, markAsRead]);
 

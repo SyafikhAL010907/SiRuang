@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     // 1. Cari room yang sudah ada
     let { data: room } = await supabaseServer
       .from('chat_rooms')
-      .select('*')
+      .select('id, user_identifier, last_message, updated_at, is_marked_unread')
       .eq('user_identifier', userIdentifier)
       .maybeSingle();
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
           last_message: '',
           is_marked_unread: false,
         })
-        .select()
+        .select('id, user_identifier, last_message, updated_at, is_marked_unread')
         .single();
 
       if (createError) {

@@ -14,18 +14,30 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const { data: messages, error } = await supabaseServer
+    const before = searchParams.get('before');
+
+    let query = supabaseServer
       .from('chat_messages')
-      .select('*')
-      .eq('room_id', roomIdNum)
-      .order('created_at', { ascending: true });
+      .select('id, room_id, sender_identifier, message, message_type, created_at, is_read')
+      .eq('room_id', roomIdNum);
+
+    if (before) {
+      query = query.lt('created_at', before);
+    }
+
+    const { data: messages, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (error) {
       console.error('[API Messages] Error:', error.message);
       return NextResponse.json([]);
     }
 
-    const mapped = (messages || []).map((m: any) => ({
+    // Balik urutan agar ascending (kronologis lama -> baru) untuk frontend
+    const reversed = [...(messages || [])].reverse();
+
+    const mapped = reversed.map((m: any) => ({
       ...m,
       sender_gmail: m.sender_identifier,
     }));

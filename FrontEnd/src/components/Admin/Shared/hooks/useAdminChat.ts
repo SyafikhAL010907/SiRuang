@@ -129,6 +129,8 @@ export function useAdminChat(options: UseAdminChatOptions) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFetchingRoomsRef = useRef(false);
   const isFetchingMessagesRef = useRef(false);
+  const lastFetchRoomsTimeRef = useRef(0);
+  const lastFetchMessagesTimeRef = useRef(0);
 
   const viewFile = useCallback((dataUrl: string, fileName?: string) => {
     setSelectedExcelFile({ data: dataUrl, name: fileName || 'Dokumen' });
@@ -150,6 +152,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
   const fetchRooms = useCallback(async (token: string) => {
     if (isFetchingRoomsRef.current) return;
     isFetchingRoomsRef.current = true;
+    lastFetchRoomsTimeRef.current = Date.now();
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/rooms`, {
         headers: { 'Authorization': token }
@@ -208,6 +211,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
   const fetchMessages = useCallback(async (roomId: number, token: string) => {
     if (isFetchingMessagesRef.current) return;
     isFetchingMessagesRef.current = true;
+    lastFetchMessagesTimeRef.current = Date.now();
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${roomId}&_t=${Date.now()}`, {
         headers: { 'Authorization': token },
@@ -305,6 +309,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
       }, 150);
     };
 
+    let wasDisconnected = false;
     const channel = supabase
       .channel('realtime_chat_admin_all')
       .on(
@@ -331,14 +336,40 @@ export function useAdminChat(options: UseAdminChatOptions) {
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.info('[Realtime admin] terhubung');
-        } else {
+          if (wasDisconnected) {
+            // Reconnected: refresh rooms dan room aktif sekali
+            refreshRooms();
+            const activeId = selectedChatRef.current?.id;
+            if (activeId) {
+              fetchMessagesRef.current(activeId, token);
+            }
+            wasDisconnected = false;
+          }
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          wasDisconnected = true;
           console.warn('[Realtime admin] status:', status, err ?? '');
         }
       });
 
+    // Refetch instan 1x saat tab admin kembali aktif/terlihat (dengan debounce 5 detik)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        if (now - lastFetchRoomsTimeRef.current >= 5000 && !isFetchingRoomsRef.current) {
+          fetchRoomsRef.current(token);
+        }
+        const activeId = selectedChatRef.current?.id;
+        if (activeId && now - lastFetchMessagesTimeRef.current >= 5000 && !isFetchingMessagesRef.current) {
+          fetchMessagesRef.current(activeId, token);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       if (roomsTimer) clearTimeout(roomsTimer);
       supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

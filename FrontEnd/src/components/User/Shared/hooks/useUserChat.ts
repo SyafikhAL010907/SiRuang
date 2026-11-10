@@ -47,6 +47,7 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
   const lastRoomIdRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFetchingMessagesRef = useRef(false);
+  const lastFetchMessagesTimeRef = useRef(0);
 
   // Ref status visibilitas chat (pengganti activeTabRef/chatViewRef di Mobile & isChatOpenRef di Web)
   const isChatVisibleRef = useRef(isChatVisible);
@@ -113,6 +114,7 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
     // Mencegah request menumpuk jika request sebelumnya masih berjalan
     if (isFetchingMessagesRef.current) return;
     isFetchingMessagesRef.current = true;
+    lastFetchMessagesTimeRef.current = Date.now();
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages?room_id=${id}&_t=${Date.now()}`, {
@@ -239,6 +241,7 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
             const { token } = JSON.parse(storedUser);
 
             // 1. Supabase Realtime WebSocket listener (0 ms delay instan)
+            let wasDisconnected = false;
             const channel = supabase
               .channel(platform === 'mobile' ? `realtime_chat_user_mob_${roomId}` : `realtime_chat_user_${roomId}`)
               .on(
@@ -259,20 +262,40 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
                 }
               )
               .subscribe((status, err) => {
-                // Kalau bukan SUBSCRIBED, realtime nggak jalan dan chat cuma ngandelin polling
                 if (status === 'SUBSCRIBED') {
                   console.info('[Realtime user] terhubung, room', roomId);
-                } else {
+                  // Jika sebelumnya terputus, refetch 1x agar tidak tertinggal data
+                  if (wasDisconnected) {
+                    fetchMessages(roomId, token, userGmail);
+                    wasDisconnected = false;
+                  }
+                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                  wasDisconnected = true;
                   console.warn('[Realtime user] status:', status, err ?? '');
                 }
               });
 
-            // 2. Fallback polling sebagai cadangan jika WebSocket terputus (10 detik, bukan 1.5 detik)
-            const interval = setInterval(() => fetchMessages(roomId, token, userGmail), 10000);
+            // 2. Fallback polling sebagai cadangan jika WebSocket terputus (60 detik, hanya saat tab aktif)
+            const interval = setInterval(() => {
+              if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+              fetchMessages(roomId, token, userGmail);
+            }, 60000);
+
+            // 3. Refetch instan 1x saat tab kembali aktif/terlihat (dengan debounce 5 detik)
+            const handleVisibilityChange = () => {
+              if (document.visibilityState === 'visible') {
+                const now = Date.now();
+                if (now - lastFetchMessagesTimeRef.current >= 5000 && !isFetchingMessagesRef.current) {
+                  fetchMessages(roomId, token, userGmail);
+                }
+              }
+            };
+            document.addEventListener('visibilitychange', handleVisibilityChange);
 
             return () => {
               supabase.removeChannel(channel);
               clearInterval(interval);
+              document.removeEventListener('visibilitychange', handleVisibilityChange);
             };
         }
     }

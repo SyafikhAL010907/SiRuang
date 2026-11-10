@@ -55,20 +55,6 @@ const MobileLayout = () => {
     fileInputRef: chat.fileInputRef,
   });
 
-  // Tandai pesan terbaca saat masuk room chat
-  useEffect(() => {
-    if (chatView === 'ROOM' && activeTab === 'chats' && chat.roomId) {
-      chat.setUnreadCount(0);
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        try {
-          const { token } = JSON.parse(storedUser);
-          chat.markAsRead(chat.roomId, token);
-        } catch (e) {}
-      }
-    }
-  }, [chatView, activeTab, chat.roomId]);
-
   const handleOpenChatFromHome = () => {
     setActiveTab('chats');
     setChatView('ROOM');

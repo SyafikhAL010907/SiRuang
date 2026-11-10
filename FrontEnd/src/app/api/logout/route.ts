@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { getUserFromRequest } from '@/lib/authHelper';
+import { getUserFromRequest, invalidateSessionCache } from '@/lib/authHelper';
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const token = authHeader.replace('Bearer ', '').trim();
 
     if (user) {
+      invalidateSessionCache(user.identifier, token || undefined);
       if (user.role === 'user' || user.role === 'pj_kelas') {
         // Hapus semua sesi atas nama user ini
         await supabaseServer.from('active_sessions').delete().eq('identifier', user.identifier);

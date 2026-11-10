@@ -4,24 +4,47 @@ import { useState, useEffect } from 'react';
 import { getAvatarSrc } from '@/lib/avatarValidation';
 
 const DEFAULT_ADMIN_AVATAR = '/LogoSiRuangPolos.png';
-const REFRESH_MS = 30000; // cek ulang foto admin tiap 30 detik
+const CACHE_KEY = 'admin_info_avatar_cache';
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
 
 /**
- * Ambil foto profil Admin UNJ dari backend (GET /api/chat/admin-info) supaya sisi user
- * ikut berubah saat admin ganti foto profil.
- *
- * - Nama field di response dibaca fleksibel: avatar_url / avatarUrl / avatar / photo_url,
- *   boleh juga dibungkus di `data`.
+ * Ambil foto profil Admin UNJ dari backend (GET /api/chat/admin-info).
+ * Menggunakan cache sessionStorage dengan TTL 10 menit untuk menghemat egress Supabase.
  */
 export const useAdminInfo = (): string => {
-  const [avatarSrc, setAvatarSrc] = useState<string>(DEFAULT_ADMIN_AVATAR);
+  const [avatarSrc, setAvatarSrc] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { avatar, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_TTL_MS && avatar) {
+            return avatar;
+          }
+        }
+      } catch {}
+    }
+    return DEFAULT_ADMIN_AVATAR;
+  });
 
   useEffect(() => {
     let stopped = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
 
     const load = async () => {
+      // 1. Cek cache sessionStorage terlebih dahulu
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { avatar, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_TTL_MS && avatar) {
+            setAvatarSrc(avatar);
+            return;
+          }
+        }
+      } catch {}
+
       if (stopped) return;
+
       try {
         const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         let token = '';
@@ -39,16 +62,12 @@ export const useAdminInfo = (): string => {
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
-        const res = await fetch(`${apiUrl}/chat/admin-info?_t=${Date.now()}`, {
+        const res = await fetch(`${apiUrl}/chat/admin-info`, {
           headers,
           cache: 'no-store',
         });
 
         if (!res.ok) {
-          if (res.status === 404) {
-            stopped = true;
-            if (timer) clearInterval(timer);
-          }
           return;
         }
 
@@ -56,7 +75,14 @@ export const useAdminInfo = (): string => {
         const d = json?.data ?? json;
         const raw: string = d?.avatar_url ?? d?.avatarUrl ?? d?.avatar ?? d?.photo_url ?? '';
         if (raw) {
-          setAvatarSrc(getAvatarSrc(raw));
+          const formatted = getAvatarSrc(raw);
+          setAvatarSrc(formatted);
+          try {
+            sessionStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ avatar: formatted, timestamp: Date.now() })
+            );
+          } catch {}
         }
       } catch (err) {
         console.warn('[useAdminInfo] Gagal mengambil info profil admin:', err);
@@ -64,14 +90,9 @@ export const useAdminInfo = (): string => {
     };
 
     load();
-    timer = setInterval(load, REFRESH_MS);
-    const onFocus = () => load();
-    window.addEventListener('focus', onFocus);
 
     return () => {
       stopped = true;
-      if (timer) clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
     };
   }, []);
 

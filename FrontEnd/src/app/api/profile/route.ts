@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     // Ambil data profil dari view v_user_profiles
     const { data: profile, error } = await supabaseServer
       .from('v_user_profiles')
-      .select('*')
+      .select('user_id, username, identifier, identifier_type, role, full_name, email, phone, whatsapp, faculty, avatar_url, is_default_avatar')
       .eq('identifier', user.identifier)
       .maybeSingle();
 
@@ -138,7 +138,7 @@ export async function PUT(request: Request) {
     // 7. Ambil data profil terbaru dari view
     const { data: updatedProfile, error: fetchErr } = await supabaseServer
       .from('v_user_profiles')
-      .select('*')
+      .select('user_id, username, identifier, identifier_type, role, full_name, email, phone, whatsapp, faculty, avatar_url, is_default_avatar')
       .eq('user_id', userRecord.id)
       .maybeSingle();
 

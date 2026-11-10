@@ -1,3 +1,4 @@
+// DO NOT IMPORT — LEGACY BACKUP ONLY
 'use client';
 
 import React from 'react';

@@ -27,7 +27,7 @@ export async function POST(request: Request) {
         message_type: messageType,
         is_read: false,
       })
-      .select()
+      .select('id, room_id, sender_identifier, message, message_type, created_at, is_read')
       .single();
 
     if (insertError) {

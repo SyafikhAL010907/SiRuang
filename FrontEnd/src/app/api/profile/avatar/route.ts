@@ -226,7 +226,7 @@ export async function DELETE(request: Request) {
     // Ambil data profil terbaru dari view
     const { data: updatedProfile } = await supabaseServer
       .from('v_user_profiles')
-      .select('*')
+      .select('user_id, username, identifier, identifier_type, role, full_name, email, phone, whatsapp, faculty, avatar_url, is_default_avatar')
       .eq('user_id', userRecord.id)
       .maybeSingle();
 
