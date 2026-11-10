@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
+import { notifyRecipient } from '@/lib/sendPush';
 
 export async function POST(request: Request) {
   try {
@@ -88,6 +89,11 @@ export async function POST(request: Request) {
                 updated_at: new Date().toISOString(),
               })
               .eq('id', roomId);
+
+            // Web Push notification untuk bot reply (fire-and-forget, jangan after())
+            try {
+              await notifyRecipient(Number(roomId), 'admin_ai', replyText.substring(0, 200), 'text');
+            } catch {}
           }
         })
         .catch(() => {
@@ -95,6 +101,13 @@ export async function POST(request: Request) {
           // ML Service tidak aktif / timeout, abaikan secara senyap
         });
     }
+
+    // Web Push notification untuk pesan biasa (serverless-safe via after())
+    after(async () => {
+      try {
+        await notifyRecipient(Number(roomId), senderIdentifier, message, messageType);
+      } catch {}
+    });
 
     // Langsung return detik itu juga!
     return NextResponse.json({

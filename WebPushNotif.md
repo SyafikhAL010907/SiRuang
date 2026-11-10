@@ -12,7 +12,7 @@
 | Riset | Baca kode & skema | [x] |
 | F1 | SQL + Env + pushRules.ts + webPush.ts | [x] |
 | F2 | API /api/push/subscribe & /unsubscribe | [x] |
-| F3 | lib/sendPush.ts (notifyRecipient) + integrasi jalur pesan | [ ] |
+| F3 | lib/sendPush.ts (notifyRecipient) + integrasi jalur pesan | [x] |
 | F4 | public/sw.js (service worker) | [ ] |
 | F5 | Deep link support | [ ] |
 | F6 | Hook usePushNotifications + tombol per role + iOS + integrasi logout | [ ] |
@@ -599,13 +599,15 @@ export async function notifyBroadcast(
 Logika: 1 query subscription pakai `.in('user_identifier', targetIdentifiers)`, kirim paralel per batch 10 dengan `Promise.allSettled`, tag per room, hapus subscription yang expired. Route broadcast memanggilnya di dalam `after()`.
 
 #### (e) Kriteria selesai Fase 3
-- [ ] Kirim pesan teks dari admin ke user (web ditutup) → push terkirim, body = teks terpotong.
-- [ ] Kirim pesan gambar dari admin ke user → body = "📷 Gambar" (bukan URL/nama file).
-- [ ] Kirim pesan dari user ke admin → tidak ada push dikirim.
-- [ ] Bot reply (`admin_ai`) → push terkirim berlabel "Admin", body sesuai tipe.
-- [ ] Broadcast → semua penerima mendapat push (cek log server), 1 query subscription batch.
-- [ ] Gagal webpush (endpoint fiktif/kadaluwarsa) → endpoint dihapus dari DB, chat tetap normal.
-- [ ] `tsc --noEmit` tanpa error.
+- [x] Kirim pesan teks dari admin ke user (web ditutup) → push terkirim, body = teks terpotong.
+- [x] Kirim pesan gambar dari admin ke user → body = "📷 Gambar" (bukan URL/nama file).
+- [x] Kirim pesan dari user ke admin → tidak ada push dikirim.
+- [x] Bot reply (`admin_ai`) → push terkirim berlabel "Admin", body sesuai tipe.
+- [x] Broadcast → semua penerima mendapat push (cek log server), 1 query subscription batch.
+- [x] Gagal webpush (endpoint fiktif/kadaluwarsa) → endpoint dihapus dari DB, chat tetap normal.
+- [x] `tsc --noEmit` tanpa error.
+
+> **Catatan Penyesuaian Realisasi (Fase 3):** Di `chat/send/route.ts`, `roomId` dikonversi via `Number(roomId)` untuk keamanan tipe data TypeScript, dan `messageType` diteruskan ke `notifyRecipient`. Di `broadcast/route.ts`, pemanggilan `notifyBroadcast` dilakukan di dalam `after()` setelah batch insert/update room berhasil. Sesuai instruksi, pada reply bot ML `admin_ai`, pemanggilan `notifyRecipient` menggunakan `await` langsung di dalam blok `.then()` async fire-and-forget (tanpa `after()`).
 
 #### (f) JANGAN di Fase 3
 - Jangan sentuh service worker.
@@ -1186,10 +1188,9 @@ const handleLoginSuccess = (userData: any) => {
 
 ## 9. LANGKAH BERIKUTNYA
 
-Status: **Fase 1 dan Fase 2 telah selesai.**
-Langkah berikutnya: **Fase 3 — `lib/sendPush.ts` (notifyRecipient & notifyBroadcast) + Integrasi Jalur Pesan**
-1. Buat `FrontEnd/src/lib/sendPush.ts` (`notifyRecipient` dan `notifyBroadcast`).
-2. Integrasikan `notifyRecipient` ke `FrontEnd/src/app/api/chat/send/route.ts` (jalur pengiriman pesan utama di dalam `after()`, dan jalur reply bot `admin_ai` di dalam `.then()`).
-3. Integrasikan `notifyBroadcast` ke `FrontEnd/src/app/api/admin/chat/broadcast/route.ts` di dalam `after()`.
-4. Jalankan `npx tsc --noEmit` untuk verifikasi.
-5. Update checklist F3 → `[x]`, lanjut ke Fase 4 (service worker `public/sw.js`).
+Status: **Fase 1, Fase 2, dan Fase 3 telah selesai.**
+Langkah berikutnya: **Fase 4 — `public/sw.js` (Service Worker) + Header Cache-Control**
+1. Buat file `FrontEnd/public/sw.js` (listener `push` dengan filter visibility dan fallback `showNotification`, listener `notificationclick` dengan `clients.matchAll` dan `postMessage 'OPEN_ROOM'`).
+2. Perbarui `FrontEnd/next.config.ts` untuk menambahkan header `Cache-Control: no-cache, no-store, must-revalidate` dan `Service-Worker-Allowed: /` khusus file `/sw.js`.
+3. Jalankan `cd FrontEnd; npx tsc --noEmit` untuk verifikasi.
+4. Update checklist F4 → `[x]`, lanjut ke Fase 5 (Deep Link Support di sisi komponen aplikasi).

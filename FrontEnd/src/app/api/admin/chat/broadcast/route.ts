@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
+import { notifyBroadcast } from '@/lib/sendPush';
 
 export async function POST(request: Request) {
   try {
@@ -88,6 +89,19 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .in('id', roomIdsToUpdate);
+
+      // 5. Web Push broadcast notification (serverless-safe via after())
+      after(async () => {
+        try {
+          await notifyBroadcast(
+            adminIdentifier,
+            finalMsg,
+            finalType as any,
+            roomMap,
+            targetIdentifiers
+          );
+        } catch {}
+      });
     }
 
     return NextResponse.json({
