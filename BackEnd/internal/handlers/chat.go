@@ -20,7 +20,7 @@ func GetRooms(c *gin.Context) {
 			cr.id, 
 			cr.user_identifier, 
 			COALESCE(cr.last_message, ''), 
-			cr.updated_at, 
+			COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) as updated_at, 
 			COALESCE(NULLIF(p.full_name, ''), a.username, cr.user_identifier),
 			(SELECT COUNT(*) FROM chat_messages WHERE room_id = cr.id AND is_read = 0 AND sender_identifier = cr.user_identifier) as unread_count,
 			EXISTS(SELECT 1 FROM active_sessions WHERE identifier = cr.user_identifier) as is_online,
@@ -30,7 +30,7 @@ func GetRooms(c *gin.Context) {
 		FROM chat_rooms cr
 		LEFT JOIN authentication a ON cr.user_identifier = a.identifier
 		LEFT JOIN profiles p ON a.id = p.user_id
-		ORDER BY cr.updated_at DESC`)
+		ORDER BY COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) DESC, cr.id DESC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal ambil daftar room: " + err.Error()})
 		return

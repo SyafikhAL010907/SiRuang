@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, User, Lock, RefreshCw, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoginProps {
@@ -253,7 +253,7 @@ const MobileLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }
               <div className="space-y-2">
                 <label className={labelCls}>NIM / NIP</label>
                 <div className="group relative">
-                  <Hash className={iconCls} size={20} />
+                  <User className={iconCls} size={20} />
                   <input
                     type="text"
                     inputMode="numeric"

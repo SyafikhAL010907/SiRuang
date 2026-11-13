@@ -6,6 +6,19 @@ import { Message, CannedResponse } from '@/constants/chatTypes';
 import { supabase } from '@/lib/supabaseClient';
 import { toLocalTime } from '../utils';
 
+// Helper agar urutan room konsisten dan stabil:
+// Chat/aktivitas terbaru selalu paling atas, dan jika waktu sama/identik, pakai ID terbesar (dibuat belakangan) sebagai tie-breaker
+export const sortRooms = (roomsList: any[]) => {
+  return [...roomsList].sort((a, b) => {
+    const timeA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+    const timeB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+    if (timeB !== timeA) {
+      return timeB - timeA;
+    }
+    return (Number(b.id) || 0) - (Number(a.id) || 0);
+  });
+};
+
 // ── Options to handle Web vs Mobile differences ──
 export interface UseAdminChatOptions {
   /** Mobile uses `unread_count` directly, Web maps it to `unread` + `lastMessage`/`user` fields */
@@ -41,7 +54,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
     if (typeof window !== 'undefined') {
       try {
         const cached = sessionStorage.getItem('admin_cached_rooms');
-        if (cached) return JSON.parse(cached);
+        if (cached) return sortRooms(JSON.parse(cached));
       } catch {}
     }
     return [];
@@ -159,16 +172,18 @@ export function useAdminChat(options: UseAdminChatOptions) {
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) {
-        const mapped = data.map((r: any) => ({
-          ...r,
-          user: r.user_name || r.user_gmail?.split('@')[0] || r.user_identifier,
-          lastMessage: r.last_message,
-          time: toLocalTime(r.updated_at),
-          unread: r.unread_count || 0,
-          unread_count: r.unread_count || 0,
-          is_online: r.is_online,
-          is_marked_unread: r.is_marked_unread
-        }));
+        const mapped = sortRooms(
+          data.map((r: any) => ({
+            ...r,
+            user: r.user_name || r.user_gmail?.split('@')[0] || r.user_identifier,
+            lastMessage: r.last_message,
+            time: toLocalTime(r.updated_at),
+            unread: r.unread_count || 0,
+            unread_count: r.unread_count || 0,
+            is_online: r.is_online,
+            is_marked_unread: r.is_marked_unread
+          }))
+        );
         setRooms(mapped);
         try {
           sessionStorage.setItem('admin_cached_rooms', JSON.stringify(mapped));
@@ -194,7 +209,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
     const { token } = JSON.parse(storedUser);
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/mark-read?room_id=${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/chat/mark-read/${id}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -323,6 +338,33 @@ export function useAdminChat(options: UseAdminChatOptions) {
           // Jika hanya event UPDATE is_read, tidak perlu refetch (mencegah loop feedback antar tab)
           if (payload.eventType === 'UPDATE') {
             return;
+          }
+
+          if (payload.eventType === 'INSERT' && row?.room_id) {
+            const roomId = Number(row.room_id);
+            const msgText = row.message || '';
+            const createdAt = row.created_at || new Date().toISOString();
+            setRooms((prev) => {
+              const exists = prev.some((r) => r.id === roomId);
+              if (!exists) return prev;
+              const updated = prev.map((r) => {
+                if (r.id === roomId) {
+                  const isActive = selectedChatRef.current?.id === roomId;
+                  const isFromMe = (row.sender_identifier || '').toLowerCase() === (adminGmailRef.current || 'admin').toLowerCase();
+                  return {
+                    ...r,
+                    last_message: msgText,
+                    lastMessage: msgText,
+                    updated_at: createdAt,
+                    time: toLocalTime(createdAt),
+                    unread: !isActive && !isFromMe ? (r.unread || 0) + 1 : r.unread,
+                    unread_count: !isActive && !isFromMe ? (r.unread_count || 0) + 1 : r.unread_count,
+                  };
+                }
+                return r;
+              });
+              return sortRooms(updated);
+            });
           }
 
           refreshRooms();
@@ -455,6 +497,21 @@ export function useAdminChat(options: UseAdminChatOptions) {
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
+    const nowIso = new Date().toISOString();
+    setRooms((prev) => {
+      const updated = prev.map((r) =>
+        r.id === selectedChat.id
+          ? {
+              ...r,
+              last_message: messageText,
+              lastMessage: messageText,
+              updated_at: nowIso,
+              time: format(new Date(), 'HH:mm')
+            }
+          : r
+      );
+      return sortRooms(updated);
+    });
     setManualNote('');
     setSelectedResponse(null);
     setPendingFiles([]);

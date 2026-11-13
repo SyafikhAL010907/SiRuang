@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import Logo from '@/components/Shared/Logo';
-import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight } from 'lucide-react';
+import { ShieldCheck, User, Lock, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoginProps {
@@ -76,7 +76,7 @@ const WebLogin = ({ onNavigate, onLogin, loading, captcha, onRefreshCaptcha }: L
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">NIM / NIP</label>
                 <div className="relative group">
-                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors" size={20} />
                   <input
                     type="text"
                     inputMode="numeric"

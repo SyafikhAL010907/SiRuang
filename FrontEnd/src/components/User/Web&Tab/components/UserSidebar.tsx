@@ -552,7 +552,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               )}
               <div
                 className={cn(
-                  "relative rounded-full transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
+                  "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
                   isChatOpen && selectedRoom === 'admin' && "ring-2 ring-[#588CBC]/70 ring-offset-2"
                 )}
               >
@@ -600,7 +600,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               )}
               <div
                 className={cn(
-                  "relative rounded-full transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
+                  "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
                   isChatOpen && selectedRoom === 'dosen' && "ring-2 ring-[#588CBC]/70 ring-offset-2"
                 )}
               >

@@ -282,7 +282,7 @@ export default function Navbar({ variant }: NavbarProps) {
     const [open, setOpen] = useState(false);
 
     // Tinggi header dalam px (konstan sesuai variant)
-    const headerPx = isMobile ? 64 : 90;
+    const headerPx = isMobile ? 70 : 100;
 
     // Deteksi tone via IntersectionObserver — jauh lebih reliable dari BoundingRect/scroll-RAF
     const tone = useNavbarTone(headerPx);
@@ -302,7 +302,7 @@ export default function Navbar({ variant }: NavbarProps) {
         };
     }, [open]);
 
-    const headerH = isMobile ? 'h-[64px]' : 'h-[90px]';
+    const headerH = isMobile ? 'h-[70px]' : 'h-[100px]';
     const dark = tone === 'dark';
 
     return (
@@ -312,18 +312,21 @@ export default function Navbar({ variant }: NavbarProps) {
 
             {/* ---------------- HEADER ---------------- */}
             <header
-                className={`${montserrat.className} fixed inset-x-0 top-0 z-50 ${headerH}`}
+                className={`${montserrat.className} fixed inset-x-0 top-0 z-50 flex items-center justify-center pointer-events-none transition-all duration-300 ${
+                    isMobile ? 'h-[70px] px-3' : 'h-[100px] px-4 sm:px-6 lg:px-12'
+                }`}
             >
-                {/* drop-shadow adaptif:
-                    - dark mode  → shadow hitam tipis → elemen putih tetap keliatan di atas card putih
-                    - light mode → glow putih tipis   → elemen gelap tetap keliatan di atas latar hitam */}
+                {/* Kotak Kontainer Kaca Semi-Transparan (Glassmorphism Capsule) */}
                 <div
-                    className="relative mx-auto flex h-full w-full max-w-360 items-center justify-between px-4 lg:px-21 transition-[filter] duration-300"
-                    style={{
-                        filter: dark
-                            ? 'drop-shadow(0 1px 6px rgba(0,0,0,0.55))'
-                            : 'drop-shadow(0 1px 5px rgba(255,255,255,0.75))',
-                    }}
+                    className={`pointer-events-auto relative mx-auto flex w-full max-w-360 items-center justify-between transition-all duration-300 backdrop-blur-xl border ${
+                        isMobile
+                            ? 'h-[52px] px-5 rounded-2xl'
+                            : 'h-[72px] lg:h-[78px] px-8 lg:px-16 rounded-2xl lg:rounded-3xl'
+                    } ${
+                        dark
+                            ? 'bg-[#181818]/40 border-white/20 shadow-[0_16px_40px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.15)]'
+                            : 'bg-white/45 border-slate-300/70 shadow-[0_12px_36px_-6px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.04),inset_0_1px_2px_rgba(255,255,255,0.8)]'
+                    }`}
                 >
                     {/* kiri: MENU + garis tiga (warna ikut `currentColor`) */}
                     <button
@@ -332,14 +335,14 @@ export default function Navbar({ variant }: NavbarProps) {
                         aria-label="Buka menu"
                         aria-expanded={open}
                         aria-controls="main-nav"
-                        className={`group flex cursor-pointer items-center gap-4 transition-colors duration-300 ${dark ? 'text-white' : 'text-[#1C1C1C]'
+                        className={`group flex cursor-pointer items-center gap-3 sm:gap-4 transition-colors duration-300 ${dark ? 'text-white' : 'text-[#1C1C1C]'
                             }`}
                     >
-                        <span className="text-[15px] font-bold tracking-[0.35em] lg:text-[18px]">MENU</span>
-                        <span className="flex flex-col items-start gap-1.5">
-                            <span className="block h-0.5 w-7.5 rounded-full bg-current" />
-                            <span className="block h-0.5 w-5.5 rounded-full bg-current transition-[width] duration-300 group-hover:w-7.5" />
-                            <span className="block h-0.5 w-3.5 rounded-full bg-current transition-[width] duration-300 group-hover:w-7.5" />
+                        <span className="text-[14px] font-bold tracking-[0.35em] lg:text-[17px]">MENU</span>
+                        <span className="flex flex-col items-start gap-1 sm:gap-1.5">
+                            <span className="block h-0.5 w-6 sm:w-7.5 rounded-full bg-current" />
+                            <span className="block h-0.5 w-4.5 sm:w-5.5 rounded-full bg-current transition-[width] duration-300 group-hover:w-6 sm:group-hover:w-7.5" />
+                            <span className="block h-0.5 w-3 sm:w-3.5 rounded-full bg-current transition-[width] duration-300 group-hover:w-6 sm:group-hover:w-7.5" />
                         </span>
                     </button>
 
@@ -348,16 +351,16 @@ export default function Navbar({ variant }: NavbarProps) {
                         href="#"
                         onClick={(e) => handleNavClick(e, '#')}
                         aria-label="SiRuang, ke beranda"
-                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
                     >
-                        <AdaptiveLogo dark={dark} height={isMobile ? 40 : 58} />
+                        <AdaptiveLogo dark={dark} height={isMobile ? 34 : 46} />
                     </Link>
 
                     {/* kanan: Masuk (di layar sempit cukup lewat menu) */}
                     <Link
                         href={LOGIN_HREF}
                         prefetch={true}
-                        className={`hidden h-11.5 w-35 items-center justify-center rounded-[15px] text-[16px] font-semibold transition-[background-color,color,opacity] duration-300 hover:opacity-85 sm:flex lg:h-13 lg:w-42.5 lg:text-[18px] ${dark ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
+                        className={`hidden h-10 w-28 items-center justify-center rounded-xl text-[14px] font-semibold transition-[background-color,color,opacity,transform] duration-300 hover:opacity-85 active:scale-95 sm:flex lg:h-11.5 lg:w-36 lg:rounded-[14px] lg:text-[16px] ${dark ? 'bg-white text-[#1C1C1C]' : 'bg-[#1C1C1C] text-white'
                             }`}
                     >
                         Masuk

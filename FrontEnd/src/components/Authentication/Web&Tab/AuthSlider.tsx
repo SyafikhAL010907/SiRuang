@@ -60,7 +60,7 @@ function LoginForm({
                 <div className="space-y-2">
                     <label className={labelCls}>NIM / NIP</label>
                     <div className="group relative">
-                        <Hash className={iconCls} size={20} />
+                        <User className={iconCls} size={20} />
                         <input
                             type="text"
                             inputMode="numeric"
