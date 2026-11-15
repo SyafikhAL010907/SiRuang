@@ -281,7 +281,10 @@ export function BookingStep({
   useEffect(() => {
     async function fetchRelations() {
       try {
-        const res = await fetch('/api/user/relations');
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const res = await fetch('/api/user/relations', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.data && Array.isArray(json.data)) {
