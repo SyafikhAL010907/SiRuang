@@ -7,6 +7,7 @@ export interface SendMailOptions {
   to: string;
   subject: string;
   html: string;
+  text?: string; // Plain-text fallback penting untuk anti-spam (MIME multipart/alternative)
   template: string; // Kode template: E1 - E10, atau 'TEST'
   relatedId?: string; // UUID booking atau registrasi terkait
 }
@@ -14,6 +15,34 @@ export interface SendMailOptions {
 export interface SendMailResult {
   success: boolean;
   error?: string;
+}
+
+/**
+ * Mengonversi template HTML menjadi teks biasa (plain text fallback)
+ * Memenuhi standar RFC Multipart agar email tidak diklasifikasikan sebagai spam oleh Google AI
+ */
+export function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<a\s+(?:[^>]*?\s+)?href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '$2 ($1)')
+    .replace(/<tr[^>]*>/gi, '\n')
+    .replace(/<\/td>/gi, '  ')
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<hr[^>]*>/gi, '\n----------------------------------------\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&bull;/g, '•')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
@@ -172,13 +201,21 @@ export async function sendEmail(options: SendMailOptions): Promise<SendMailResul
       await sleep(backoffMs);
     }
 
-    // Try khusus untuk pemanggilan sendMail
+    // Try khusus untuk pemanggilan sendMail (Multipart: Text + HTML untuk anti-spam)
     try {
+      const plainText = options.text || htmlToPlainText(html);
+
       await transporter.sendMail({
         from: fromAddress,
         to,
+        replyTo: fromEmail,
         subject: fullSubject,
+        text: plainText,
         html,
+        headers: {
+          'X-Entity-Ref-ID': logId || template,
+          'X-Auto-Response-Suppress': 'OOF, AutoReply',
+        },
       });
       isSent = true;
     } catch (err: any) {

@@ -333,7 +333,7 @@ export async function GET(
       try {
         const mailRes = await sendEmail({
           to: pjEmail,
-          subject: `[SiRuang] Pengajuan Ruangan ${roomKode} Disetujui Dosen — Silakan Cek Denah & Check-in`,
+          subject: `[SiRuang] Pengajuan Ruangan ${roomKode} Disetujui — Konfirmasi Check-in`,
           template: 'E2',
           relatedId: booking.id,
           html: `
