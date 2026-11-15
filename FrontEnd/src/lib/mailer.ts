@@ -31,15 +31,19 @@ export function escapeHtml(str: string | number | null | undefined): string {
     .replace(/'/g, '&#39;');
 }
 
-let transporterInstance: Transporter | null = null;
-
+/**
+ * Buat transporter baru setiap kali dipanggil (tidak di-cache) agar
+ * perubahan env vars di Vercel langsung efektif tanpa perlu redeploy ulang.
+ * Di serverless environment, modul-level singleton bisa menyebabkan
+ * transporter null ter-cache selamanya jika env vars belum ada saat cold start.
+ */
 function getTransporter(): Transporter | null {
-  if (transporterInstance) return transporterInstance;
-
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+
+  console.log(`[mailer] SMTP config check — HOST: ${host ? 'SET' : 'MISSING'}, USER: ${user ? 'SET' : 'MISSING'}, PASS: ${pass ? 'SET(len=' + pass.length + ')' : 'MISSING'}`);
 
   if (!host || !user || !pass) {
     return null;
@@ -47,11 +51,11 @@ function getTransporter(): Transporter | null {
 
   const isSecure = port === 465;
 
-  transporterInstance = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host,
     port,
     secure: isSecure,
-    requireTLS: !isSecure, // Wajib TLS pada port non-465 (STARTTLS)
+    requireTLS: !isSecure,
     auth: {
       user,
       pass,
@@ -59,8 +63,6 @@ function getTransporter(): Transporter | null {
     connectionTimeout: 10000,
     greetingTimeout: 5000,
   });
-
-  return transporterInstance;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -79,11 +81,15 @@ export async function sendEmail(options: SendMailOptions): Promise<SendMailResul
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
+    console.error(`[mailer] SMTP TIDAK LENGKAP — HOST:${host||'?'} USER:${user||'?'} PASS:${pass?'OK':'?'} → email ke ${to} (${template}) TIDAK dikirim.`);
     return {
       success: false,
       error: 'Konfigurasi SMTP belum lengkap (SMTP_HOST, SMTP_USER, atau SMTP_PASS belum diset).',
     };
   }
+
+  console.log(`[mailer] Mengirim email template=${template} to=${to} subject="${subject.substring(0, 60)}..."`);
+
 
   const transporter = getTransporter();
   if (!transporter) {

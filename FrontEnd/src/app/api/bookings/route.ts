@@ -349,6 +349,7 @@ export async function POST(request: Request) {
     }
 
     // Kirim notifikasi email ke Dosen jika email tersedia
+    console.log(`[bookings/POST] Dosen email check: id=${dosenUser.user_id} email="${dosenUser.email}" SMTP_HOST="${process.env.SMTP_HOST ? 'SET' : 'MISSING'}"`);
     if (dosenUser.email) {
       const appUrl = getPublicAppUrl(request);
       const accUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=setuju`;
@@ -356,7 +357,7 @@ export async function POST(request: Request) {
       const reviewUrl = `${appUrl}/dosen/review/${newBooking.id}?token=${rawToken}`;
 
       try {
-        await sendEmail({
+        const mailResult = await sendEmail({
           to: dosenUser.email,
           subject: `[SiRuang] Pengajuan Peminjaman Ruangan: ${roomTarget.kode} (${mataKuliah})`,
           template: 'E1',
@@ -409,17 +410,17 @@ export async function POST(request: Request) {
                 Tanggapi langsung dengan memilih aksi cepat di bawah ini:
               </p>
 
-              <!-- Tombol Aksi Desain Modern: ACC & Tolak -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 22px auto; width: 100%; max-width: 460px;">
+              <!-- Tombol Aksi Desain Modern & Simetris: ACC & Tolak -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="table-layout: fixed; width: 100%; max-width: 440px; margin: 22px auto; border-collapse: separate; border-spacing: 12px 0;">
                 <tr>
-                  <td align="center" style="padding: 6px; width: 50%;">
-                    <a href="${accUrl}" style="background-color: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); letter-spacing: 0.2px;">
-                      &#10003; Setujui (ACC)
+                  <td align="center" valign="middle" style="width: 50%; padding: 0;">
+                    <a href="${accUrl}" style="display: block; box-sizing: border-box; width: 100%; background: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32); white-space: nowrap;">
+                      <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10004;&#65039;</span><span style="vertical-align: middle;">Setujui (ACC)</span>
                     </a>
                   </td>
-                  <td align="center" style="padding: 6px; width: 50%;">
-                    <a href="${tolakUrl}" style="background-color: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3); letter-spacing: 0.2px;">
-                      &#10005; Tolak Pengajuan
+                  <td align="center" valign="middle" style="width: 50%; padding: 0;">
+                    <a href="${tolakUrl}" style="display: block; box-sizing: border-box; width: 100%; background: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28); white-space: nowrap;">
+                      <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10006;&#65039;</span><span style="vertical-align: middle;">Tolak Pengajuan</span>
                     </a>
                   </td>
                 </tr>
@@ -441,9 +442,12 @@ export async function POST(request: Request) {
             </div>
           `,
         });
+        console.log(`[bookings/POST] Email E1 result: success=${mailResult.success} error="${mailResult.error || '-'}"`);
       } catch (mailErr) {
         console.warn('Gagal mengirim email ke dosen:', mailErr);
       }
+    } else {
+      console.warn(`[bookings/POST] Email dosen TIDAK dikirim — dosenUser.email kosong/null. dosenId=${dosenUser.user_id}`);
     }
 
     // Kirim push notification ke PJ Pemohon dan Dosen Pengampu (fail-soft)

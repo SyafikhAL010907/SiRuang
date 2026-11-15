@@ -282,7 +282,7 @@ export async function POST(request: Request) {
               <!-- Header Brand & Logo -->
               <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
                 <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
-                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang</h1>
                 <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Pusat Administrasi &amp; Verifikasi Akun Pengguna</p>
               </div>
 
@@ -326,17 +326,17 @@ export async function POST(request: Request) {
                 Berikan keputusan langsung melalui tombol aksi di bawah:
               </p>
 
-              <!-- Tombol Aksi: ACC & Tolak -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 22px auto; width: 100%; max-width: 460px;">
+              <!-- Tombol Aksi Desain Modern & Simetris: ACC & Tolak -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="table-layout: fixed; width: 100%; max-width: 440px; margin: 22px auto; border-collapse: separate; border-spacing: 12px 0;">
                 <tr>
-                  <td align="center" style="padding: 6px; width: 50%;">
-                    <a href="${accUrl}" style="background-color: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); letter-spacing: 0.2px;">
-                      &#10003; Setujui (ACC) Akun
+                  <td align="center" valign="middle" style="width: 50%; padding: 0;">
+                    <a href="${accUrl}" style="display: block; box-sizing: border-box; width: 100%; background: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32); white-space: nowrap;">
+                      <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10004;&#65039;</span><span style="vertical-align: middle;">Setujui (ACC)</span>
                     </a>
                   </td>
-                  <td align="center" style="padding: 6px; width: 50%;">
-                    <a href="${tolakUrl}" style="background-color: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3); letter-spacing: 0.2px;">
-                      &#10005; Tolak Pendaftaran
+                  <td align="center" valign="middle" style="width: 50%; padding: 0;">
+                    <a href="${tolakUrl}" style="display: block; box-sizing: border-box; width: 100%; background: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28); white-space: nowrap;">
+                      <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10006;&#65039;</span><span style="vertical-align: middle;">Tolak Akun</span>
                     </a>
                   </td>
                 </tr>
