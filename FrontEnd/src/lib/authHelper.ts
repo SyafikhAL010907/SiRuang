@@ -1,7 +1,15 @@
 import jwt from 'jsonwebtoken';
 import { supabaseServer } from './supabaseServer';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'siruang_super_secret_jwt_key_unj_2026';
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      'FATAL: JWT_SECRET environment variable is missing. Aplikasi dihentikan demi keamanan. Atur JWT_SECRET di .env.local.'
+    );
+  }
+  return secret;
+})();
 
 export interface TokenPayload {
   identifier: string;
@@ -39,13 +47,24 @@ export function invalidateSessionCache(identifier: string, token?: string) {
 }
 
 export async function getUserFromRequest(request: Request): Promise<TokenPayload | null> {
+  let token: string | null = null;
   const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
-  if (!authHeader) {
-    console.warn('[authHelper] Header Authorization tidak disertakan');
+  if (authHeader) {
+    token = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : authHeader.trim();
+  } else {
+    // Fallback: baca cookie httpOnly 'auth-token' (Langkah 3.1)
+    const cookieHeader = request.headers.get('cookie') || '';
+    const match = cookieHeader.match(/(?:^|;\s*)auth-token=([^;]+)/);
+    if (match) {
+      token = decodeURIComponent(match[1]);
+    }
+  }
+
+  if (!token) {
+    console.warn('[authHelper] Token otentikasi tidak ditemukan (baik header maupun cookie)');
     return null;
   }
 
-  const token = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : authHeader.trim();
   const decoded = verifyToken(token);
   if (!decoded) {
     console.warn('[authHelper] Verifikasi token JWT gagal (token expired atau signature tidak cocok)');

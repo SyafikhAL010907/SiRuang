@@ -1,33 +1,48 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import MainAuth from '@/components/Authentication/MainAuth';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  const redirectParam = searchParams.get('redirect');
+
   useEffect(() => {
-    // Kalau sudah login, langsung redirect ke dashboard sesuai role
+    // Kalau sudah login, langsung redirect ke dashboard sesuai role (Langkah 3.6)
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
-        if (parsed.role === 'admin') {
+        if (parsed.role) {
           setIsRedirecting(true);
-          router.replace('/admin');
-          return;
-        } else {
-          setIsRedirecting(true);
-          router.replace('/user');
+          const defaultPath = getRoleDashboardPath(parsed.role);
+
+          // Cek apakah ada redirect param yang cocok dengan role user
+          if (redirectParam && redirectParam.startsWith('/')) {
+            if (
+              (redirectParam.startsWith('/admin') && parsed.role === 'admin') ||
+              (redirectParam.startsWith('/dosen') && parsed.role === 'dosen') ||
+              (redirectParam.startsWith('/pj') && parsed.role === 'pj_kelas') ||
+              (redirectParam.startsWith('/user') && parsed.role === 'user')
+            ) {
+              router.replace(redirectParam);
+              return;
+            }
+          }
+
+          router.replace(defaultPath);
           return;
         }
       } catch {
         localStorage.removeItem('user');
       }
     }
-  }, [router]);
+  }, [router, redirectParam]);
 
   if (isRedirecting) {
     return (
@@ -38,11 +53,22 @@ export default function LoginPage() {
   }
 
   const handleLoginSuccess = (userData: any) => {
-    if (userData.role === 'admin') {
-      router.push('/admin');
-    } else {
-      router.push('/user');
+    const role = userData?.role;
+    const defaultPath = getRoleDashboardPath(role);
+
+    if (redirectParam && redirectParam.startsWith('/')) {
+      if (
+        (redirectParam.startsWith('/admin') && role === 'admin') ||
+        (redirectParam.startsWith('/dosen') && role === 'dosen') ||
+        (redirectParam.startsWith('/pj') && role === 'pj_kelas') ||
+        (redirectParam.startsWith('/user') && role === 'user')
+      ) {
+        router.push(redirectParam);
+        return;
+      }
     }
+
+    router.push(defaultPath);
   };
 
   return (

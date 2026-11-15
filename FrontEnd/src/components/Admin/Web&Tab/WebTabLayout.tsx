@@ -19,12 +19,14 @@ import AdminProfile from '@/components/Profile/Admin/AdminProfile';
 import RoleAccessView from './components/RoleAccessView';
 import ManajemenAkunView from './components/ManajemenAkunView';
 import RelasiMataKuliahView from './components/RelasiMataKuliahView';
+import BookingManagementView from './components/BookingManagementView';
+import ImportJadwalResmiView from './components/ImportJadwalResmiView';
 import ChatHeader from './components/ChatHeader';
 import ChatMessagesArea from './components/ChatMessagesArea';
 import ChatInputArea from './components/ChatInputArea';
 
 const WebTabLayout = () => {
-  const [mainView, setMainView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah'>('dashboard');
+  const [mainView, setMainView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'>('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -342,6 +344,10 @@ const WebTabLayout = () => {
           <ManajemenAkunView onBack={() => setMainView('dashboard')} />
         ) : mainView === 'relasi-mata-kuliah' ? (
           <RelasiMataKuliahView onBack={() => setMainView('dashboard')} />
+        ) : mainView === 'booking-management' ? (
+          <BookingManagementView onBack={() => setMainView('dashboard')} />
+        ) : mainView === 'import-jadwal' ? (
+          <ImportJadwalResmiView onBack={() => setMainView('dashboard')} />
         ) : (
           <AdminDashboardView
             adminName={adminName}
@@ -354,6 +360,8 @@ const WebTabLayout = () => {
             onOpenRoleAccess={() => setMainView('role-access')}
             onOpenManajemenAkun={() => setMainView('manajemen-akun')}
             onOpenRelasiMataKuliah={() => setMainView('relasi-mata-kuliah')}
+            onOpenBookingManagement={() => setMainView('booking-management')}
+            onOpenImportJadwal={() => setMainView('import-jadwal')}
           />
         )}
       </main>

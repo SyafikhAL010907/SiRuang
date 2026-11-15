@@ -25,13 +25,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle2, Clock, GraduationCap, Info } from 'lucide-react';
 import { DenahL3SFD, boxFokus, useAnimatedBox } from '../DenahL3SFD/DenahL3SFD';
 import { NOMOR_LANTAI, LANTAI_LABEL, RUANGAN, cariRuangan, statusHari, useHariIni, JadwalStep, FOCUS, BTN_UTAMA, BTN_TEPI, FONT, SfdStyle } from '../Jadwal/Jadwal';
 import type { Ruangan } from '../Jadwal/Jadwal';
 import { FasilitasStep } from '../Fasilitas/Fasilitas';
 import { BookingStep } from '../Booking/Booking';
 import { LokasiStep, Lokasi } from '../LokasiRuangan/Lokasi';
+import { useRoomStatuses } from '@/hooks/useRoomStatuses';
 
 // Export lama dipertahankan agar import dari file ini di tempat lain tetap jalan
 export type { Hari, Jadwal } from '../Jadwal/Jadwal';
@@ -56,6 +57,10 @@ export function Legenda({ className = '' }: { className?: string }) {
       <span className="flex items-center gap-2">
         <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-white" />
         Kelas Kosong
+      </span>
+      <span className="flex items-center gap-2">
+        <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#3B82F6]" />
+        Jadwal Resmi (SIAKAD)
       </span>
       <span className="flex items-center gap-2">
         <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#FFEB3B]" />
@@ -94,11 +99,34 @@ export function DaftarRuangan({ selected, onSelect, grid = false }: { selected: 
 // ============================================================================
 // 4. PETA INTERAKTIF — tanda hover + zoom saat klik
 // ============================================================================
-function KartuRuangan({ ruangan, onLanjut, onReset, compact }: { ruangan: Ruangan; onLanjut: () => void; onReset: () => void; compact: boolean }) {
+function KartuRuangan({
+  ruangan,
+  onLanjut,
+  onReset,
+  compact,
+  statusInfo,
+  onCheckin,
+  checkinLoading,
+}: {
+  ruangan: Ruangan;
+  onLanjut: () => void;
+  onReset: () => void;
+  compact: boolean;
+  statusInfo?: any;
+  onCheckin?: (bookingId: string) => Promise<void>;
+  checkinLoading?: boolean;
+}) {
   const hari = useHariIni();
+  const activeBooking = statusInfo?.bookings?.find((b: any) =>
+    ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+  );
+  const isBerlangsung = statusInfo?.bookings?.some((b: any) => b.status === 'berlangsung');
+  const isJadwalResmi = statusInfo?.status === 'jadwal_resmi' || (statusInfo?.schedules && statusInfo.schedules.length > 0 && !activeBooking && !isBerlangsung);
+  const officialSchedule = statusInfo?.schedules?.[0];
+
   return (
     <div
-      className={`sfd-in rounded-2xl bg-white p-4 text-[#2B2B2B] shadow-xl ${compact ? 'mt-3' : 'absolute bottom-4 left-4 w-[min(250px,calc(100%-2rem))]'}`}
+      className={`sfd-in rounded-2xl bg-white p-4 text-[#2B2B2B] shadow-xl ${compact ? 'mt-3' : 'absolute bottom-4 left-4 w-[min(260px,calc(100%-2rem))] z-20'}`}
     >
       <p className="flex items-center gap-1 text-[10px] font-semibold text-[#565656]">
         <span aria-hidden>◂</span>
@@ -110,18 +138,73 @@ function KartuRuangan({ ruangan, onLanjut, onReset, compact }: { ruangan: Ruanga
         {ruangan.kapasitas && <span className="rounded-full border border-[#B3B3B3] px-2 py-0.5">{ruangan.kapasitas} orang</span>}
         <span className="rounded-full border border-[#B3B3B3] px-2 py-0.5">{statusHari(ruangan, hari)}</span>
       </div>
-      <div className="mt-3 flex flex-col gap-1.5">
+
+      {/* Info Jadwal Resmi (Biru) */}
+      {isJadwalResmi && officialSchedule && (
+        <div className="mt-3 p-3 rounded-2xl bg-blue-50/90 border border-[#588CBC]/30 shadow-xs">
+          <div className="flex items-center gap-1.5 text-[#183449] text-[10px] font-black uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-[#588CBC] animate-pulse" />
+            <span>Jadwal Resmi SIAKAD</span>
+          </div>
+          <p className="text-xs text-slate-800 font-bold mt-1.5 line-clamp-1">
+            {officialSchedule.mata_kuliah} {officialSchedule.kelas ? `(${officialSchedule.kelas})` : ''}
+          </p>
+          <div className="mt-1.5 text-[10px] text-slate-600 space-y-1">
+            <div className="flex items-center gap-1.5">
+              <Clock size={12} className="text-[#588CBC] shrink-0" />
+              <span>{officialSchedule.jam_mulai.slice(0, 5)} - {officialSchedule.jam_selesai.slice(0, 5)} WIB</span>
+            </div>
+            {officialSchedule.nama_dosen && (
+              <div className="flex items-center gap-1.5">
+                <GraduationCap size={12} className="text-[#588CBC] shrink-0" />
+                <span className="truncate">{officialSchedule.nama_dosen}</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-2.5 text-[9px] bg-white/80 p-2 rounded-xl text-slate-600 border border-blue-100 flex items-start gap-1.5 leading-relaxed">
+            <Info size={12} className="text-[#588CBC] shrink-0 mt-0.5" />
+            <span>Ruangan terdaftar jadwal resmi. Bila kelas kosong, Anda dapat mengajukan <strong>Booking Bersyarat</strong>.</span>
+          </div>
+        </div>
+      )}
+
+      {/* Status Booking Alert */}
+      {activeBooking && (
+        <div className="mt-3 p-3 rounded-2xl bg-amber-50/90 border border-amber-200 shadow-xs">
+          <div className="flex items-center gap-1.5 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Disetujui Dosen (Kuning)</span>
+          </div>
+          <p className="text-xs text-slate-800 font-bold mt-1.5 line-clamp-1">
+            {activeBooking.mata_kuliah}
+          </p>
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-600 mt-1">
+            <Clock size={12} className="text-amber-600 shrink-0" />
+            <span>{activeBooking.jam_mulai?.slice(0, 5)} - {activeBooking.jam_selesai?.slice(0, 5)} WIB</span>
+          </div>
+        </div>
+      )}
+
+      {isBerlangsung && (
+        <div className="mt-3 p-2.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-2 text-rose-800 text-[10px] font-bold">
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          <span>Sedang Digunakan · Merah</span>
+        </div>
+      )}
+
+      <div className="mt-3.5 flex flex-col gap-2">
         <button
           onClick={onLanjut}
-          className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#2B2B2B] px-4 py-2 text-[11px] font-bold text-white transition hover:bg-black ${FOCUS}`}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#183449] hover:bg-[#122838] text-white px-4 py-2.5 text-xs font-bold transition shadow-xs active:scale-[0.98] cursor-pointer"
         >
-          Cek jadwal ruangan <span aria-hidden>→</span>
+          <span>{isJadwalResmi ? 'Booking Bersyarat / Cek Jadwal' : 'Cek Jadwal Ruangan'}</span>
+          <span aria-hidden>→</span>
         </button>
         <button
           onClick={onReset}
-          className={`w-full rounded-full border border-[#2B2B2B] bg-white px-4 py-2 text-[11px] font-bold text-[#2B2B2B] transition hover:bg-[#E0E0E0] ${FOCUS}`}
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] cursor-pointer"
         >
-          Denah penuh
+          Denah Penuh
         </button>
       </div>
     </div>
@@ -133,18 +216,62 @@ export function PetaInteraktif({
   onSelect,
   onLanjut,
   compact = false,
+  selectedDate,
+  onDateChange,
 }: {
   selectedCode: string | null;
   onSelect: (kode: string | null) => void;
   onLanjut: (kode: string) => void;
   compact?: boolean;
+  selectedDate?: string;
+  onDateChange?: (date: string) => void;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
+  const [internalDate, setInternalDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const activeDate = selectedDate ?? internalDate;
+  const [selectedJam, setSelectedJam] = useState<string>('all');
+  const { roomStatuses, refresh } = useRoomStatuses({ gedung: 'SFD', lantai: 3, tanggal: activeDate, jam: selectedJam });
   const [hover, setHover] = useState<{ kode: string | null; x: number; y: number; w: number } | null>(null);
   const box = useAnimatedBox(useMemo(() => boxFokus(selectedCode), [selectedCode]));
   const vb = box.map((n) => n.toFixed(1)).join(' ');
   const selectedRoom = selectedCode ? cariRuangan(selectedCode) : null;
   const hovered = hover?.kode ? cariRuangan(hover.kode) : null;
+  const [checkinLoading, setCheckinLoading] = useState(false);
+
+  const handleCheckin = async (bookingId: string, kodeRuang: string) => {
+    if (!confirm(`Konfirmasi kehadiran presensi dan check-in peminjaman ruangan ${kodeRuang}?`)) return;
+    setCheckinLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/checkin`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || 'Gagal melakukan check-in.');
+      } else {
+        alert(`Check-in berhasil! Ruangan ${kodeRuang} kini berstatus sedang digunakan (Warna berubah jadi Merah).`);
+        refresh();
+      }
+    } catch (err: any) {
+      alert('Terjadi kesalahan: ' + err.message);
+    } finally {
+      setCheckinLoading(false);
+    }
+  };
+
+  // Cek apakah ada ruangan yang siap check-in pada lantai ini
+  const pendingCheckinEntry = Object.entries(roomStatuses).find(([_, r]) =>
+    r.bookings?.some((b: any) =>
+      ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+    )
+  );
+
+  const readyRoomKode = pendingCheckinEntry ? pendingCheckinEntry[0] : null;
+  const readyBooking = pendingCheckinEntry
+    ? pendingCheckinEntry[1].bookings?.find((b: any) =>
+        ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+      )
+    : null;
 
   const onHover = (kode: string | null, pos: { x: number; y: number } | null) => {
     const r = wrap.current?.getBoundingClientRect();
@@ -153,6 +280,39 @@ export function PetaInteraktif({
 
   return (
     <div className="relative">
+      {/* Date & Time Picker */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2.5 px-3 py-2 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10">
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-[#588CBC] shrink-0" />
+          <span className="font-semibold text-[11px] text-white/90 hidden sm:inline">Tanggal:</span>
+          <input
+            type="date"
+            value={activeDate}
+            onChange={(e) => {
+              if (onDateChange) onDateChange(e.target.value);
+              else setInternalDate(e.target.value);
+            }}
+            className="bg-black/60 hover:bg-black/80 border border-white/20 hover:border-white/40 rounded-xl px-2.5 py-1 text-[11px] font-semibold text-white focus:outline-none focus:border-[#588CBC] transition-all cursor-pointer"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Clock size={14} className="text-[#588CBC] shrink-0" />
+          <span className="font-semibold text-[11px] text-white/90 hidden sm:inline">Filter Jam:</span>
+          <select
+            value={selectedJam}
+            onChange={(e) => setSelectedJam(e.target.value)}
+            className="bg-black/60 hover:bg-black/80 border border-white/20 hover:border-white/40 rounded-xl px-2.5 py-1 text-[11px] font-semibold text-white focus:outline-none focus:border-[#588CBC] transition-all cursor-pointer"
+          >
+            <option value="all" className="bg-slate-900 text-white">Semua Jam (Sepanjang Hari)</option>
+            <option value="08:00-10:00" className="bg-slate-900 text-white">08:00 - 10:00 (Sesi Pagi 1)</option>
+            <option value="10:00-12:00" className="bg-slate-900 text-white">10:00 - 12:00 (Sesi Pagi 2)</option>
+            <option value="13:00-15:00" className="bg-slate-900 text-white">13:00 - 15:00 (Sesi Siang 1)</option>
+            <option value="15:00-17:00" className="bg-slate-900 text-white">15:00 - 17:00 (Sesi Siang 2)</option>
+          </select>
+        </div>
+      </div>
+
       {/* Label lokasi di atas peta saat zoom */}
       {!compact && selectedRoom && (
         <p className="absolute -top-6 right-6 text-[11px] font-medium text-white/60">
@@ -173,6 +333,7 @@ export function PetaInteraktif({
           viewBox={vb}
           hoveredCode={hover?.kode ?? null}
           onHoverRoom={onHover}
+          roomStatuses={roomStatuses}
           className="block h-auto w-full"
         />
 
@@ -189,11 +350,27 @@ export function PetaInteraktif({
         )}
 
         {!compact && selectedRoom && (
-          <KartuRuangan ruangan={selectedRoom} compact={false} onLanjut={() => onLanjut(selectedRoom.kode)} onReset={() => onSelect(null)} />
+          <KartuRuangan
+            ruangan={selectedRoom}
+            compact={false}
+            statusInfo={selectedRoom ? roomStatuses[selectedRoom.kode] : undefined}
+            onCheckin={(bookingId) => handleCheckin(bookingId, selectedRoom.kode)}
+            checkinLoading={checkinLoading}
+            onLanjut={() => onLanjut(selectedRoom.kode)}
+            onReset={() => onSelect(null)}
+          />
         )}
       </div>
       {compact && selectedRoom && (
-        <KartuRuangan ruangan={selectedRoom} compact onLanjut={() => onLanjut(selectedRoom.kode)} onReset={() => onSelect(null)} />
+        <KartuRuangan
+          ruangan={selectedRoom}
+          compact
+          statusInfo={selectedRoom ? roomStatuses[selectedRoom.kode] : undefined}
+          onCheckin={(bookingId) => handleCheckin(bookingId, selectedRoom.kode)}
+          checkinLoading={checkinLoading}
+          onLanjut={() => onLanjut(selectedRoom.kode)}
+          onReset={() => onSelect(null)}
+        />
       )}
     </div>
   );
@@ -213,7 +390,15 @@ const STEP_FASILITAS = 2;
 const STEP_LOKASI = 3;
 const STEP_BOOKING = 4;
 
-export function RoomFlow({ ruangan, onClose }: { ruangan: Ruangan; onClose: () => void }) {
+export function RoomFlow({
+  ruangan,
+  initialBooking,
+  onClose,
+}: {
+  ruangan: Ruangan;
+  initialBooking?: any;
+  onClose: () => void;
+}) {
   const [step, setStep] = useState(1);
   const [maks, setMaks] = useState(1);
   const [buka, setBuka] = useState(false);
@@ -307,7 +492,7 @@ export function RoomFlow({ ruangan, onClose }: { ruangan: Ruangan; onClose: () =
           {step === 1 && <JadwalStep ruangan={ruangan} tema="terang" />}
           {step === 2 && <FasilitasStep ruangan={ruangan} tema="terang" />}
           {step === 3 && <LokasiStep ruangan={ruangan} />}
-          {step === 4 && <BookingStep ruangan={ruangan} tema="terang" />}
+          {step === 4 && <BookingStep ruangan={ruangan} initialBooking={initialBooking} tema="terang" onClose={tutup} />}
         </div>
       </div>
 
@@ -336,6 +521,7 @@ export { RoomFlow as RoomPopupSfd };
 export function SfdPage({ compact = false }: { compact?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [flow, setFlow] = useState<string | null>(null);
+  const { roomStatuses } = useRoomStatuses({ gedung: 'SFD', lantai: NOMOR_LANTAI });
   const jumlah = RUANGAN.filter((r) => r.bookable).length;
 
   const fakta = [
@@ -408,7 +594,14 @@ export function SfdPage({ compact = false }: { compact?: boolean }) {
         </div>
       </section>
 
-      {flow && <RoomFlow key={flow} ruangan={cariRuangan(flow)} onClose={() => setFlow(null)} />}
+      {flow && (
+        <RoomFlow
+          key={flow}
+          ruangan={cariRuangan(flow)}
+          initialBooking={roomStatuses[flow]?.bookings?.[0]}
+          onClose={() => setFlow(null)}
+        />
+      )}
     </div>
   );
 }

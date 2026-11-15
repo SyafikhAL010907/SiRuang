@@ -18,6 +18,10 @@ export interface UserProfileData {
   phone: string;
   whatsapp: string;
   faculty: string;
+  kelas?: string;
+  prodi?: string;
+  angkatan?: string;
+  departemen?: string;
   avatarUrl: string;
   isDefaultAvatar: boolean;
 }

@@ -11,7 +11,6 @@ import MobileChatListView from './components/MobileChatListView';
 import MobileChatRoomView from './components/MobileChatRoomView';
 import MobileProfileView from './components/MobileProfileView';
 import MobileDenahView from './components/MobileDenahView';
-import MobileBookingView from './components/MobileBookingView';
 import UserTemplatePopupModal from '../Shared/Modals/UserTemplatePopupModal';
 import CustomAlert from '@/components/Shared/CustomAlert';
 import FilePreviewModal from '@/components/Shared/FilePreviewModal';
@@ -19,7 +18,7 @@ import { downloadFile } from '../Shared/utils';
 
 const MobileLayout = () => {
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'home' | 'denah' | 'chats' | 'booking' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'denah' | 'chats' | 'profile'>('home');
   const [chatView, setChatView] = useState<'LIST' | 'ROOM'>('LIST');
 
   // Modal / UI states
@@ -219,11 +218,6 @@ const MobileLayout = () => {
           <MobileDenahView
             key="denah-view"
             onBackToHome={() => setActiveTab('home')}
-          />
-        ) : activeTab === 'booking' ? (
-          <MobileBookingView
-            key="booking-view"
-            onGoToDenah={() => setActiveTab('denah')}
           />
         ) : (
           <MobileProfileView

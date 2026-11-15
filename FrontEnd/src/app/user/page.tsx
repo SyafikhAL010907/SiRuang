@@ -19,10 +19,17 @@ export default function UserPage() {
     }
     try {
       const parsed = JSON.parse(storedUser);
-      if (parsed.role === 'admin') {
-        router.replace('/admin');
-      } else {
+      // Langkah 3.7: Hanya izinkan role 'user' (Mahasiswa). Tolak role lain ke dashboard masing-masing.
+      if (parsed.role === 'user') {
         setAuthorized(true);
+      } else if (parsed.role === 'admin') {
+        router.replace('/admin');
+      } else if (parsed.role === 'dosen') {
+        router.replace('/dosen');
+      } else if (parsed.role === 'pj_kelas') {
+        router.replace('/pj');
+      } else {
+        router.replace('/login');
       }
     } catch {
       router.replace('/login');

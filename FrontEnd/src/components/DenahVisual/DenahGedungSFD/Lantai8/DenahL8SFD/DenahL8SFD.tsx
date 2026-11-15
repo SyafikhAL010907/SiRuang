@@ -25,9 +25,8 @@ export const NOMOR_LANTAI = 8;
 const LANTAI_LABEL = `Lantai ${NOMOR_LANTAI} · Tower A`;
 const LABEL_VERTICAL = true;
 
-// Ruangan yang dapat dibooking di Lantai 8 (hanya 3 ruangan aktif)
+// Ruangan yang dapat dibooking di Lantai 8 SFD (Hanya R.802 dan R.805 yang bookable)
 const BOOKABLE_ROOMS = new Set([
-  'R.801',
   'R.802',
   'R.805',
 ]);
@@ -311,6 +310,7 @@ export interface RoomShapeProps {
   points?: string;
   bookable?: boolean;
   tema?: TemaDenah;
+  roomStatuses?: Record<string, any>;
 }
 
 export function RoomShape({
@@ -331,6 +331,7 @@ export function RoomShape({
   points,
   bookable,
   tema = 'gelap',
+  roomStatuses,
 }: RoomShapeProps) {
   const T = TEMA[tema];
   const isBookable = bookable !== undefined ? bookable : BOOKABLE_ROOMS.has(kode);
@@ -339,9 +340,34 @@ export function RoomShape({
   const fokus = hovered ?? selected ?? null;
   const redup = fokus !== null && fokus !== kode && !aktif;
 
-  const isi = aktif ? T.aktifFill : hover ? T.hoverFill : isBookable ? T.bookFill : T.tidakFill;
-  const garis = aktif ? T.aktifStroke : hover ? T.hoverStroke : isBookable ? T.bookStroke : T.tidakStroke;
-  const teks = aktif ? T.teksAktif : hover ? T.teksHover : isBookable ? T.teksBook : T.teksTidak;
+  const st = roomStatuses?.[kode];
+  let isi: string = isBookable ? T.bookFill : T.tidakFill;
+  let garis: string = isBookable ? T.bookStroke : T.tidakStroke;
+  let teks: string = isBookable ? T.teksBook : T.teksTidak;
+
+  if (st && isBookable && st.status !== 'fasilitas_umum') {
+    if (st.status === 'dipakai') {
+      isi = aktif ? '#E53935' : hover ? 'rgba(229, 57, 53, 1)' : 'rgba(229, 57, 53, 0.90)';
+      garis = aktif ? '#FFFFFF' : '#E53935';
+      teks = '#FFFFFF';
+    } else if (st.status === 'dalam_pengajuan') {
+      isi = aktif ? '#FFEB3B' : hover ? 'rgba(255, 235, 59, 1)' : 'rgba(255, 235, 59, 0.92)';
+      garis = aktif ? '#FFFFFF' : '#FBC02D';
+      teks = '#183449';
+    } else if (st.status === 'jadwal_resmi') {
+      isi = aktif ? '#3B82F6' : hover ? 'rgba(59, 130, 246, 1)' : 'rgba(59, 130, 246, 0.90)';
+      garis = aktif ? '#FFFFFF' : '#2563EB';
+      teks = '#FFFFFF';
+    } else if (st.status === 'kosong') {
+      isi = aktif ? '#FFFFFF' : hover ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.95)';
+      garis = aktif ? '#0D0D0D' : '#FFFFFF';
+      teks = '#183449';
+    }
+  } else {
+    isi = aktif ? T.aktifFill : hover ? T.hoverFill : isBookable ? T.bookFill : T.tidakFill;
+    garis = aktif ? T.aktifStroke : hover ? T.hoverStroke : isBookable ? T.bookStroke : T.tidakStroke;
+    teks = aktif ? T.teksAktif : hover ? T.teksHover : isBookable ? T.teksBook : T.teksTidak;
+  }
 
   return (
     <g
@@ -403,6 +429,8 @@ export interface DenahL8SFDProps {
   showRoute?: boolean;
   /** Tema warna denah: 'gelap' (default) atau 'terang'. */
   tema?: TemaDenah;
+  /** Status real-time tiap ruangan dari backend */
+  roomStatuses?: Record<string, any>;
 }
 
 export function DenahL8SFD({
@@ -414,6 +442,7 @@ export function DenahL8SFD({
   onHoverRoom,
   showRoute = false,
   tema = 'gelap',
+  roomStatuses,
 }: DenahL8SFDProps) {
   const T = TEMA[tema];
   const ref = useRef<SVGSVGElement>(null);
@@ -424,6 +453,7 @@ export function DenahL8SFD({
     onSelect: onSelectRoom,
     onFocusRoom: (k: string | null) => onHoverRoom?.(k, null),
     tema,
+    roomStatuses,
   };
 
   // Hover berbasis kedekatan: kursor cukup "mendekati" ruangan (radius ~26 unit denah)

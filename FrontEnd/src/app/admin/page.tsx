@@ -21,6 +21,10 @@ export default function AdminPage() {
       const parsed = JSON.parse(storedUser);
       if (parsed.role === 'admin') {
         setAuthorized(true);
+      } else if (parsed.role === 'dosen') {
+        router.replace('/dosen');
+      } else if (parsed.role === 'pj_kelas') {
+        router.replace('/pj');
       } else {
         router.replace('/user');
       }

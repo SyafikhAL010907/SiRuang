@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -14,12 +15,15 @@ import (
 
 var JwtKey []byte
 
-func init() {
+// InitJWT membaca variabel lingkungan JWT_SECRET dan mengisi JwtKey.
+// Wajib dipanggil di main() setelah file .env selesai dimuat.
+func InitJWT() error {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "siruang_default_secret_key"
+		return fmt.Errorf("FATAL: JWT_SECRET environment variable is missing. Atur JWT_SECRET di .env")
 	}
 	JwtKey = []byte(secret)
+	return nil
 }
 
 func AuthMiddleware() gin.HandlerFunc {
@@ -59,13 +63,10 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// Ambil user_id untuk context: prioritaskan dari token JWT, atau query users/authentication
+		// Ambil user_id untuk context: prioritaskan dari token JWT, atau query authentication
 		userID := claims.UserID
 		if userID == 0 && database.DB != nil {
-			err = database.DB.QueryRow("SELECT id FROM users WHERE identifier = $1", claims.Identifier).Scan(&userID)
-			if err != nil || userID == 0 {
-				_ = database.DB.QueryRow("SELECT id FROM authentication WHERE identifier = $1", claims.Identifier).Scan(&userID)
-			}
+			_ = database.DB.QueryRow("SELECT id FROM authentication WHERE identifier = $1", claims.Identifier).Scan(&userID)
 		}
 
 		c.Set("user_id", userID)

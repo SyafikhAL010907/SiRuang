@@ -102,7 +102,7 @@ const MainAuth = ({ initialMode, onLoginSuccess }: MainAuthProps) => {
 
             const data = await res.json();
             if (res.ok) {
-                showAlert('Pendaftaran Berhasil! Silakan Login menggunakan NIM/NIP Anda.', 'Sukses');
+                showAlert(data.message || 'Pendaftaran Berhasil Diajukan! Akun Anda sedang menunggu persetujuan admin sebelum dapat digunakan.', 'Sukses');
                 setMode('login');
             } else {
                 showAlert(data.error || 'Pendaftaran Gagal', 'Gagal');

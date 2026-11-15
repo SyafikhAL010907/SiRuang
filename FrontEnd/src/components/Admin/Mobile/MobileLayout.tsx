@@ -22,13 +22,15 @@ import AdminProfile from '@/components/Profile/Admin/AdminProfile';
 import RoleAccessView from '../Web&Tab/components/RoleAccessView';
 import ManajemenAkunView from '../Web&Tab/components/ManajemenAkunView';
 import RelasiMataKuliahView from '../Web&Tab/components/RelasiMataKuliahView';
+import BookingManagementView from '../Web&Tab/components/BookingManagementView';
+import ImportJadwalResmiView from '../Web&Tab/components/ImportJadwalResmiView';
 import MobileManagementView from './components/MobileManagementView';
 import BuildingDenahGrid from '../Shared/Cards/BuildingDenahGrid';
 
 const MobileLayout = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [view, setView] = useState<'LIST' | 'ROOM'>('LIST');
-  const [subView, setSubView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah'>('dashboard');
+  const [subView, setSubView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'>('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -318,6 +320,14 @@ const MobileLayout = () => {
                       setActiveTab('managemen');
                       setSubView('relasi-mata-kuliah');
                     }}
+                    onOpenBookingManagement={() => {
+                      setActiveTab('managemen');
+                      setSubView('booking-management');
+                    }}
+                    onOpenImportJadwal={() => {
+                      setActiveTab('managemen');
+                      setSubView('import-jadwal');
+                    }}
                   />
                 ) : activeTab === 'profile' || (activeTab === 'home' && subView === 'profile') ? (
                   <AdminProfile
@@ -349,11 +359,27 @@ const MobileLayout = () => {
                       setSubView('dashboard');
                     }}
                   />
+                ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'booking-management' ? (
+                  <BookingManagementView
+                    onBack={() => {
+                      setActiveTab('home');
+                      setSubView('dashboard');
+                    }}
+                  />
+                ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'import-jadwal' ? (
+                  <ImportJadwalResmiView
+                    onBack={() => {
+                      setActiveTab('home');
+                      setSubView('dashboard');
+                    }}
+                  />
                 ) : activeTab === 'managemen' ? (
                   <MobileManagementView
                     onSelectRoleAccess={() => setSubView('role-access')}
                     onSelectManajemenAkun={() => setSubView('manajemen-akun')}
                     onSelectRelasiMataKuliah={() => setSubView('relasi-mata-kuliah')}
+                    onSelectBookingManagement={() => setSubView('booking-management')}
+                    onSelectImportJadwal={() => setSubView('import-jadwal')}
                   />
                 ) : activeTab === 'denah' ? (
                   <div className="pt-2">

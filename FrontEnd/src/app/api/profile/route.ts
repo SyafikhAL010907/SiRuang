@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     // Ambil data profil dari view v_user_profiles
     const { data: profile, error } = await supabaseServer
       .from('v_user_profiles')
-      .select('user_id, username, identifier, identifier_type, role, full_name, email, phone, whatsapp, faculty, avatar_url, is_default_avatar')
+      .select('user_id, username, identifier, identifier_type, role, full_name, email, phone, whatsapp, faculty, kelas, prodi, angkatan, departemen, avatar_url, is_default_avatar')
       .eq('identifier', user.identifier)
       .maybeSingle();
 
@@ -42,6 +42,10 @@ export async function GET(request: Request) {
       phone: profile.phone || '',
       whatsapp: profile.whatsapp || '',
       faculty: profile.faculty || '',
+      kelas: profile.kelas || '',
+      prodi: profile.prodi || '',
+      angkatan: profile.angkatan || '',
+      departemen: profile.departemen || '',
       avatarUrl: profile.avatar_url || '/LogoSiRuangPolos.png',
       isDefaultAvatar: profile.is_default_avatar ?? true,
     });

@@ -74,6 +74,12 @@ export const JADWAL_RUANGAN: Record<string, Jadwal[]> = {
     j('Rabu', '13:00', '15:00', 'Bimbingan Tugas Akhir', 'TE-8A', 'Teknik Elektro', 'Dr. Hendra', 'Admin Jurusan', '0812-0302-0001'),
     j('Kamis', '10:00', '12:00', 'Seminar Proposal', 'TE-7A', 'Teknik Elektro', 'Tim Penguji', 'Admin Jurusan', '0812-0302-0001'),
   ],
+  'R.303': [
+    j('Senin', '09:00', '11:00', 'Rapat Jurusan', 'INTERNAL', 'Fakultas Teknik', 'Ketua Jurusan', 'Admin Jurusan', '0812-0302-0001'),
+    j('Rabu', '13:00', '15:00', 'Bimbingan Tugas Akhir', 'TE-8A', 'Teknik Elektro', 'Dr. Hendra', 'Admin Jurusan', '0812-0302-0001'),
+    j('Kamis', '10:00', '12:00', 'Seminar Proposal', 'TE-7A', 'Teknik Elektro', 'Tim Penguji', 'Admin Jurusan', '0812-0302-0001'),
+  ],
+  'R.302': [],
   'R-03': [
     j('Senin', '10:30', '13:00', 'Teknik Tegangan Tinggi', 'TE-5A', 'Teknik Elektro', 'Pak Rudi', 'Fajar (Aslab)', '0812-0303-0001'),
     j('Selasa', '08:00', '11:00', 'Praktikum Rangkaian Listrik', 'TE-2A', 'Teknik Elektro', 'Bu Wulan', 'Intan', '0812-0303-0002'),
@@ -111,25 +117,34 @@ export const RUANGAN: Ruangan[] = [
   {
     kode: 'R-01',
     nama: 'PLC Lab',
-    bookable: true,
+    bookable: false,
     kapasitas: 30,
     deskripsi: 'Lab otomasi industri untuk praktikum PLC, sistem kontrol, dan proyek otomasi. Tersedia trainer PLC dan panel kontrol.',
     fasilitas: ['Trainer PLC', 'Panel kontrol', 'PC workstation', 'Proyektor', 'AC', 'Whiteboard'],
     jadwal: JADWAL_RUANGAN['R-01'],
   },
   {
-    kode: 'R-02',
-    nama: 'Meeting Room',
+    kode: 'R.302',
+    nama: 'Meeting Room 302',
+    bookable: false,
+    kapasitas: 20,
+    deskripsi: 'Ruang rapat 302 untuk koordinasi internal fakultas.',
+    fasilitas: ['Meja rapat', 'AC', 'Wi-Fi', 'Whiteboard'],
+    jadwal: JADWAL_RUANGAN['R.302'] || [],
+  },
+  {
+    kode: 'R.303',
+    nama: 'Ruang Rapat 303',
     bookable: true,
-    kapasitas: 40,
-    deskripsi: 'Ruang rapat luas untuk rapat jurusan, bimbingan, seminar proposal, dan diskusi kelompok.',
+    kapasitas: 25,
+    deskripsi: 'Ruang rapat 303 luas untuk rapat jurusan, bimbingan, seminar proposal, dan diskusi kelompok.',
     fasilitas: ['Meja rapat', 'Proyektor', 'Layar presentasi', 'AC', 'Wi-Fi', 'Whiteboard'],
-    jadwal: JADWAL_RUANGAN['R-02'],
+    jadwal: JADWAL_RUANGAN['R.303'],
   },
   {
     kode: 'R-03',
     nama: 'High Voltage Lab & Electrical Lab',
-    bookable: true,
+    bookable: false,
     kapasitas: 30,
     deskripsi: 'Lab untuk praktikum tegangan tinggi, rangkaian listrik, pengukuran besaran listrik, dan mesin listrik.',
     fasilitas: ['Modul tegangan tinggi', 'Alat ukur listrik', 'Trainer mesin listrik', 'Proyektor', 'AC', 'Whiteboard'],
@@ -138,7 +153,7 @@ export const RUANGAN: Ruangan[] = [
   {
     kode: 'R-04',
     nama: 'Robotic Lab',
-    bookable: true,
+    bookable: false,
     kapasitas: 24,
     deskripsi: 'Lab robotika untuk praktikum mikrokontroler, sensor, dan perancangan robot, juga dipakai latihan tim robot kampus.',
     fasilitas: ['Kit robot', 'Mikrokontroler & sensor', 'Arena uji robot', 'PC workstation', 'AC', 'Wi-Fi'],
@@ -147,7 +162,7 @@ export const RUANGAN: Ruangan[] = [
   {
     kode: 'R-05',
     nama: 'Digital Lab',
-    bookable: true,
+    bookable: false,
     kapasitas: 30,
     deskripsi: 'Lab sistem digital untuk praktikum rangkaian logika, mikroprosesor, dan perancangan FPGA.',
     fasilitas: ['Trainer sistem digital', 'Kit FPGA', 'PC workstation', 'Proyektor', 'AC', 'Whiteboard'],
@@ -156,7 +171,7 @@ export const RUANGAN: Ruangan[] = [
   {
     kode: 'R-06',
     nama: 'Analog Lab',
-    bookable: true,
+    bookable: false,
     kapasitas: 30,
     deskripsi: 'Lab elektronika analog untuk praktikum rangkaian penguat, instrumentasi, dan pengukuran sinyal.',
     fasilitas: ['Osiloskop', 'Function generator', 'Power supply', 'Proyektor', 'AC', 'Whiteboard'],
@@ -165,7 +180,7 @@ export const RUANGAN: Ruangan[] = [
   {
     kode: 'R-07',
     nama: 'Telecommunication Lab',
-    bookable: true,
+    bookable: false,
     kapasitas: 30,
     deskripsi: 'Lab telekomunikasi untuk praktikum sistem komunikasi, antena, propagasi, dan jaringan nirkabel.',
     fasilitas: ['Trainer telekomunikasi', 'Spectrum analyzer', 'Kit antena', 'Proyektor', 'AC', 'Wi-Fi'],
@@ -173,7 +188,10 @@ export const RUANGAN: Ruangan[] = [
   },
 ];
 
-export const cariRuangan = (kode: string) => RUANGAN.find((r) => r.kode === kode) ?? RUANGAN[0];
+export const cariRuangan = (kode: string) => {
+  if (kode === 'R-02') return RUANGAN.find((r) => r.kode === 'R.303') ?? RUANGAN[0];
+  return RUANGAN.find((r) => r.kode === kode) ?? RUANGAN[0];
+};
 export const fotoRuangan = (r: Ruangan) => r?.foto ?? FOTO_SEMENTARA;
 
 

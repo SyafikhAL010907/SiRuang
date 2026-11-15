@@ -87,7 +87,7 @@ export const RUANGAN: Ruangan[] = [
   {
     kode: 'R.801',
     nama: 'Lab Kelas Mappi',
-    bookable: true,
+    bookable: false,
     kapasitas: 30,
     deskripsi: 'Lab pemrograman dan jaringan. Setiap meja punya PC workstation, dipakai untuk praktikum, perkuliahan, proyek tim, dan asistensi.',
     fasilitas: ['PC workstation', 'Proyektor', 'AC', 'Whiteboard', 'Wi-Fi', 'Stop kontak tiap meja'],

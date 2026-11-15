@@ -2,12 +2,14 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, KeyRound, Network, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { ShieldCheck, KeyRound, Network, CalendarCheck, FileSpreadsheet, ChevronRight, SlidersHorizontal } from 'lucide-react';
 
 export interface MobileManagementViewProps {
   onSelectRoleAccess: () => void;
   onSelectManajemenAkun: () => void;
   onSelectRelasiMataKuliah: () => void;
+  onSelectBookingManagement?: () => void;
+  onSelectImportJadwal?: () => void;
 }
 
 const MANAGEMENT_ITEMS = [
@@ -32,11 +34,29 @@ const MANAGEMENT_ITEMS = [
   {
     key: 'relasi-mata-kuliah',
     title: 'Manajemen Relasi',
-    desc: 'Atur hubungan relasi mata kuliah dengan alokasi ruangan pada denah gedung.',
+    desc: 'Atur hubungan dosen, PJ kelas, mata kuliah, dan jadwal dalam sistem.',
     icon: Network,
     color: 'text-[#588CBC]',
     bg: 'bg-sky-50',
     border: 'border-sky-100 hover:border-[#588CBC]/40',
+  },
+  {
+    key: 'booking-management',
+    title: 'Pengajuan Booking',
+    desc: 'Tinjau dan pantau peminjaman ruangan yang disetujui dosen pengampu.',
+    icon: CalendarCheck,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-100 hover:border-emerald-300',
+  },
+  {
+    key: 'import-jadwal',
+    title: 'Import Jadwal Resmi (SIAKAD)',
+    desc: 'Unggah file Excel/CSV jadwal resmi perkuliahan Gedung SFD.',
+    icon: FileSpreadsheet,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-100 hover:border-blue-300',
   },
 ];
 
@@ -44,11 +64,15 @@ export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
   onSelectRoleAccess,
   onSelectManajemenAkun,
   onSelectRelasiMataKuliah,
+  onSelectBookingManagement,
+  onSelectImportJadwal,
 }) => {
-  const handlers: Record<string, () => void> = {
+  const handlers: Record<string, (() => void) | undefined> = {
     'role-access': onSelectRoleAccess,
     'manajemen-akun': onSelectManajemenAkun,
     'relasi-mata-kuliah': onSelectRelasiMataKuliah,
+    'booking-management': onSelectBookingManagement,
+    'import-jadwal': onSelectImportJadwal,
   };
 
   return (

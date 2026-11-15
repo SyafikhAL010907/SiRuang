@@ -23,6 +23,27 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error || !user) {
+      // 1b. Cek apakah identifier sedang menunggu persetujuan admin di registration_requests (Langkah 2.7)
+      const { data: pendingReq } = await supabaseServer
+        .from('registration_requests')
+        .select('id, expires_at')
+        .or(`identifier.eq.${identifier},email.eq.${identifier}`)
+        .maybeSingle();
+
+      if (pendingReq) {
+        const isExpired = new Date(pendingReq.expires_at) < new Date();
+        if (isExpired) {
+          return NextResponse.json(
+            { error: 'Masa berlaku permohonan akun Anda telah kedaluwarsa. Silakan lakukan pendaftaran ulang.' },
+            { status: 403 }
+          );
+        }
+        return NextResponse.json(
+          { error: 'Pengajuan akun Anda sedang menunggu persetujuan admin.' },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json({ error: 'NIM/NIP atau Password salah' }, { status: 401 });
     }
 
@@ -80,7 +101,7 @@ export async function POST(request: Request) {
       last_activity: new Date().toISOString(),
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       token,
       username: user.username,
       identifier: user.identifier,
@@ -88,6 +109,17 @@ export async function POST(request: Request) {
       role: user.role,
       gmail: user.identifier, // Fallback alias
     });
+
+    // 6. Set Cookie httpOnly (Langkah 3.1)
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 hari (sesuai masa berlaku JWT)
+    });
+
+    return response;
   } catch (err: any) {
     return NextResponse.json({ error: 'Internal server error: ' + err.message }, { status: 500 });
   }

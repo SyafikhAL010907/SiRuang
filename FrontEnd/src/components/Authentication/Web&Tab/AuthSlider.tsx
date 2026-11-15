@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, ArrowLeft, User, GraduationCap, Briefcase } from 'lucide-react';
+import { ShieldCheck, Hash, Lock, RefreshCw, ArrowRight, ArrowLeft, User, GraduationCap, Briefcase, Mail, BookOpen, School, Calendar, Phone, Building2 } from 'lucide-react';
 import Logo from '@/components/Shared/Logo';
 import { cn } from '@/lib/utils';
 
@@ -174,101 +174,164 @@ function SignUpForm({
     loading,
 }: Pick<AuthSliderProps, 'onRegister' | 'loading'>) {
     const [username, setUsername] = useState('');
-    const [identifierType, setIdentifierType] = useState<'nim' | 'nip'>('nim');
+    const [roleType, setRoleType] = useState<'mahasiswa' | 'pj_kelas' | 'dosen'>('mahasiswa');
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
+    const [kelas, setKelas] = useState('');
+    const [prodi, setProdi] = useState('');
+    const [fakultas, setFakultas] = useState('');
+    const [angkatan, setAngkatan] = useState('');
+    const [departemen, setDepartemen] = useState('');
+    const [phone, setPhone] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onRegister({
             username: username.trim(),
             identifier: identifier.trim(),
-            identifier_type: identifierType,
+            role_type: roleType,
             password,
-            role: identifierType === 'nip' ? 'dosen' : 'user',
+            ...(roleType === 'mahasiswa'
+                ? {
+                    identifier_type: 'nim',
+                    email: email.trim() || undefined,
+                }
+                : roleType === 'pj_kelas'
+                ? {
+                    identifier_type: 'nim',
+                    email: email.trim(),
+                    kelas: kelas.trim(),
+                    prodi: prodi.trim(),
+                    fakultas: fakultas.trim(),
+                    angkatan: angkatan.trim(),
+                }
+                : {
+                    identifier_type: 'nip',
+                    email: email.trim(),
+                    departemen: departemen.trim() || undefined,
+                    prodi: prodi.trim() || undefined,
+                    fakultas: fakultas.trim() || undefined,
+                    phone: phone.trim() || undefined,
+                }),
         });
     };
 
     return (
-        <div className="mx-auto w-full max-w-md">
-            <div className="mb-6">
-                <h2 className="text-3xl font-black tracking-tight text-slate-800">Buat Akun Baru</h2>
-                <p className="mt-1 font-medium text-slate-500 text-sm">Daftar sebagai Mahasiswa atau Dosen.</p>
+        <div className="mx-auto w-full max-w-md py-4">
+            <div className="mb-5">
+                <h2 className="text-3xl font-black tracking-tight text-slate-800">Daftar Akun</h2>
+                <p className="mt-1 font-medium text-slate-500 text-xs">Pendaftaran akun baru memerlukan persetujuan admin.</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+                <div className="space-y-1.5">
                     <label className={labelCls}>Daftar Sebagai</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                         <button
                             type="button"
-                            onClick={() => setIdentifierType('nim')}
+                            onClick={() => setRoleType('mahasiswa')}
                             className={cn(
-                                'flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-black uppercase tracking-wider transition-all',
-                                identifierType === 'nim'
+                                'flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer',
+                                roleType === 'mahasiswa'
                                     ? 'bg-[#183449] text-white shadow-md'
                                     : 'border border-slate-200 bg-white text-slate-500 hover:border-[#588CBC]'
                             )}
                         >
-                            <GraduationCap size={15} />
+                            <GraduationCap size={14} />
                             <span>Mahasiswa</span>
                         </button>
                         <button
                             type="button"
-                            onClick={() => setIdentifierType('nip')}
+                            onClick={() => setRoleType('pj_kelas')}
                             className={cn(
-                                'flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-black uppercase tracking-wider transition-all',
-                                identifierType === 'nip'
+                                'flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer',
+                                roleType === 'pj_kelas'
                                     ? 'bg-[#183449] text-white shadow-md'
                                     : 'border border-slate-200 bg-white text-slate-500 hover:border-[#588CBC]'
                             )}
                         >
-                            <Briefcase size={15} />
+                            <BookOpen size={14} />
+                            <span>PJ Kelas</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRoleType('dosen')}
+                            className={cn(
+                                'flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer',
+                                roleType === 'dosen'
+                                    ? 'bg-[#183449] text-white shadow-md'
+                                    : 'border border-slate-200 bg-white text-slate-500 hover:border-[#588CBC]'
+                            )}
+                        >
+                            <Briefcase size={14} />
                             <span>Dosen</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     <label className={labelCls}>Nama Lengkap</label>
                     <div className="group relative">
-                        <User className={iconCls} size={20} />
+                        <User className={iconCls} size={18} />
                         <input
                             type="text"
                             required
+                            maxLength={150}
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder={identifierType === 'nim' ? 'Nama Mahasiswa' : 'Nama Lengkap & Gelar'}
+                            placeholder={roleType === 'dosen' ? 'Nama Lengkap & Gelar' : 'Nama Lengkap Mahasiswa'}
                             className={inputCls}
                         />
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     <label className={labelCls}>
-                        {identifierType === 'nim' ? 'NIM (Nomor Induk Mahasiswa)' : 'NIP (Nomor Induk Pegawai)'}
+                        {roleType === 'dosen' ? 'NIP (Nomor Induk Pegawai)' : 'NIM (Nomor Induk Mahasiswa)'}
                     </label>
                     <div className="group relative">
-                        <Hash className={iconCls} size={20} />
+                        <Hash className={iconCls} size={18} />
                         <input
                             type="text"
                             inputMode="numeric"
                             required
+                            maxLength={50}
                             value={identifier}
                             onChange={(e) => setIdentifier(e.target.value)}
-                            placeholder={identifierType === 'nim' ? 'Contoh: 1313620001' : 'Contoh: 198501012010121001'}
+                            placeholder={roleType === 'dosen' ? 'Contoh: 198501012010121001' : 'Contoh: 1313620001 (Angka)'}
                             className={inputCls}
                         />
                     </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className={labelCls}>Kata Sandi</label>
+                {roleType !== 'mahasiswa' && (
+                    <div className="space-y-1.5">
+                        <label className={labelCls}>Alamat Email</label>
+                        <div className="group relative">
+                            <Mail className={iconCls} size={18} />
+                            <input
+                                type="email"
+                                required
+                                maxLength={150}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="nama@email.com"
+                                className={inputCls}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-1.5">
+                    <label className={labelCls}>Kata Sandi (Min 8 Karakter)</label>
                     <div className="group relative">
-                        <Lock className={iconCls} size={20} />
+                        <Lock className={iconCls} size={18} />
                         <input
                             type="password"
                             required
+                            minLength={8}
+                            maxLength={72}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••••••"
@@ -277,12 +340,149 @@ function SignUpForm({
                     </div>
                 </div>
 
+                {roleType === 'pj_kelas' && (
+                    <>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Kelas</label>
+                                <div className="group relative">
+                                    <BookOpen className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={20}
+                                        value={kelas}
+                                        onChange={(e) => setKelas(e.target.value)}
+                                        placeholder="Contoh: TE-3A"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Angkatan</label>
+                                <div className="group relative">
+                                    <Calendar className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        required
+                                        maxLength={4}
+                                        value={angkatan}
+                                        onChange={(e) => setAngkatan(e.target.value)}
+                                        placeholder="Contoh: 2024"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Program Studi</label>
+                                <div className="group relative">
+                                    <GraduationCap className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={100}
+                                        value={prodi}
+                                        onChange={(e) => setProdi(e.target.value)}
+                                        placeholder="Contoh: PVTE"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Fakultas</label>
+                                <div className="group relative">
+                                    <School className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={150}
+                                        value={fakultas}
+                                        onChange={(e) => setFakultas(e.target.value)}
+                                        placeholder="Contoh: FT"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {roleType === 'dosen' && (
+                    <>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Departemen (Opsional)</label>
+                                <div className="group relative">
+                                    <Building2 className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        maxLength={100}
+                                        value={departemen}
+                                        onChange={(e) => setDepartemen(e.target.value)}
+                                        placeholder="Departemen"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>No. HP/WA (Opsional)</label>
+                                <div className="group relative">
+                                    <Phone className={iconCls} size={18} />
+                                    <input
+                                        type="tel"
+                                        maxLength={20}
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        placeholder="0812xxxx"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Program Studi (Opsional)</label>
+                                <div className="group relative">
+                                    <GraduationCap className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        maxLength={100}
+                                        value={prodi}
+                                        onChange={(e) => setProdi(e.target.value)}
+                                        placeholder="Program Studi"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className={labelCls}>Fakultas (Opsional)</label>
+                                <div className="group relative">
+                                    <School className={iconCls} size={18} />
+                                    <input
+                                        type="text"
+                                        maxLength={150}
+                                        value={fakultas}
+                                        onChange={(e) => setFakultas(e.target.value)}
+                                        placeholder="Fakultas"
+                                        className={inputCls}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
                 <button
                     type="submit"
                     disabled={loading}
-                    className="group mt-2 flex w-full items-center justify-center gap-2 rounded-3xl bg-linear-to-br from-[#07111E] to-[#0F2238] py-4 text-sm font-black text-white shadow-xl shadow-[#183449]/20 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                    className="group mt-2 flex w-full items-center justify-center gap-2 rounded-3xl bg-linear-to-br from-[#07111E] to-[#0F2238] py-4 text-sm font-black text-white shadow-xl shadow-[#183449]/20 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                 >
-                    <span>{loading ? 'MEMPROSES...' : 'DAFTAR SEKARANG'}</span>
+                    <span>{loading ? 'MEMPROSES...' : 'AJUKAN PENDAFTARAN'}</span>
                     {!loading && <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />}
                 </button>
             </form>

@@ -305,3 +305,80 @@ export async function notifyBroadcast(
   }
 }
 
+/**
+ * Kirim push notification terkait status booking / jadwal ke spesifik user via user_identifier (NIM/NIP).
+ */
+export async function notifyBookingPush(
+  userIdentifier: string,
+  title: string,
+  body: string,
+  targetUrl: string = '/user'
+): Promise<void> {
+  try {
+    if (!userIdentifier) return;
+
+    const { data: subscriptions, error } = await supabaseServer
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
+      .eq('user_identifier', userIdentifier);
+
+    if (error || !subscriptions || subscriptions.length === 0) {
+      return;
+    }
+
+    const payload = JSON.stringify({
+      title,
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: `booking-${Date.now()}`,
+      data: {
+        url: targetUrl,
+      },
+    });
+
+    await Promise.allSettled(
+      subscriptions.map(async (sub) => {
+        const res = await sendOneNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload
+        );
+        if (res.expired) {
+          await supabaseServer
+            .from('push_subscriptions')
+            .delete()
+            .eq('endpoint', sub.endpoint);
+        }
+      })
+    );
+  } catch (err: any) {
+    console.warn('[sendPush] Error di notifyBookingPush:', err?.message || err);
+  }
+}
+
+/**
+ * Kirim push notification ke user berdasarkan userId (int4 authentication.id).
+ */
+export async function notifyBookingPushByUserId(
+  userId: number,
+  title: string,
+  body: string,
+  targetUrl: string = '/user'
+): Promise<void> {
+  try {
+    if (!userId) return;
+    const { data: auth } = await supabaseServer
+      .from('authentication')
+      .select('identifier')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (auth?.identifier) {
+      await notifyBookingPush(auth.identifier, title, body, targetUrl);
+    }
+  } catch (err: any) {
+    console.warn('[sendPush] Error di notifyBookingPushByUserId:', err?.message || err);
+  }
+}
+
+

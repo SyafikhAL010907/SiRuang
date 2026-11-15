@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   KeyRound,
   Network,
+  CalendarCheck,
+  FileSpreadsheet,
   ChevronRight,
   X,
 } from 'lucide-react';
@@ -103,7 +105,7 @@ export interface MobileBottomNavProps {
   setActiveTab: (tab: string) => void;
   subView?: string;
   unreadCount?: number;
-  onSelectManagement?: (key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah') => void;
+  onSelectManagement?: (key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal') => void;
   onOpenProfile?: () => void;
   showBlessModal?: boolean;
   setShowBlessModal?: (show: boolean) => void;
@@ -125,7 +127,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const isManagemenActive =
     activeTab === 'managemen' ||
     ((activeTab === 'managemen' || activeTab === 'home') &&
-      ['role-access', 'manajemen-akun', 'relasi-mata-kuliah'].includes(subView));
+      ['role-access', 'manajemen-akun', 'relasi-mata-kuliah', 'booking-management', 'import-jadwal'].includes(subView));
   const isProfileActive =
     activeTab === 'profile' || (activeTab === 'home' && subView === 'profile');
   const isHomeActive = activeTab === 'home' && subView === 'dashboard';
@@ -197,7 +199,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   }, [activeIndex]);
 
   const handleSelectManagementSubView = (
-    key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah'
+    key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
   ) => {
     setIsManagementMenuOpen(false);
     if (onSelectManagement) {
@@ -353,6 +355,32 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <p className="text-xs font-black text-slate-800">Manajemen Relasi</p>
                     <p className="text-[10px] text-slate-400 font-medium truncate">
                       Relasi mata kuliah & alokasi ruangan
+                    </p>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all shrink-0"
+                  />
+                </button>
+
+                {/* 4. Import Jadwal Resmi */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectManagementSubView('import-jadwal')}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-2xl transition-all text-left group',
+                    subView === 'import-jadwal' && (activeTab === 'managemen' || activeTab === 'home')
+                      ? 'bg-[#588CBC]/15 border border-[#588CBC]/30'
+                      : 'bg-slate-50/80 hover:bg-slate-100 active:scale-[0.98]'
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileSpreadsheet size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-slate-800">Import Jadwal SIAKAD</p>
+                    <p className="text-[10px] text-slate-400 font-medium truncate">
+                      Unggah excel/csv jadwal resmi
                     </p>
                   </div>
                   <ChevronRight

@@ -82,7 +82,7 @@ export const NotchedBackground = () => (
   </svg>
 );
 
-export type UserNavTab = 'home' | 'denah' | 'chats' | 'booking' | 'profile';
+export type UserNavTab = 'home' | 'denah' | 'chats' | 'profile';
 
 export interface MobileBottomNavProps {
   activeTab: UserNavTab;
@@ -95,7 +95,6 @@ const NAV_ITEMS = [
   { id: 'home' as const, label: 'Home', icon: Home },
   { id: 'denah' as const, label: 'Denah', icon: Map },
   { id: 'chats' as const, label: 'Chat', icon: MessageCircle },
-  { id: 'booking' as const, label: 'Booking', icon: CalendarDays },
   { id: 'profile' as const, label: 'Profil', icon: User },
 ];
 

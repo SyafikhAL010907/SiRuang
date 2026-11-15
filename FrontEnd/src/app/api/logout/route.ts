@@ -23,7 +23,10 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ message: 'Berhasil logout, status kini Offline' });
+    const response = NextResponse.json({ message: 'Berhasil logout, status kini Offline' });
+    // Hapus cookie sesi httpOnly (Langkah 3.1)
+    response.cookies.delete('auth-token');
+    return response;
   } catch (err: any) {
     return NextResponse.json({ error: 'Internal server error: ' + err.message }, { status: 500 });
   }

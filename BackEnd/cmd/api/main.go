@@ -33,6 +33,11 @@ func main() {
 		log.Println("No .env file found, relying on OS environment variables")
 	}
 
+	// Inisialisasi JWT Key setelah .env dimuat
+	if err := middleware.InitJWT(); err != nil {
+		log.Fatal(err)
+	}
+
 	database.InitDB()
 	r := gin.Default()
 
@@ -62,7 +67,6 @@ func main() {
 	r.POST("/api/signup", handlers.HandleSignUp)
 	r.POST("/api/login", handlers.HandleLogin)
 	r.GET("/api/captcha", handlers.GetCaptcha)
-	r.GET("/api/chat/admin-info", handlers.GetAdminInfo)
 	// Protected Routes
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())

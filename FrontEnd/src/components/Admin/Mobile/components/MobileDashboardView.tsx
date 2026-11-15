@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, KeyRound, Network, ChevronRight, User } from 'lucide-react';
+import { ShieldCheck, KeyRound, Network, CalendarCheck, FileSpreadsheet, ChevronRight, User } from 'lucide-react';
 import StatGrid from '../../Shared/Cards/StatGrid';
 import BuildingDenahGrid from '../../Shared/Cards/BuildingDenahGrid';
 import { useMyProfile, loadMyProfile } from '@/lib/profileStore';
@@ -19,17 +19,21 @@ export interface MobileDashboardViewProps {
   onOpenRoleAccess?: () => void;
   onOpenManajemenAkun?: () => void;
   onOpenRelasiMataKuliah?: () => void;
+  onOpenBookingManagement?: () => void;
+  onOpenImportJadwal?: () => void;
 }
 
 // Menu Manajemen — sama dengan Web&Tab AdminDashboardView
 const ROLE_ACCESS_MENUS: {
   label: string;
-  key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah';
+  key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal';
   icon: React.ElementType;
 }[] = [
   { label: 'Konfigurasi Role Akses', key: 'role-access', icon: ShieldCheck },
   { label: 'Manajemen Akun', key: 'manajemen-akun', icon: KeyRound },
   { label: 'Manajemen Relasi Mata Kuliah', key: 'relasi-mata-kuliah', icon: Network },
+  { label: 'Pengajuan Booking', key: 'booking-management', icon: CalendarCheck },
+  { label: 'Import Jadwal SIAKAD', key: 'import-jadwal', icon: FileSpreadsheet },
 ];
 
 export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
@@ -41,6 +45,8 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
   onOpenRoleAccess,
   onOpenManajemenAkun,
   onOpenRelasiMataKuliah,
+  onOpenBookingManagement,
+  onOpenImportJadwal,
 }) => {
   const { profile, status } = useMyProfile();
 
@@ -54,6 +60,8 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
     'role-access': onOpenRoleAccess,
     'manajemen-akun': onOpenManajemenAkun,
     'relasi-mata-kuliah': onOpenRelasiMataKuliah,
+    'booking-management': onOpenBookingManagement,
+    'import-jadwal': onOpenImportJadwal,
   };
 
   return (
