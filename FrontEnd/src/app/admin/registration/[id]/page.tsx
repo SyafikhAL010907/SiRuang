@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, use, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   UserCheck,
@@ -35,7 +35,7 @@ interface RegistrationDetail {
   expires_at: string;
 }
 
-export default function AdminRegistrationReviewPage({
+function AdminRegistrationReviewContent({
   params,
 }: {
   params: Promise<{ id: string }> | { id: string };
@@ -505,6 +505,22 @@ export default function AdminRegistrationReviewPage({
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminRegistrationReviewPage(props: {
+  params: Promise<{ id: string }> | { id: string };
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFC] py-8 px-4 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-[#183449] animate-spin" />
+        </div>
+      }
+    >
+      <AdminRegistrationReviewContent {...props} />
+    </Suspense>
   );
 }
 

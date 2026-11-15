@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MainAuth from '@/components/Authentication/MainAuth';
 import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -76,5 +76,19 @@ export default function LoginPage() {
       initialMode="login" 
       onLoginSuccess={handleLoginSuccess} 
     />
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full flex items-center justify-center bg-slate-50">
+          <div className="h-8 w-8 animate-spin rounded-full border-3 border-slate-200 border-t-[#588CBC]" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

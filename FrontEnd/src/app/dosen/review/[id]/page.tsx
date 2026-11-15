@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, use, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -23,7 +23,7 @@ interface ReviewPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default function DosenReviewPage({ params }: ReviewPageProps) {
+function DosenReviewContent({ params }: ReviewPageProps) {
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -493,6 +493,21 @@ export default function DosenReviewPage({ params }: ReviewPageProps) {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function DosenReviewPage(props: ReviewPageProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFB] flex flex-col justify-center items-center p-6">
+          <Loader2 className="w-8 h-8 animate-spin text-[#588CBC] mb-3" />
+          <p className="text-sm text-slate-500">Memuat rincian verifikasi...</p>
+        </div>
+      }
+    >
+      <DosenReviewContent {...props} />
+    </Suspense>
   );
 }
 
