@@ -25,6 +25,9 @@ import { downloadFile, renderHighlightedText } from '../../Shared/utils';
 
 export interface MobileChatRoomViewProps {
   messages: Message[];
+  partnerName?: string;
+  partnerRole?: string;
+  partnerAvatar?: string;
   manualNote: string;
   setManualNote: (v: string) => void;
   selectedResponse: CannedResponse | null;
@@ -54,6 +57,9 @@ export interface MobileChatRoomViewProps {
 
 export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
   messages,
+  partnerName,
+  partnerRole,
+  partnerAvatar,
   manualNote,
   setManualNote,
   selectedResponse,
@@ -109,15 +115,17 @@ export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
         {!isLocalSearchOpen && (
           <div className="flex items-center gap-3 flex-1">
             <div className="relative">
-              <Avatar src="/LogoSiRuangPolos.png" size="sm" />
+              <Avatar src={partnerAvatar || "/LogoSiRuangPolos.png"} size="sm" />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full"></span>
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-black text-slate-800 text-sm tracking-tight truncate">
-                Admin  UNJ
+                {partnerName || "Admin UNJ"}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-[#588CBC]">Online</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#588CBC]">
+                  {partnerRole || "Online"}
+                </p>
               </div>
             </div>
           </div>

@@ -46,17 +46,21 @@ export async function POST(request: Request) {
     }
 
     // 3. Update last_message di chat_rooms
-    await supabaseServer
+    const { data: updatedRoom } = await supabaseServer
       .from('chat_rooms')
       .update({
         last_message: lastMsg,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', roomId);
+      .eq('id', roomId)
+      .select('id, user_identifier')
+      .maybeSingle();
 
-    // 4. Background fire-and-forget ML Trigger dengan AbortSignal timeout 1 detik
+    const isDosenRoom = updatedRoom?.user_identifier?.startsWith('dosen:') || false;
+
+    // 4. Background fire-and-forget ML Trigger (hanya untuk Helpdesk Admin, bukan room Dosen)
     const mlUrl = process.env.ML_SERVICE_URL;
-    if (mlUrl && messageType === 'text' && message.length >= 3) {
+    if (!isDosenRoom && mlUrl && messageType === 'text' && message.length >= 3) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1000);
 

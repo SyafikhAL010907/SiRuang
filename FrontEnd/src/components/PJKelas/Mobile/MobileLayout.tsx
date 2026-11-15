@@ -48,6 +48,19 @@ const MobileLayout = () => {
     isChatVisible: activeTab === 'chats' && chatView === 'ROOM',
   });
   const search = useUserMessageSearch(chat.messages);
+
+  const [chatPartner, setChatPartner] = useState<{
+    name: string;
+    role: string;
+    avatar?: string;
+  }>({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
+  const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (chat.roomId && !adminRoomId && !chatPartner.name.includes('Dosen')) {
+      setAdminRoomId(chat.roomId);
+    }
+  }, [chat.roomId, adminRoomId, chatPartner.name]);
   const attachments = useUserAttachments({
     platform: 'mobile',
     roomId: chat.roomId,
@@ -171,12 +184,28 @@ const MobileLayout = () => {
               {chatView === 'LIST' ? (
                 <MobileChatListView
                   key="chat-list"
-                  onOpenRoom={() => setChatView('ROOM')}
+                  onOpenRoom={() => {
+                    if (adminRoomId) chat.setRoomId(adminRoomId);
+                    setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
+                    setChatView('ROOM');
+                  }}
+                  onOpenDosenRoom={(room) => {
+                    chat.setRoomId(room.room_id);
+                    setChatPartner({
+                      name: room.dosen_name,
+                      role: `${room.mata_kuliah} ${room.kelas ? '(' + room.kelas + ')' : ''}`,
+                      avatar: room.dosen_avatar,
+                    });
+                    setChatView('ROOM');
+                  }}
                 />
               ) : (
                 <MobileChatRoomView
                   key="chat-room"
                   messages={chat.messages}
+                  partnerName={chatPartner.name}
+                  partnerRole={chatPartner.role}
+                  partnerAvatar={chatPartner.avatar}
                   manualNote={chat.manualNote}
                   setManualNote={chat.setManualNote}
                   selectedResponse={chat.selectedResponse}

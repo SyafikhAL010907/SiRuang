@@ -75,6 +75,62 @@ export const WebTabLayout = () => {
     fileInputRef: chat.fileInputRef,
   });
 
+  const [dosenRooms, setDosenRooms] = useState<any[]>([]);
+  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'dosen'>('admin');
+  const [selectedDosenRoomId, setSelectedDosenRoomId] = useState<number | null>(null);
+  const [chatPartner, setChatPartner] = useState<{
+    name: string;
+    role: string;
+    avatar?: string;
+  }>({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
+  const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function loadDosenRooms() {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const res = await fetch('/api/chat/dosen-room', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.rooms && Array.isArray(json.rooms)) {
+            setDosenRooms(json.rooms);
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat room chat dosen:', err);
+      }
+    }
+    loadDosenRooms();
+  }, []);
+
+  useEffect(() => {
+    if (chat.roomId && !adminRoomId && activeRoomType === 'admin') {
+      setAdminRoomId(chat.roomId);
+    }
+  }, [chat.roomId, adminRoomId, activeRoomType]);
+
+  const handleSelectAdminRoom = () => {
+    setActiveRoomType('admin');
+    setSelectedDosenRoomId(null);
+    if (adminRoomId) chat.setRoomId(adminRoomId);
+    setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
+    setIsChatOpen(true);
+  };
+
+  const handleSelectDosenRoom = (room: any) => {
+    setActiveRoomType('dosen');
+    setSelectedDosenRoomId(room.room_id);
+    chat.setRoomId(room.room_id);
+    setChatPartner({
+      name: room.dosen_name,
+      role: `${room.mata_kuliah} ${room.kelas ? '(' + room.kelas + ')' : ''}`,
+      avatar: room.dosen_avatar,
+    });
+    setIsChatOpen(true);
+  };
+
   // Deep link support: buka chat jika URL param openChat=1
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -187,7 +243,12 @@ export const WebTabLayout = () => {
           setIsChatOpen(false);
         }}
         lastMessage={lastMessage}
-        onOpenChat={() => setIsChatOpen(true)}
+        activeRoom={activeRoomType}
+        onSelectRoom={handleSelectAdminRoom}
+        dosenRooms={dosenRooms}
+        selectedRoomId={selectedDosenRoomId}
+        onSelectDosenRoom={handleSelectDosenRoom}
+        onOpenChat={handleSelectAdminRoom}
         onOpenTemplate={() => setIsTemplatePopupOpen(true)}
         onLogout={handleLogout}
         adminAvatarSrc={adminAvatarSrc}
@@ -205,6 +266,9 @@ export const WebTabLayout = () => {
           }}
         >
           <UserChatHeader
+            partnerName={chatPartner.name}
+            partnerRole={chatPartner.role}
+            partnerAvatar={chatPartner.avatar}
             localSearchQuery={search.localSearchQuery}
             isLocalSearchOpen={search.isLocalSearchOpen}
             setIsLocalSearchOpen={search.setIsLocalSearchOpen}

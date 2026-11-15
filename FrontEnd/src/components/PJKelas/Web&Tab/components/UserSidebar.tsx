@@ -32,6 +32,9 @@ export interface UserSidebarProps {
   lastMessage?: any;
   activeRoom?: 'admin' | 'dosen';
   onSelectRoom?: (room: 'admin' | 'dosen') => void;
+  dosenRooms?: any[];
+  selectedRoomId?: number | null;
+  onSelectDosenRoom?: (room: any) => void;
   onOpenChat: () => void;
   onOpenTemplate: () => void;
   onLogout: () => void;
@@ -52,6 +55,9 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   lastMessage,
   activeRoom = 'admin',
   onSelectRoom,
+  dosenRooms = [],
+  selectedRoomId = null,
+  onSelectDosenRoom,
   onOpenChat,
   onOpenTemplate,
   onLogout,
@@ -367,60 +373,85 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                 </div>
               </motion.div>
 
-              {/* Room 2: Dosen (Dummy Chat Room dengan PP Botak seperti di Admin) */}
-              <motion.div
-                initial={false}
-                onClick={handleSelectDosen}
-                className={cn(
-                  "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
-                  isChatOpen && selectedRoom === 'dosen'
-                    ? "bg-white shadow-md border border-[#588CBC]/20"
-                    : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
-                )}
-              >
-                {/* Garis vertikal di samping profil */}
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
-                    isChatOpen && selectedRoom === 'dosen' ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
-                  )}
-                />
+              {/* Room Dosen Berelasi */}
+              {dosenRooms && dosenRooms.length > 0 ? (
+                dosenRooms.map((dRoom) => {
+                  const isDosenSelected = isChatOpen && selectedRoom === 'dosen' && selectedRoomId === dRoom.room_id;
+                  return (
+                    <motion.div
+                      key={dRoom.room_id}
+                      initial={false}
+                      onClick={() => {
+                        setSelectedRoom('dosen');
+                        if (onSelectDosenRoom) {
+                          onSelectDosenRoom(dRoom);
+                        } else if (onSelectRoom) {
+                          onSelectRoom('dosen');
+                        } else {
+                          onOpenChat();
+                        }
+                      }}
+                      className={cn(
+                        "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
+                        isDosenSelected
+                          ? "bg-white shadow-md border border-[#588CBC]/20"
+                          : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
+                          isDosenSelected ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
+                        )}
+                      />
 
-                {/* Avatar PP Botak (tanpa src, memakai icon default botak UserCircle bawaan) */}
-                <div className="relative shrink-0 ml-1">
-                  <Avatar
-                    size="md"
-                    alt="Dosen"
-                    className="transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                      <div className="relative shrink-0 ml-1">
+                        <Avatar
+                          src={dRoom.dosen_avatar}
+                          size="md"
+                          alt={dRoom.dosen_name}
+                          className="transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <h3 className={cn(
+                            "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
+                            isDosenSelected ? "text-[#183449]" : "text-slate-700"
+                          )}>
+                            <span className="truncate">{dRoom.dosen_name}</span>
+                            <span className="px-1.5 py-0.2 bg-slate-200 text-[8px] font-black text-slate-600 rounded uppercase tracking-wider shrink-0">
+                              Dosen
+                            </span>
+                          </h3>
+                        </div>
+
+                        <p className="text-[10px] font-bold text-[#588CBC] truncate">
+                          {dRoom.mata_kuliah} {dRoom.kelas ? `(${dRoom.kelas})` : ''}
+                        </p>
+
+                        <div className="flex justify-between items-center mt-0.5">
+                          <p className="text-xs truncate pr-2 flex-1 text-slate-400 font-medium">
+                            {dRoom.last_message || 'Klik untuk mulai konsultasi'}
+                          </p>
+                          {dRoom.unread_count > 0 && (
+                            <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[9px] font-black rounded-full shrink-0">
+                              {dRoom.unread_count}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="p-3 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-[11px]">
+                  Belum ada relasi dosen aktif
                 </div>
-
-                {/* Info & Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <h3 className={cn(
-                      "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
-                      isChatOpen && selectedRoom === 'dosen' ? "text-[#183449]" : "text-slate-700"
-                    )}>
-                      <span>Dosen</span>
-                      <span className="px-1.5 py-0.2 bg-slate-200 text-[8px] font-black text-slate-600 rounded uppercase tracking-wider">
-                        Dosen
-                      </span>
-                    </h3>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0 ml-1">
-                      10:30
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs truncate pr-2 mt-0.5 flex-1 text-slate-400 font-medium">
-                      Halo, ada yang bisa saya bantu terkait perkuliahan?
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
+              )}
             </div>
           </div>
 
