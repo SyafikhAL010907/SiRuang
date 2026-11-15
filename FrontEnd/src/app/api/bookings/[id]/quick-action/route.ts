@@ -4,6 +4,7 @@ import { supabaseServer } from '@/lib/supabaseServer';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
 import { notifyBookingPush } from '@/lib/sendPush';
 import { getPublicAppUrl } from '@/lib/appUrl';
+import { generateCheckinToken } from '@/lib/checkinToken';
 
 export const dynamic = 'force-dynamic';
 
@@ -321,10 +322,18 @@ export async function GET(
     const roomNama = booking.rooms?.nama || '';
     const appUrl = getPublicAppUrl(request);
     const checkinUrl = `${appUrl}/user?tab=checkin`;
+    const checkinToken = generateCheckinToken(booking.id, booking.pemohon_id);
+    const quickCheckinUrl = `${appUrl}/api/bookings/${booking.id}/quick-checkin?token=${checkinToken}`;
+
+    // Fallback ke ADMIN_EMAIL jika email PJ belum terdaftar di profiles agar notifikasi check-in tidak hilang
+    if (!pjEmail) {
+      pjEmail = process.env.ADMIN_EMAIL?.trim() || process.env.SMTP_USER?.trim() || '';
+      console.warn(`[quick-action] Email PJ Kelas tidak ditemukan untuk pemohon_id: ${booking.pemohon_id}, nim: ${booking.nim_pemohon}. Menggunakan fallback: ${pjEmail}`);
+    }
 
     // Kirim Email E2 ke PJ Kelas
     if (!pjEmail) {
-      console.warn(`[quick-action] Email PJ Kelas tidak ditemukan untuk pemohon_id: ${booking.pemohon_id}, nim: ${booking.nim_pemohon}. Email check-in tidak dapat dikirim.`);
+      console.warn(`[quick-action] Tidak ada email tujuan untuk PJ Kelas maupun Admin. Email check-in tidak dapat dikirim.`);
     } else {
       console.log(`[quick-action] Mengirim email check-in E2 ke PJ Kelas: ${pjEmail}`);
       try {
@@ -376,20 +385,34 @@ export async function GET(
                 </table>
               </div>
 
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Status peminjaman Anda otomatis aktif di denah web SiRuang. Silakan buka menu <strong>Jadwal &amp; Check-in</strong> pada dashboard PJ Kelas untuk melakukan presensi kehadiran saat jam kuliah berlangsung agar warna ruangan berubah menjadi <strong>MERAH</strong> (resmi sedang digunakan).
+              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 8px; text-align: center;">
+                Anda dapat langsung melakukan presensi kehadiran melalui tombol di bawah saat jam perkuliahan dimulai:
               </p>
 
-              <div style="margin: 24px 0; text-align: center;">
-                <a href="${checkinUrl}" style="background-color: #183449; background-image: linear-gradient(135deg, #183449 0%, #0f172a 100%); color: #ffffff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(24, 52, 73, 0.3); letter-spacing: 0.2px;">
-                  Buka Menu Jadwal &amp; Check-in &rarr;
+              <!-- Tombol 1-Klik Check-In Langsung dari Email -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 20px auto; width: 100%; max-width: 440px;">
+                <tr>
+                  <td align="center" style="padding: 0;">
+                    <a href="${quickCheckinUrl}" style="background-color: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 15px 28px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 16px rgba(22, 163, 74, 0.35); letter-spacing: 0.2px;">
+                      <span style="font-size: 16px; vertical-align: middle; margin-right: 6px;">&#10004;&#65039;</span><span style="vertical-align: middle;">Konfirmasi Check-in Sekarang</span>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="text-align: center; margin: 12px 0 0 0;">
+                <a href="${checkinUrl}" style="color: #588CBC; font-size: 12px; text-decoration: underline; font-weight: 600;">
+                  atau buka menu Jadwal &amp; Check-in di dashboard web SiRuang
                 </a>
-              </div>
+              </p>
 
               <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
-              <p style="color: #94a3b8; font-size: 11px; margin: 0; text-align: center;">
-                Email ini dikirim otomatis oleh Sistem SiRuang Gedung SFD.
-              </p>
+              <div style="background-color: #f8fafc; border-radius: 10px; padding: 12px 16px; border: 1px dashed #cbd5e1;">
+                <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.5;">
+                  &bull; <strong>1-Klik Otomatis Aktif:</strong> Menekan tombol konfirmasi check-in langsung mengubah warna denah menjadi <strong>MERAH (Sedang Berlangsung)</strong> tanpa perlu login.<br />
+                  &bull; Dosen pengampu akan otomatis menerima email konfirmasi bahwa kelas telah dimulai.
+                </p>
+              </div>
             </div>
           `,
         });

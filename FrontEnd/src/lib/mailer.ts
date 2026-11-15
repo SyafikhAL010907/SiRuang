@@ -38,10 +38,12 @@ export function escapeHtml(str: string | number | null | undefined): string {
  * transporter null ter-cache selamanya jika env vars belum ada saat cold start.
  */
 function getTransporter(): Transporter | null {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST?.trim();
+  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT.trim(), 10) : 587;
+  const user = process.env.SMTP_USER?.trim();
+  const rawPass = process.env.SMTP_PASS?.trim();
+  // Bersihkan spasi dari Google App Password (misal 'abcd efgh ijkl mnop' -> 'abcdefghijklmnop')
+  const pass = rawPass ? rawPass.replace(/\s+/g, '') : undefined;
 
   console.log(`[mailer] SMTP config check — HOST: ${host ? 'SET' : 'MISSING'}, USER: ${user ? 'SET' : 'MISSING'}, PASS: ${pass ? 'SET(len=' + pass.length + ')' : 'MISSING'}`);
 
@@ -60,8 +62,9 @@ function getTransporter(): Transporter | null {
       user,
       pass,
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 5000,
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
   });
 }
 

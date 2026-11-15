@@ -348,9 +348,50 @@ export async function POST(request: Request) {
       );
     }
 
-    // Kirim notifikasi email ke Dosen jika email tersedia
-    console.log(`[bookings/POST] Dosen email check: id=${dosenUser.user_id} email="${dosenUser.email}" SMTP_HOST="${process.env.SMTP_HOST ? 'SET' : 'MISSING'}"`);
-    if (dosenUser.email) {
+    // Tentukan target email dosen dengan multi-tier fallback
+    let targetDosenEmail = dosenUser.email?.trim() || '';
+
+    // 1. Coba cari langsung ke tabel profiles jika v_user_profiles email bernilai null
+    if (!targetDosenEmail && dosenUser.user_id) {
+      try {
+        const { data: pData } = await supabaseServer
+          .from('profiles')
+          .select('email')
+          .eq('user_id', dosenUser.user_id)
+          .maybeSingle();
+        if (pData?.email) targetDosenEmail = pData.email.trim();
+      } catch (err) {
+        console.warn('[bookings/POST] Gagal lookup profiles email dosen:', err);
+      }
+    }
+
+    // 2. Coba cari di registration_requests berdasarkan identifier NIDN/NIP
+    if (!targetDosenEmail && dosenUser.identifier) {
+      try {
+        const { data: rData } = await supabaseServer
+          .from('registration_requests')
+          .select('email')
+          .eq('identifier', dosenUser.identifier)
+          .not('email', 'is', null)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (rData?.email) targetDosenEmail = rData.email.trim();
+      } catch (err) {
+        console.warn('[bookings/POST] Gagal lookup registration_requests email dosen:', err);
+      }
+    }
+
+    // 3. Fallback cerdas ke ADMIN_EMAIL agar notifikasi tidak pernah hilang saat testing
+    const isUsingFallbackAdmin = !targetDosenEmail;
+    if (!targetDosenEmail) {
+      targetDosenEmail = process.env.ADMIN_EMAIL?.trim() || process.env.SMTP_USER?.trim() || '';
+      console.warn(`[bookings/POST] Dosen tidak memiliki email di database! Menggunakan fallback ADMIN_EMAIL: ${targetDosenEmail}`);
+    }
+
+    // Kirim notifikasi email ke Dosen jika target email tersedia
+    console.log(`[bookings/POST] Dosen email check: id=${dosenUser.user_id} email="${targetDosenEmail}" fallback=${isUsingFallbackAdmin} SMTP_HOST="${process.env.SMTP_HOST ? 'SET' : 'MISSING'}"`);
+    if (targetDosenEmail) {
       const appUrl = getPublicAppUrl(request);
       const accUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=setuju`;
       const tolakUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=tolak`;
@@ -358,8 +399,10 @@ export async function POST(request: Request) {
 
       try {
         const mailResult = await sendEmail({
-          to: dosenUser.email,
-          subject: `[SiRuang] Pengajuan Peminjaman Ruangan: ${roomTarget.kode} (${mataKuliah})`,
+          to: targetDosenEmail,
+          subject: isUsingFallbackAdmin
+            ? `[SiRuang] (Verifikasi Dosen: ${dosenUser.full_name || dosenUser.username}) Pengajuan Ruangan: ${roomTarget.kode} (${mataKuliah})`
+            : `[SiRuang] Pengajuan Peminjaman Ruangan: ${roomTarget.kode} (${mataKuliah})`,
           template: 'E1',
           relatedId: newBooking.id,
           html: `
@@ -371,6 +414,11 @@ export async function POST(request: Request) {
                 <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
                 <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Sistem Verifikasi &amp; Peminjaman Ruangan Perkuliahan</p>
               </div>
+
+              ${isUsingFallbackAdmin ? `
+              <div style="background-color: #fef3c7; border: 1px solid #fde68a; color: #92400e; padding: 8px 14px; border-radius: 10px; font-size: 11px; margin-bottom: 16px; text-align: center; line-height: 1.4;">
+                <strong>Perhatian:</strong> Email verifikasi ini dialihkan sementara ke email Anda karena profil Dosen <strong>${escapeHtml(dosenUser.full_name || dosenUser.username)}</strong> belum mengisi kolom email di database. Tombol ACC di bawah tetap berfungsi penuh.
+              </div>` : ''}
 
               <div style="display: inline-block; background-color: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
                 Permohonan Masuk
