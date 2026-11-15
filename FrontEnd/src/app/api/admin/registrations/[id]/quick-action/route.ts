@@ -13,6 +13,7 @@ interface RouteContext {
 function renderHtmlCard({
   title,
   isSuccess,
+  variant,
   heading,
   message,
   details,
@@ -21,15 +22,19 @@ function renderHtmlCard({
 }: {
   title: string;
   isSuccess: boolean;
+  variant?: 'success' | 'error' | 'expired' | 'warning';
   heading: string;
   message: string;
   details?: { label: string; value: string }[];
   badgeText?: string;
   form?: string;
 }) {
-  const iconColor = isSuccess ? '#16a34a' : '#dc2626';
-  const iconBg = isSuccess ? '#dcfce7' : '#fee2e2';
-  const iconSvg = isSuccess
+  const isExpired = variant === 'expired';
+  const iconColor = isExpired ? '#475569' : isSuccess ? '#16a34a' : '#dc2626';
+  const iconBg = isExpired ? '#f1f5f9' : isSuccess ? '#dcfce7' : '#fee2e2';
+  const iconSvg = isExpired
+    ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
+    : isSuccess
     ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
     : `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
@@ -128,10 +133,12 @@ export async function GET(
 
     if (rErr || !regReq) {
       return renderHtmlCard({
-        title: 'Pengajuan Tidak Ditemukan',
-        isSuccess: true,
-        heading: 'Pengajuan Sudah Selesai Diproses',
-        message: 'Data pengajuan akun ini sudah tidak ada di antrean (kemungkinan sudah disetujui atau ditolak sebelumnya).',
+        title: 'Tautan Tidak Aktif Lagi',
+        isSuccess: false,
+        variant: 'expired',
+        badgeText: 'STATUS: SUDAH DIPROSES',
+        heading: 'Pendaftaran Akun Sudah Ditanggapi',
+        message: 'Pengajuan pendaftaran akun ini sudah pernah Anda proses sebelumnya dan sudah tidak ada dalam antrean.<br /><br /><span style="color: #64748b; font-size: 13px;">Tombol pada email ini sudah <strong>kedaluwarsa (dinonaktifkan)</strong> untuk mencegah tanggapan ganda. Akun yang disetujui sudah aktif di sistem SiRuang.</span>',
       });
     }
 
@@ -148,8 +155,10 @@ export async function GET(
       return renderHtmlCard({
         title: 'Tautan Kedaluwarsa',
         isSuccess: false,
-        heading: 'Tautan Kedaluwarsa',
-        message: 'Masa berlaku tautan pendaftaran ini telah habis.',
+        variant: 'expired',
+        badgeText: 'KEDALUWARSA (LEWAT 7 HARI)',
+        heading: 'Masa Berlaku Tautan Habis',
+        message: 'Tautan pendaftaran ini telah melewati batas waktu 7 hari. Silakan minta calon pengguna untuk mendaftar kembali.',
       });
     }
 
@@ -252,18 +261,32 @@ export async function GET(
           subject: `[SiRuang] Akun Anda Telah Disetujui — Selamat Datang! 🎉`,
           relatedId: approvedUser.new_user_id ? String(approvedUser.new_user_id) : undefined,
           html: `
-            <div style="font-family: sans-serif; padding: 24px; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px;">
-              <h2 style="color: #183449;">Selamat! Akun SiRuang Anda Telah Aktif 🎉</h2>
-              <p>Halo <strong>${escapeHtml(approvedUser.username)}</strong>,</p>
-              <p>Pengajuan akun SiRuang Anda dengan identitas <strong>${escapeHtml(approvedUser.identifier)}</strong> (${escapeHtml(roleLabel)}) telah disetujui oleh Administrator.</p>
-              <p>Sekarang Anda dapat masuk ke dalam sistem menggunakan identitas (NIM/NIP) dan kata sandi yang Anda daftarkan sebelumnya.</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0;">SiRuang &bull; Gedung SFD</h1>
+                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0;">Aktivasi Akun Pengguna</p>
+              </div>
+
+              <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                &#10003; Akun Telah Aktif
+              </div>
+
+              <h2 style="color: #183449; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Selamat Datang di SiRuang! 🎉</h2>
+              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(approvedUser.username)}</strong>,</p>
+              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Pengajuan pendaftaran akun Anda dengan identitas <strong>${escapeHtml(approvedUser.identifier)}</strong> (${escapeHtml(roleLabel)}) telah <strong>disetujui (ACC)</strong> oleh Administrator.
+              </p>
+              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Sekarang Anda dapat masuk ke dalam sistem SiRuang menggunakan identitas (NIM/NIP) dan kata sandi yang Anda daftarkan.
+              </p>
               <div style="margin: 24px 0; text-align: center;">
-                <a href="${loginUrl}" style="background-color: #183449; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">
-                  Masuk ke SiRuang
+                <a href="${loginUrl}" style="background-color: #183449; background-image: linear-gradient(135deg, #183449 0%, #0f172a 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(24, 52, 73, 0.3);">
+                  Masuk ke SiRuang &rarr;
                 </a>
               </div>
-              <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-              <p style="font-size: 12px; color: #777;">Email ini dikirim secara otomatis oleh Sistem Pemesanan Ruangan SiRuang Gedung SFD.</p>
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
+              <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0;">Sistem Informasi Pemesanan Ruangan &bull; Gedung SFD</p>
             </div>
           `,
         });

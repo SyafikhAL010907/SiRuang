@@ -277,57 +277,84 @@ export async function POST(request: Request) {
           subject: `[SiRuang] Pengajuan Akun Baru — ${username} (${roleLabel})`,
           relatedId: newRequest.id,
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <h2 style="color: #183449; margin-bottom: 6px; font-size: 20px;">Permohonan Akun Baru</h2>
-              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo Administrator SiRuang,</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
               
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Terdapat pengajuan pendaftaran akun baru yang membutuhkan persetujuan Admin:
-              </p>
-
-              <div style="background-color: #f8fafc; border-left: 4px solid #588CBC; padding: 14px 18px; margin: 18px 0; border-radius: 8px;">
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Nama Lengkap:</strong> ${escapeHtml(username)}</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>${escapeHtml(identifierType.toUpperCase())}:</strong> ${escapeHtml(identifier)}</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Role yang Diajukan:</strong> <span style="background-color: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-weight: bold;">${roleLabel}</span></p>
-                ${email ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Email Kontak:</strong> ${escapeHtml(email)}</p>` : ''}
-                ${kelas ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Kelas:</strong> ${escapeHtml(kelas)}</p>` : ''}
-                ${prodi ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Program Studi:</strong> ${escapeHtml(prodi)}</p>` : ''}
-                ${faculty ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Fakultas:</strong> ${escapeHtml(faculty)}</p>` : ''}
-                ${angkatan ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Angkatan:</strong> ${escapeHtml(angkatan)}</p>` : ''}
-                ${departemen ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Departemen:</strong> ${escapeHtml(departemen)}</p>` : ''}
-                ${phone ? `<p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>No. HP/WA:</strong> ${escapeHtml(phone)}</p>` : ''}
+              <!-- Header Brand & Logo -->
+              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
+                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Pusat Administrasi &amp; Verifikasi Akun Pengguna</p>
               </div>
 
-              <p style="color: #334155; font-size: 14px; margin-bottom: 14px;">
-                Silakan berikan keputusan langsung melalui tombol di bawah:
+              <div style="display: inline-block; background-color: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                Pendaftaran Akun Baru
+              </div>
+
+              <h2 style="color: #183449; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Permohonan Akun Baru Membutuhkan Persetujuan</h2>
+              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo Administrator SiRuang,</p>
+              
+              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                Terdapat pengajuan registrasi akun baru yang membutuhkan persetujuan Anda:
+              </p>
+
+              <!-- Card Detail Calon Pengguna -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #588CBC; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b; width: 140px;">Nama Lengkap:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(username)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">${escapeHtml(identifierType.toUpperCase())}:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(identifier)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">Role Diajukan:</td>
+                    <td style="padding: 5px 0;">
+                      <span style="background-color: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 6px; font-weight: 800; font-size: 12px;">${roleLabel}</span>
+                    </td>
+                  </tr>
+                  ${email ? `<tr><td style="padding: 5px 0; color: #64748b;">Email Kontak:</td><td style="padding: 5px 0; color: #1e293b; font-weight: 600;">${escapeHtml(email)}</td></tr>` : ''}
+                  ${kelas ? `<tr><td style="padding: 5px 0; color: #64748b;">Kelas:</td><td style="padding: 5px 0; color: #1e293b; font-weight: 600;">${escapeHtml(kelas)}</td></tr>` : ''}
+                  ${prodi ? `<tr><td style="padding: 5px 0; color: #64748b;">Program Studi:</td><td style="padding: 5px 0; color: #1e293b; font-weight: 600;">${escapeHtml(prodi)}</td></tr>` : ''}
+                  ${faculty ? `<tr><td style="padding: 5px 0; color: #64748b;">Fakultas:</td><td style="padding: 5px 0; color: #1e293b; font-weight: 600;">${escapeHtml(faculty)}</td></tr>` : ''}
+                  ${phone ? `<tr><td style="padding: 5px 0; color: #64748b;">No. HP/WA:</td><td style="padding: 5px 0; color: #1e293b; font-weight: 600;">${escapeHtml(phone)}</td></tr>` : ''}
+                </table>
+              </div>
+
+              <p style="color: #334155; font-size: 14px; font-weight: 600; margin: 20px 0 14px 0; text-align: center;">
+                Berikan keputusan langsung melalui tombol aksi di bawah:
               </p>
 
               <!-- Tombol Aksi: ACC & Tolak -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0; width: 100%;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 22px auto; width: 100%; max-width: 460px;">
                 <tr>
-                  <td align="center" style="padding: 6px;">
-                    <a href="${accUrl}" style="background-color: #16a34a; color: #ffffff; padding: 13px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2);">
-                      ✓ Setujui (ACC) Akun
+                  <td align="center" style="padding: 6px; width: 50%;">
+                    <a href="${accUrl}" style="background-color: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); letter-spacing: 0.2px;">
+                      &#10003; Setujui (ACC) Akun
                     </a>
                   </td>
-                  <td align="center" style="padding: 6px;">
-                    <a href="${tolakUrl}" style="background-color: #dc2626; color: #ffffff; padding: 13px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);">
-                      ✕ Tolak Pendaftaran
+                  <td align="center" style="padding: 6px; width: 50%;">
+                    <a href="${tolakUrl}" style="background-color: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3); letter-spacing: 0.2px;">
+                      &#10005; Tolak Pendaftaran
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <p style="text-align: center; margin-top: 8px;">
-                <a href="${reviewLink}" style="color: #588CBC; font-size: 12px; text-decoration: underline;">
+              <p style="text-align: center; margin: 12px 0 0 0;">
+                <a href="${reviewLink}" style="color: #588CBC; font-size: 12px; text-decoration: underline; font-weight: 600;">
                   atau buka halaman review lengkap di dashboard admin
                 </a>
               </p>
 
-              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0 16px 0;" />
-              <p style="color: #94a3b8; font-size: 11px; margin: 0; line-height: 1.5;">
-                Link verifikasi berlaku selama 7 hari. Begitu disetujui, akun langsung aktif dan email konfirmasi otomatis dikirimkan ke calon pengguna.
-              </p>
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
+              <div style="background-color: #f8fafc; border-radius: 10px; padding: 12px 16px; border: 1px dashed #cbd5e1;">
+                <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.5;">
+                  &bull; <strong>1-Klik Langsung Selesai:</strong> Menekan tombol Setujui (ACC) langsung mengaktifkan akun dan mengizinkan pengguna untuk login.<br />
+                  &bull; <strong>Notifikasi Otomatis:</strong> Calon pengguna akan langsung otomatis menerima email konfirmasi aktivasi akun.
+                </p>
+              </div>
             </div>
           `,
         });

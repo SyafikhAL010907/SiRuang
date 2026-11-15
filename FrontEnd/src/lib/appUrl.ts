@@ -28,3 +28,4 @@ export function getPublicAppUrl(request?: Request): string {
   // 4. Default resmi produksi
   return 'https://si-ruang.vercel.app';
 }
+

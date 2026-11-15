@@ -14,6 +14,7 @@ interface RouteContext {
 function renderHtmlCard({
   title,
   isSuccess,
+  variant,
   heading,
   message,
   details,
@@ -22,15 +23,19 @@ function renderHtmlCard({
 }: {
   title: string;
   isSuccess: boolean;
+  variant?: 'success' | 'error' | 'expired' | 'warning';
   heading: string;
   message: string;
   details?: { label: string; value: string }[];
   badgeText?: string;
   form?: string;
 }) {
-  const iconColor = isSuccess ? '#16a34a' : '#dc2626';
-  const iconBg = isSuccess ? '#dcfce7' : '#fee2e2';
-  const iconSvg = isSuccess
+  const isExpired = variant === 'expired';
+  const iconColor = isExpired ? '#475569' : isSuccess ? '#16a34a' : '#dc2626';
+  const iconBg = isExpired ? '#f1f5f9' : isSuccess ? '#dcfce7' : '#fee2e2';
+  const iconSvg = isExpired
+    ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
+    : isSuccess
     ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
     : `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
@@ -149,38 +154,46 @@ export async function GET(
       });
     }
 
-    // Jika sudah pernah diproses sebelumnya
+    // Jika sudah pernah diproses sebelumnya (Tautan sudah kedaluwarsa / aksi sudah selesai)
     if (booking.status !== 'menunggu_dosen') {
-      const statusLabel =
-        booking.status === 'disetujui_dosen'
-          ? 'Telah Anda Setujui (ACC)'
-          : booking.status === 'ditolak_dosen'
-          ? 'Telah Ditolak'
-          : booking.status === 'menunggu_checkin' || booking.status === 'berlangsung'
-          ? 'Sedang Aktif Digunakan'
-          : booking.status;
+      const isAcc = booking.status === 'disetujui_dosen' || booking.status === 'dijadwalkan_admin' || booking.status === 'menunggu_checkin' || booking.status === 'berlangsung';
+      const statusLabel = isAcc
+        ? 'TELAH DISETUJUI (ACC)'
+        : booking.status === 'ditolak_dosen'
+        ? 'TELAH DITOLAK'
+        : booking.status.toUpperCase();
+
+      const respondedTime = booking.dosen_responded_at
+        ? new Date(booking.dosen_responded_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }) + ' WIB'
+        : 'Sebelumnya';
 
       return renderHtmlCard({
-        title: 'Pengajuan Sudah Diproses',
-        isSuccess: true,
-        heading: 'Pengajuan Sudah Pernah Ditanggapi',
-        message: `Pengajuan peminjaman untuk ruangan <strong>${escapeHtml(booking.rooms?.kode || '')}</strong> sudah berstatus <strong>${statusLabel}</strong>. Tidak diperlukan tindakan lanjutan.`,
+        title: 'Tautan Tidak Aktif Lagi',
+        isSuccess: false,
+        variant: 'expired',
+        badgeText: `STATUS: ${statusLabel}`,
+        heading: 'Tindakan Sudah Selesai Dilakukan',
+        message: `Pengajuan peminjaman untuk ruangan <strong>${escapeHtml(booking.rooms?.kode || '')}</strong> sudah pernah Anda tanggapi pada <strong>${respondedTime}</strong>.<br /><br />
+        <span style="color: #64748b; font-size: 13px;">Tombol pada email ini sudah <strong>kedaluwarsa (tidak dapat digunakan kembali)</strong> untuk mencegah tanggapan ganda. Status pada denah web SiRuang sudah diperbarui secara permanen.</span>`,
         details: [
           { label: 'Ruangan', value: `${booking.rooms?.kode || ''} - ${booking.rooms?.nama || ''}` },
           { label: 'Mata Kuliah', value: `${booking.mata_kuliah} (${booking.sks} SKS)` },
-          { label: 'PJ Kelas', value: `${booking.nama_pemohon} (${booking.kelas})` },
-          { label: 'Waktu Kuliah', value: `${booking.tanggal}, ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB` },
+          { label: 'PJ Pemohon', value: `${booking.nama_pemohon} (${booking.kelas})` },
+          { label: 'Keputusan', value: isAcc ? '✓ Disetujui Dosen (Kuning)' : '✕ Ditolak' },
+          { label: 'Waktu Tanggapan', value: respondedTime },
         ],
       });
     }
 
-    // Cek kadaluwarsa token
+    // Cek kadaluwarsa token (7 hari)
     if (booking.dosen_token_expires && new Date(booking.dosen_token_expires) < new Date()) {
       return renderHtmlCard({
         title: 'Tautan Kedaluwarsa',
         isSuccess: false,
-        heading: 'Tautan Kedaluwarsa',
-        message: 'Masa berlaku tautan verifikasi ini (7 hari) telah habis.',
+        variant: 'expired',
+        badgeText: 'KEDALUWARSA (LEWAT 7 HARI)',
+        heading: 'Masa Berlaku Tautan Habis',
+        message: 'Tautan verifikasi ini telah melewati masa berlaku (7 hari). Silakan minta PJ Kelas mengajukan permohonan baru jika ruangan masih dibutuhkan.',
       });
     }
 
@@ -321,33 +334,60 @@ export async function GET(
           template: 'E2',
           relatedId: booking.id,
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <h2 style="color: #166534; margin-bottom: 6px; font-size: 20px;">Booking Disetujui Dosen! 🎉</h2>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+              
+              <!-- Header Brand & Logo -->
+              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
+                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Pemberitahuan Persetujuan &amp; Presensi Ruangan</p>
+              </div>
+
+              <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                &#10003; Telah Di-ACC Dosen
+              </div>
+
+              <h2 style="color: #166534; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Booking Ruangan Berhasil Disetujui! 🎉</h2>
               <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(pjFullName)}</strong>,</p>
               
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Dosen pengampu <strong>${escapeHtml(booking.nama_dosen)}</strong> telah <strong>menyetujui (ACC)</strong> permohonan peminjaman ruangan Anda:
+              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                Kabar baik! Dosen pengampu <strong>${escapeHtml(booking.nama_dosen)}</strong> telah <strong>menyetujui (ACC)</strong> permohonan ruangan perkuliahan Anda:
               </p>
 
-              <div style="background-color: #fefce8; border-left: 4px solid #eab308; padding: 14px 18px; margin: 18px 0; border-radius: 8px;">
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Ruangan:</strong> ${escapeHtml(roomKode)} - ${escapeHtml(roomNama)}</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Mata Kuliah:</strong> ${escapeHtml(booking.mata_kuliah)} (${booking.sks} SKS)</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Waktu Perkuliahan:</strong> ${escapeHtml(booking.tanggal)} pukul ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #854d0e;"><strong>Status Denah:</strong> Ditandai KUNING (Disetujui Dosen &bull; Siap Check-in)</p>
+              <!-- Card Detail Pengajuan -->
+              <div style="background-color: #fefce8; border: 1px solid #fef08a; border-left: 4px solid #eab308; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <tr>
+                    <td style="padding: 5px 0; color: #713f12; width: 140px;">Ruangan:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomKode)} - ${escapeHtml(roomNama)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #713f12;">Mata Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(booking.mata_kuliah)} (${booking.sks} SKS)</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #713f12;">Waktu Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(booking.tanggal)} &bull; ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #854d0e;">Status Denah:</td>
+                    <td style="padding: 5px 0; color: #854d0e; font-weight: 800;">Ditandai KUNING (Disetujui Dosen &bull; Siap Check-in)</td>
+                  </tr>
+                </table>
               </div>
 
               <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Status peminjaman Anda otomatis aktif di denah web SiRuang. Silakan buka menu <strong>Jadwal & Check-in</strong> pada dashboard PJ Kelas untuk melakukan presensi kehadiran saat jam kuliah berlangsung agar warna ruangan berubah menjadi <strong>MERAH</strong> (resmi sedang digunakan).
+                Status peminjaman Anda otomatis aktif di denah web SiRuang. Silakan buka menu <strong>Jadwal &amp; Check-in</strong> pada dashboard PJ Kelas untuk melakukan presensi kehadiran saat jam kuliah berlangsung agar warna ruangan berubah menjadi <strong>MERAH</strong> (resmi sedang digunakan).
               </p>
 
               <div style="margin: 24px 0; text-align: center;">
-                <a href="${checkinUrl}" style="background-color: #183449; color: #ffffff; padding: 13px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(24, 52, 73, 0.2);">
-                  Buka Menu Jadwal & Check-in
+                <a href="${checkinUrl}" style="background-color: #183449; background-image: linear-gradient(135deg, #183449 0%, #0f172a 100%); color: #ffffff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(24, 52, 73, 0.3); letter-spacing: 0.2px;">
+                  Buka Menu Jadwal &amp; Check-in &rarr;
                 </a>
               </div>
 
-              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0 16px 0;" />
-              <p style="color: #94a3b8; font-size: 11px; margin: 0;">
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
+              <p style="color: #94a3b8; font-size: 11px; margin: 0; text-align: center;">
                 Email ini dikirim otomatis oleh Sistem SiRuang Gedung SFD.
               </p>
             </div>

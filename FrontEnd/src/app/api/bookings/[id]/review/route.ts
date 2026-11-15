@@ -268,28 +268,60 @@ export async function POST(request: NextRequest, context: RouteContext) {
           template: 'E2',
           relatedId: booking.id,
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <h2 style="color: #166534; margin-bottom: 6px; font-size: 20px;">Booking Disetujui Dosen! 🎉</h2>
-              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(booking.nama_pemohon)}</strong>,</p>
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Kabar baik! Dosen pengampu <strong>${escapeHtml(booking.nama_dosen)}</strong> telah <strong>menyetujui (ACC)</strong> permohonan peminjaman ruangan Anda:
-              </p>
-              <div style="background-color: #fefce8; border-left: 4px solid #eab308; padding: 14px 18px; margin: 18px 0; border-radius: 8px;">
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Ruangan:</strong> ${escapeHtml(roomKode)} - ${escapeHtml(roomNama)}</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Mata Kuliah:</strong> ${escapeHtml(booking.mata_kuliah)} (${booking.sks} SKS)</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Waktu Perkuliahan:</strong> ${escapeHtml(booking.tanggal)} pukul ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #854d0e;"><strong>Status Denah:</strong> Ditandai KUNING (Disetujui Dosen · Siap Check-in)</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+              
+              <!-- Header Brand & Logo -->
+              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
+                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Pemberitahuan Persetujuan &amp; Presensi Ruangan</p>
               </div>
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Peminjaman Anda telah aktif di sistem tanpa perlu persetujuan admin lagi. Silakan buka menu <strong>Jadwal & Check-in</strong> pada dashboard PJ Kelas untuk melakukan presensi kehadiran saat jam kuliah berlangsung agar warna denah berubah menjadi <strong>MERAH</strong> (resmi sedang digunakan).
+
+              <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                &#10003; Telah Di-ACC Dosen
+              </div>
+
+              <h2 style="color: #166534; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Booking Ruangan Berhasil Disetujui! 🎉</h2>
+              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(pjFullName)}</strong>,</p>
+              
+              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                Kabar baik! Dosen pengampu <strong>${escapeHtml(booking.nama_dosen)}</strong> telah <strong>menyetujui (ACC)</strong> permohonan ruangan perkuliahan Anda:
               </p>
+
+              <!-- Card Detail Pengajuan -->
+              <div style="background-color: #fefce8; border: 1px solid #fef08a; border-left: 4px solid #eab308; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <tr>
+                    <td style="padding: 5px 0; color: #713f12; width: 140px;">Ruangan:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomKode)} - ${escapeHtml(roomNama)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #713f12;">Mata Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(booking.mata_kuliah)} (${booking.sks} SKS)</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #713f12;">Waktu Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(booking.tanggal)} &bull; ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #854d0e;">Status Denah:</td>
+                    <td style="padding: 5px 0; color: #854d0e; font-weight: 800;">Ditandai KUNING (Disetujui Dosen &bull; Siap Check-in)</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Status peminjaman Anda otomatis aktif di denah web SiRuang. Silakan buka menu <strong>Jadwal &amp; Check-in</strong> pada dashboard PJ Kelas untuk melakukan presensi kehadiran saat jam kuliah berlangsung agar warna ruangan berubah menjadi <strong>MERAH</strong> (resmi sedang digunakan).
+              </p>
+
               <div style="margin: 24px 0; text-align: center;">
-                <a href="${checkinUrl}" style="background-color: #183449; color: #ffffff; padding: 13px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(24, 52, 73, 0.2);">
-                  Buka Menu Jadwal & Check-in
+                <a href="${checkinUrl}" style="background-color: #183449; background-image: linear-gradient(135deg, #183449 0%, #0f172a 100%); color: #ffffff; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(24, 52, 73, 0.3); letter-spacing: 0.2px;">
+                  Buka Menu Jadwal &amp; Check-in &rarr;
                 </a>
               </div>
-              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0 16px 0;" />
-              <p style="color: #94a3b8; font-size: 11px; margin: 0;">
+
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
+              <p style="color: #94a3b8; font-size: 11px; margin: 0; text-align: center;">
                 Email ini dikirim otomatis oleh Sistem SiRuang Gedung SFD.
               </p>
             </div>

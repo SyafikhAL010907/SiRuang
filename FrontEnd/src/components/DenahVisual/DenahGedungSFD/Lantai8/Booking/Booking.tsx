@@ -164,7 +164,7 @@ export function BookingStep({
   const [liveBooking, setLiveBooking] = useState<any>(initialBooking || null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingActiveBooking, setLoadingActiveBooking] = useState<boolean>(!initialBooking);
+  const [loadingActiveBooking, setLoadingActiveBooking] = useState<boolean>(false);
   const [conflictCheck, setConflictCheck] = useState<{
     roomConflict: any;
     pjConflict: any;
@@ -458,16 +458,6 @@ export function BookingStep({
     }
   };
 
-  if (loadingActiveBooking) {
-    return (
-      <div className={`sfd-in mx-auto max-w-lg ${T.kartuOk} shadow-xl border p-10 flex flex-col items-center justify-center gap-3 text-center my-6 rounded-3xl`}>
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <h4 className={`text-sm font-bold ${T.judul}`}>Memeriksa Status Keterisian Ruangan {ruangan.kode}...</h4>
-        <p className={`text-xs ${T.dt}`}>Memuat data peminjaman real-time...</p>
-      </div>
-    );
-  }
-
   if (!ruangan.bookable) {
     return (
       <div className={`mx-auto max-w-md text-center ${T.kartuTutup}`}>
@@ -517,16 +507,16 @@ export function BookingStep({
                   ? 'Booking Disetujui Dosen'
                   : isRejected
                   ? 'Booking Ditolak Dosen'
-                  : 'Booking Berhasil Diajukan'}
+                  : '⏳ Menunggu Persetujuan Dosen'}
               </h3>
               <p className={`mt-0.5 text-xs ${T.dt}`}>
                 {isOngoing
                   ? 'Check-in berhasil dicatat. Status ruangan pada Denah SFD sekarang berstatus sedang digunakan (Merah).'
                   : isApproved
-                  ? `Dosen pengampu (${liveBooking?.nama_dosen || f.dosen}) telah menyetujui peminjaman ini. Ruangan ditandai Kuning di denah.`
+                  ? `Dosen pengampu (${liveBooking?.nama_dosen || f.dosen}) telah menyetujui peminjaman ini. Ruangan siap digunakan.`
                   : isRejected
                   ? `Pengajuan peminjaman tidak disetujui dosen: ${liveBooking?.catatan_dosen || 'Slot tidak disetujui'}.`
-                  : 'Permohonan peminjaman telah masuk ke antrean dan diteruskan kepada Dosen Pengampu untuk verifikasi.'}
+                  : `Permohonan telah terkirim ke email Dosen Pengampu (${liveBooking?.nama_dosen || f.dosen}). Menunggu Dosen mengklik ACC.`}
               </p>
             </div>
           </div>
@@ -557,13 +547,13 @@ export function BookingStep({
 
         {/* AREA AKSI UTAMA BERDASARKAN STATUS */}
         {isApproved && (
-          <div className="mt-5 p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-center space-y-1.5 shadow-xs">
-            <div className="flex items-center justify-center gap-2 text-amber-800 font-bold text-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-              <span>Peminjaman Telah Disetujui Dosen (Kuning)</span>
+          <div className="mt-5 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-center space-y-1.5 shadow-xs">
+            <div className="flex items-center justify-center gap-2 text-emerald-800 font-extrabold text-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>STATUS: RESMI DISETUJUI DOSEN (SIAP CHECK-IN)</span>
             </div>
-            <p className="text-[11px] text-slate-600 leading-relaxed max-w-md mx-auto">
-              Ruangan saat ini ditandai <strong className="text-amber-700">Kuning</strong> di denah. Konfirmasi presensi &amp; check-in dilakukan melalui menu <strong>Jadwal &amp; Check-in</strong> di dashboard PJ Kelas.
+            <p className="text-[11px] text-emerald-700 leading-relaxed max-w-md mx-auto">
+              Ruangan saat ini resmi berstatus <strong className="text-emerald-800">Kuning Aktif</strong> di denah. Konfirmasi presensi &amp; check-in dilakukan melalui menu <strong>Jadwal &amp; Check-in</strong> di dashboard PJ Kelas saat perkuliahan berlangsung.
             </p>
           </div>
         )}
@@ -581,20 +571,25 @@ export function BookingStep({
         )}
 
         {currentStatus === 'menunggu_dosen' && (
-          <div className="mt-4 p-3.5 rounded-2xl border border-amber-200 bg-amber-50/80 text-amber-900 text-xs flex items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
-              <span className="text-[11px] leading-relaxed">Ruangan ditandai <strong>Kuning</strong> di denah. Kartu ini akan otomatis ter-update begitu Dosen meng-ACC.</span>
+          <div className="mt-4 p-4 rounded-2xl border border-amber-300 bg-amber-50/90 text-amber-950 text-xs shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-extrabold text-amber-900 text-xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+                <span>STATUS: DALAM PENGAJUAN (BELUM DI-ACC)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchLiveStatus(bookingId, true)}
+                disabled={refreshing}
+                className="text-[11px] font-bold text-[#183449] bg-white border border-amber-300 px-3 py-1.5 rounded-xl hover:bg-amber-100/50 flex items-center gap-1.5 shrink-0 cursor-pointer transition shadow-2xs"
+              >
+                <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
+                <span>Cek Status</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => fetchLiveStatus(bookingId, true)}
-              disabled={refreshing}
-              className="text-[11px] font-bold text-[#183449] bg-white border border-amber-300 px-3 py-1.5 rounded-xl hover:bg-amber-100/50 flex items-center gap-1.5 shrink-0 cursor-pointer transition shadow-2xs"
-            >
-              <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
-              <span>Cek Status</span>
-            </button>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              📧 <strong>Terkirim ke Email Dosen:</strong> Notifikasi dan tautan persetujuan 1-klik telah otomatis dikirimkan ke email Dosen Pengampu (<strong>{liveBooking?.nama_dosen || f.dosen}</strong>). Setelah Dosen mengklik <strong>Setujui (ACC)</strong>, status ruangan otomatis berubah menjadi <strong>Disetujui Dosen</strong> dan email check-in akan masuk ke PJ Kelas.
+            </p>
           </div>
         )}
 
@@ -614,6 +609,26 @@ export function BookingStep({
                 {hari}, {f.tanggal} · {f.mulai}–{f.selesai} WIB ({f.sks} SKS)
               </span>
             </div>
+            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100 dark:border-white/10">
+              <span className="text-slate-500 font-medium">Status Persetujuan</span>
+              <span className="font-bold">
+                {isOngoing ? (
+                  <span className="text-rose-600 font-bold">Sedang Berlangsung</span>
+                ) : isApproved ? (
+                  <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    &#10003; Telah Di-ACC Dosen (Siap Check-in)
+                  </span>
+                ) : isRejected ? (
+                  <span className="text-rose-600 font-bold">&#10005; Ditolak Dosen</span>
+                ) : (
+                  <span className="text-amber-700 font-extrabold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    &bull; Menunggu Verifikasi Dosen (Belum ACC)
+                  </span>
+                )}
+              </span>
+            </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500 font-medium">Status Warna Denah</span>
               <span className="font-bold flex items-center gap-1.5">
@@ -625,13 +640,13 @@ export function BookingStep({
                 ) : isApproved ? (
                   <span className="text-amber-700 flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    KUNING (Disetujui Dosen · Siap Check-in)
+                    KUNING (Resmi Disetujui Dosen)
                   </span>
                 ) : isRejected ? (
                   <span className="text-slate-400">Putih (Pengajuan Ditolak)</span>
                 ) : (
-                  <span className="text-amber-700 flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                  <span className="text-amber-600 flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-300" />
                     KUNING (Dalam Pengajuan)
                   </span>
                 )}

@@ -362,51 +362,82 @@ export async function POST(request: Request) {
           template: 'E1',
           relatedId: newBooking.id,
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <h2 style="color: #183449; margin-bottom: 6px; font-size: 20px;">Permohonan Ruangan Kelas</h2>
-              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo Bapak/Ibu <strong>${escapeHtml(dosenUser.full_name || dosenUser.username)}</strong>,</p>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
               
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                PJ Kelas <strong>${escapeHtml(dbUser.full_name || dbUser.username)}</strong> (NIM: ${escapeHtml(dbUser.identifier)}, Kelas: ${escapeHtml(kelas)}) telah mengajukan permohonan peminjaman ruangan perkuliahan dengan rincian berikut:
-              </p>
-
-              <div style="background-color: #f8fafc; border-left: 4px solid #588CBC; padding: 14px 18px; margin: 18px 0; border-radius: 8px;">
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Ruangan:</strong> ${escapeHtml(roomTarget.kode)} - ${escapeHtml(roomTarget.nama)} (Lantai ${roomTarget.lantai || 8})</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Mata Kuliah:</strong> ${escapeHtml(mataKuliah)} (${sks} SKS)</p>
-                <p style="margin: 4px 0; font-size: 13px; color: #1e293b;"><strong>Waktu Perkuliahan:</strong> ${dayName.toUpperCase()}, ${tanggal} pukul ${jamMulai.slice(0, 5)} - ${jamSelesai.slice(0, 5)} WIB</p>
-                ${isConditional ? '<p style="margin: 4px 0; font-size: 13px; color: #b45309;"><strong>Status:</strong> Bersyarat (Menumpangi jadwal resmi perkuliahan)</p>' : ''}
+              <!-- Header Brand & Logo -->
+              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
+                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Sistem Verifikasi &amp; Peminjaman Ruangan Perkuliahan</p>
               </div>
 
-              <p style="color: #334155; font-size: 14px; margin-bottom: 14px;">
-                Silakan berikan tanggapan langsung dengan memilih aksi di bawah ini:
+              <div style="display: inline-block; background-color: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                Permohonan Masuk
+              </div>
+
+              <h2 style="color: #183449; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Verifikasi Pengajuan Ruangan Kelas</h2>
+              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo Bapak/Ibu <strong>${escapeHtml(dosenUser.full_name || dosenUser.username)}</strong>,</p>
+              
+              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                PJ Kelas <strong>${escapeHtml(dbUser.full_name || dbUser.username)}</strong> (NIM: ${escapeHtml(dbUser.identifier)}, Kelas: ${escapeHtml(kelas)}) mengajukan permohonan ruangan untuk perkuliahan dengan rincian berikut:
               </p>
 
-              <!-- Tombol Aksi Langsung: ACC & Tolak -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0; width: 100%;">
+              <!-- Card Detail Pengajuan -->
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #588CBC; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b; width: 140px;">Ruangan:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomTarget.kode)} - ${escapeHtml(roomTarget.nama)} (Lantai ${roomTarget.lantai || 8})</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">Mata Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(mataKuliah)} (${sks} SKS)</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">Waktu Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${dayName.toUpperCase()}, ${tanggal} &bull; ${jamMulai.slice(0, 5)} - ${jamSelesai.slice(0, 5)} WIB</td>
+                  </tr>
+                  ${isConditional ? `
+                  <tr>
+                    <td style="padding: 5px 0; color: #b45309;">Keterangan:</td>
+                    <td style="padding: 5px 0; color: #b45309; font-weight: 700;">Bersyarat (Menumpangi jadwal perkuliahan)</td>
+                  </tr>` : ''}
+                </table>
+              </div>
+
+              <p style="color: #334155; font-size: 14px; font-weight: 600; margin: 20px 0 14px 0; text-align: center;">
+                Tanggapi langsung dengan memilih aksi cepat di bawah ini:
+              </p>
+
+              <!-- Tombol Aksi Desain Modern: ACC & Tolak -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 22px auto; width: 100%; max-width: 460px;">
                 <tr>
-                  <td align="center" style="padding: 6px;">
-                    <a href="${accUrl}" style="background-color: #16a34a; color: #ffffff; padding: 13px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2);">
-                      ✓ Setujui (ACC) Pengajuan
+                  <td align="center" style="padding: 6px; width: 50%;">
+                    <a href="${accUrl}" style="background-color: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35); letter-spacing: 0.2px;">
+                      &#10003; Setujui (ACC)
                     </a>
                   </td>
-                  <td align="center" style="padding: 6px;">
-                    <a href="${tolakUrl}" style="background-color: #dc2626; color: #ffffff; padding: 13px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);">
-                      ✕ Tolak Pengajuan
+                  <td align="center" style="padding: 6px; width: 50%;">
+                    <a href="${tolakUrl}" style="background-color: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 14px 24px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3); letter-spacing: 0.2px;">
+                      &#10005; Tolak Pengajuan
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <p style="text-align: center; margin-top: 8px;">
-                <a href="${reviewUrl}" style="color: #588CBC; font-size: 12px; text-decoration: underline;">
-                  atau buka halaman review lengkap di web
+              <p style="text-align: center; margin: 12px 0 0 0;">
+                <a href="${reviewUrl}" style="color: #588CBC; font-size: 12px; text-decoration: underline; font-weight: 600;">
+                  atau buka tinjauan lengkap di dashboard web SiRuang
                 </a>
               </p>
 
-              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0 16px 0;" />
-              <p style="color: #94a3b8; font-size: 11px; margin: 0; line-height: 1.5;">
-                Link verifikasi berlaku selama 7 hari. Begitu Anda mengklik Setujui (ACC), status ruangan di web SiRuang otomatis berubah menjadi Kuning (Disetujui Dosen) dan notifikasi check-in akan otomatis dikirimkan ke email PJ Kelas.
-              </p>
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
+              <div style="background-color: #f8fafc; border-radius: 10px; padding: 12px 16px; border: 1px dashed #cbd5e1;">
+                <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.5;">
+                  &bull; <strong>1-Klik Langsung Selesai:</strong> Menekan tombol Setujui (ACC) langsung mengubah status ruangan menjadi <strong>KUNING (Disetujui Dosen)</strong> tanpa perlu login ke web.<br />
+                  &bull; <strong>Notifikasi Otomatis:</strong> Begitu di-ACC, email presensi &amp; check-in akan otomatis terkirim ke PJ Kelas pemohon.
+                </p>
+              </div>
             </div>
           `,
         });
