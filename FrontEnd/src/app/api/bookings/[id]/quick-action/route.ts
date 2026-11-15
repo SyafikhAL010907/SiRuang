@@ -325,15 +325,9 @@ export async function GET(
     const checkinToken = generateCheckinToken(booking.id, booking.pemohon_id);
     const quickCheckinUrl = `${appUrl}/api/bookings/${booking.id}/quick-checkin?token=${checkinToken}`;
 
-    // Fallback ke ADMIN_EMAIL jika email PJ belum terdaftar di profiles agar notifikasi check-in tidak hilang
+    // Kirim Email E2 ke PJ Kelas jika email PJ terdaftar di profilnya
     if (!pjEmail) {
-      pjEmail = process.env.ADMIN_EMAIL?.trim() || process.env.SMTP_USER?.trim() || '';
-      console.warn(`[quick-action] Email PJ Kelas tidak ditemukan untuk pemohon_id: ${booking.pemohon_id}, nim: ${booking.nim_pemohon}. Menggunakan fallback: ${pjEmail}`);
-    }
-
-    // Kirim Email E2 ke PJ Kelas
-    if (!pjEmail) {
-      console.warn(`[quick-action] Tidak ada email tujuan untuk PJ Kelas maupun Admin. Email check-in tidak dapat dikirim.`);
+      console.warn(`[quick-action] Email PJ Kelas tidak ditemukan di profil (pemohon_id: ${booking.pemohon_id}, nim: ${booking.nim_pemohon}). Email check-in E2 tidak dikirim.`);
     } else {
       console.log(`[quick-action] Mengirim email check-in E2 ke PJ Kelas: ${pjEmail}`);
       try {

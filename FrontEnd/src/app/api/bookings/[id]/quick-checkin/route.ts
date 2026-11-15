@@ -263,8 +263,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const dosenProf = participants?.find((p) => p.user_id === booking.dosen_id);
       const pjProf = participants?.find((p) => p.user_id === booking.pemohon_id);
 
-      const targetDosenEmail = dosenProf?.email || process.env.ADMIN_EMAIL || '';
-      const targetPjEmail = pjProf?.email || process.env.ADMIN_EMAIL || '';
+      const targetDosenEmail = dosenProf?.email || '';
+      const targetPjEmail = pjProf?.email || '';
 
       const emailPromises: Promise<any>[] = [];
 
