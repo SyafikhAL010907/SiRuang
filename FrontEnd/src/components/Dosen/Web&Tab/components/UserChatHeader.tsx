@@ -18,6 +18,10 @@ export interface UserChatHeaderProps {
   onClose: () => void;
   /** Foto profil Admin UNJ. Kosong = logo SiRuang. */
   adminAvatarSrc?: string;
+  /** Partner name (untuk dosen room = nama PJ Kelas, default = Admin UNJ) */
+  partnerName?: string;
+  partnerRole?: string;
+  partnerAvatar?: string;
 }
 
 export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
@@ -31,15 +35,21 @@ export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
   scrollToMatch,
   onClose,
   adminAvatarSrc,
+  partnerName,
+  partnerRole,
+  partnerAvatar,
 }) => {
+  const displayName = partnerName || 'Admin UNJ';
+  const displayAvatar = partnerAvatar || adminAvatarSrc || '/LogoSiRuangPolos.png';
+  const displayRole = partnerRole || 'OFFICIAL';
   return (
     <header className="px-8 py-5 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between z-10 shadow-sm">
       <div className="flex items-center gap-4">
-        <Avatar src={adminAvatarSrc || '/LogoSiRuangPolos.png'} size="md" />
+        <Avatar src={displayAvatar} size="md" />
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-black text-slate-800 tracking-tight">Admin  UNJ</h2>
-            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter uppercase">OFFICIAL</span>
+            <h2 className="font-black text-slate-800 tracking-tight">{displayName}</h2>
+            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter uppercase">{displayRole}</span>
           </div>
         </div>
       </div>

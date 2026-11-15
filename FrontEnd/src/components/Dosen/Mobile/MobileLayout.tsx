@@ -22,6 +22,10 @@ const MobileLayout = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'denah' | 'chats' | 'approvals' | 'profile'>('home');
   const [chatView, setChatView] = useState<'LIST' | 'ROOM'>('LIST');
 
+  // Chat partner state (untuk dynamic header)
+  const [chatPartner, setChatPartner] = useState<{ name: string; role: string; avatar?: string }>({ name: 'Admin UNJ', role: 'Online' });
+  const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
+
   // Modal / UI states
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedExcelFile, setSelectedExcelFile] = useState<{ data: string; name: string } | null>(null);
@@ -54,6 +58,29 @@ const MobileLayout = () => {
     showAlert,
     fileInputRef: chat.fileInputRef,
   });
+
+  // Simpan adminRoomId saat pertama kali chat.roomId tersedia
+  useEffect(() => {
+    if (chat.roomId && adminRoomId === null) {
+      setAdminRoomId(chat.roomId);
+    }
+  }, [chat.roomId, adminRoomId]);
+
+  // Handle buka Admin room
+  const handleOpenAdminRoom = () => {
+    setChatPartner({ name: 'Admin UNJ', role: 'Online' });
+    if (adminRoomId) chat.setRoomId(adminRoomId);
+    setChatView('ROOM');
+    setActiveTab('chats');
+  };
+
+  // Handle buka PJ room
+  const handleOpenPjRoom = (room: any) => {
+    setChatPartner({ name: room.pj_name || 'PJ Kelas', role: 'PJ Kelas', avatar: room.pj_avatar });
+    chat.setRoomId(room.room_id);
+    setChatView('ROOM');
+    setActiveTab('chats');
+  };
 
   // Deep link support: buka chat jika URL param openChat=1
   useEffect(() => {
@@ -171,7 +198,8 @@ const MobileLayout = () => {
               {chatView === 'LIST' ? (
                 <MobileChatListView
                   key="chat-list"
-                  onOpenRoom={() => setChatView('ROOM')}
+                  onOpenRoom={handleOpenAdminRoom}
+                  onOpenPjRoom={handleOpenPjRoom}
                 />
               ) : (
                 <MobileChatRoomView
@@ -202,6 +230,9 @@ const MobileLayout = () => {
                   messagesEndRef={chat.messagesEndRef}
                   handleScroll={chat.handleScroll}
                   onViewFile={viewFile}
+                  partnerName={chatPartner.name}
+                  partnerRole={chatPartner.role}
+                  partnerAvatar={chatPartner.avatar}
                 />
               )}
             </AnimatePresence>

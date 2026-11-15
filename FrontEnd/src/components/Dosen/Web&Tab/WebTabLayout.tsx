@@ -27,6 +27,33 @@ export const WebTabLayout = () => {
   const [alertConfig, setAlertConfig] = useState<{show: boolean, type: 'alert' | 'confirm', message: string, title?: string, onConfirm?: () => void}>({show: false, type: 'alert', message: ''});
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
 
+  // PJ Rooms (dari dosen-room API)
+  const [pjRooms, setPjRooms] = useState<any[]>([]);
+  const [selectedPjRoomId, setSelectedPjRoomId] = useState<number | null>(null);
+  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'pj'>('admin');
+  const [chatPartner, setChatPartner] = useState<{ name: string; role: string; avatar?: string }>({ name: 'Admin UNJ', role: 'OFFICIAL' });
+  const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
+
+  // Fetch PJ rooms dari dosen-room API
+  const fetchPjRooms = useCallback(async () => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) return;
+      const { token } = JSON.parse(storedUser);
+      const res = await fetch('/api/chat/dosen-room', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.rooms) setPjRooms(json.rooms);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchPjRooms();
+  }, [fetchPjRooms]);
+
   const fetchPendingApprovals = useCallback(async () => {
     try {
       const res = await fetch('/api/dosen/bookings');
@@ -62,6 +89,31 @@ export const WebTabLayout = () => {
     showAlert,
     fileInputRef: chat.fileInputRef,
   });
+
+  // Simpan adminRoomId saat pertama kali chat.roomId tersedia
+  useEffect(() => {
+    if (chat.roomId && adminRoomId === null) {
+      setAdminRoomId(chat.roomId);
+    }
+  }, [chat.roomId, adminRoomId]);
+
+  // Handle select Admin room
+  const handleSelectAdminRoom = () => {
+    setActiveRoomType('admin');
+    setSelectedPjRoomId(null);
+    setChatPartner({ name: 'Admin UNJ', role: 'OFFICIAL' });
+    if (adminRoomId) chat.setRoomId(adminRoomId);
+    setIsChatOpen(true);
+  };
+
+  // Handle select PJ room
+  const handleSelectPjRoom = (room: any) => {
+    setActiveRoomType('pj');
+    setSelectedPjRoomId(room.room_id);
+    setChatPartner({ name: room.pj_name || 'PJ Kelas', role: 'PJ Kelas', avatar: room.pj_avatar });
+    chat.setRoomId(room.room_id);
+    setIsChatOpen(true);
+  };
 
   // Deep link support: buka chat jika URL param openChat=1
   useEffect(() => {
@@ -174,10 +226,15 @@ export const WebTabLayout = () => {
           setIsChatOpen(false);
         }}
         lastMessage={lastMessage}
-        onOpenChat={() => setIsChatOpen(true)}
+        onOpenChat={handleSelectAdminRoom}
         onOpenTemplate={() => setIsTemplatePopupOpen(true)}
         onLogout={handleLogout}
         adminAvatarSrc={adminAvatarSrc}
+        activeRoom={activeRoomType}
+        onSelectRoom={(room) => { if (room === 'admin') handleSelectAdminRoom(); }}
+        pjRooms={pjRooms}
+        selectedRoomId={selectedPjRoomId}
+        onSelectPjRoom={handleSelectPjRoom}
       />
 
       {isChatOpen ? (
@@ -202,6 +259,9 @@ export const WebTabLayout = () => {
             scrollToMatch={search.scrollToMatch}
             onClose={() => setIsChatOpen(false)}
             adminAvatarSrc={adminAvatarSrc}
+            partnerName={chatPartner.name}
+            partnerRole={chatPartner.role}
+            partnerAvatar={chatPartner.avatar}
           />
 
           <UserChatMessages

@@ -79,6 +79,19 @@ export async function GET(request: Request) {
           room = newRoom;
         }
 
+        if (!room) {
+          const { data: newRoom } = await supabaseServer
+            .from('chat_rooms')
+            .insert({
+              user_identifier: roomKey,
+              last_message: '',
+              is_marked_unread: false,
+            })
+            .select('id, user_identifier, last_message, updated_at, is_marked_unread')
+            .single();
+          room = newRoom;
+        }
+
         if (room) {
           // Hitung unread count (pesan yang dikirim oleh dosen dan belum dibaca oleh PJ)
           const { count } = await supabaseServer
@@ -141,6 +154,19 @@ export async function GET(request: Request) {
           .eq('user_identifier', roomKey)
           .maybeSingle();
 
+        if (!room) {
+          const { data: newRoom } = await supabaseServer
+            .from('chat_rooms')
+            .insert({
+              user_identifier: roomKey,
+              last_message: '',
+              is_marked_unread: false,
+            })
+            .select('id, user_identifier, last_message, updated_at, is_marked_unread')
+            .single();
+          room = newRoom;
+        }
+
         if (room) {
           const { count } = await supabaseServer
             .from('chat_messages')
@@ -172,3 +198,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Internal server error: ' + err.message }, { status: 500 });
   }
 }
+

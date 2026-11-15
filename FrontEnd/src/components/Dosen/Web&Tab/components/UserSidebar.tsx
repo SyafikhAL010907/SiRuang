@@ -28,8 +28,11 @@ export interface UserSidebarProps {
   activeView?: 'dashboard' | 'approvals' | 'profile';
   onSelectView?: (view: 'dashboard' | 'approvals') => void;
   lastMessage?: any;
-  activeRoom?: 'admin' | 'dosen';
-  onSelectRoom?: (room: 'admin' | 'dosen') => void;
+  activeRoom?: 'admin' | 'pj';
+  onSelectRoom?: (room: 'admin' | 'pj') => void;
+  pjRooms?: any[];
+  selectedRoomId?: number | null;
+  onSelectPjRoom?: (room: any) => void;
   onOpenChat: () => void;
   onOpenTemplate: () => void;
   onLogout: () => void;
@@ -49,6 +52,9 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   lastMessage,
   activeRoom = 'admin',
   onSelectRoom,
+  pjRooms = [],
+  selectedRoomId = null,
+  onSelectPjRoom,
   onOpenChat,
   onOpenTemplate,
   onLogout,
@@ -56,8 +62,8 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 }) => {
   const adminAvatar = adminAvatarSrc || '/LogoSiRuangPolos.png';
   const { status, isLoading, subscribe, unsubscribe } = usePushNotifications();
-  // State room chat yang dipilih (admin atau dosen)
-  const [selectedRoom, setSelectedRoom] = useState<'admin' | 'dosen'>(activeRoom);
+  // State room chat yang dipilih (admin atau pj)
+  const [selectedRoom, setSelectedRoom] = useState<'admin' | 'pj'>(activeRoom as any);
 
   useEffect(() => {
     if (activeRoom) setSelectedRoom(activeRoom);
@@ -67,15 +73,6 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
     setSelectedRoom('admin');
     if (onSelectRoom) {
       onSelectRoom('admin');
-    } else {
-      onOpenChat();
-    }
-  };
-
-  const handleSelectDosen = () => {
-    setSelectedRoom('dosen');
-    if (onSelectRoom) {
-      onSelectRoom('dosen');
     } else {
       onOpenChat();
     }
@@ -364,60 +361,85 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                 </div>
               </motion.div>
 
-              {/* Room 2: Dosen (Dummy Chat Room dengan PP Botak seperti di Admin) */}
-              <motion.div
-                initial={false}
-                onClick={handleSelectDosen}
-                className={cn(
-                  "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
-                  isChatOpen && selectedRoom === 'dosen'
-                    ? "bg-white shadow-md border border-[#588CBC]/20"
-                    : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
-                )}
-              >
-                {/* Garis vertikal di samping profil */}
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
-                    isChatOpen && selectedRoom === 'dosen' ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
-                  )}
-                />
+              {/* Room PJ Kelas Berelasi */}
+              {pjRooms && pjRooms.length > 0 ? (
+                pjRooms.map((pRoom) => {
+                  const isPjSelected = isChatOpen && selectedRoom === 'pj' && selectedRoomId === pRoom.room_id;
+                  return (
+                    <motion.div
+                      key={pRoom.room_id}
+                      initial={false}
+                      onClick={() => {
+                        setSelectedRoom('pj');
+                        if (onSelectPjRoom) {
+                          onSelectPjRoom(pRoom);
+                        } else if (onSelectRoom) {
+                          onSelectRoom('pj');
+                        } else {
+                          onOpenChat();
+                        }
+                      }}
+                      className={cn(
+                        "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
+                        isPjSelected
+                          ? "bg-white shadow-md border border-[#588CBC]/20"
+                          : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
+                          isPjSelected ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
+                        )}
+                      />
 
-                {/* Avatar PP Botak (tanpa src, memakai icon default botak UserCircle bawaan) */}
-                <div className="relative shrink-0 ml-1">
-                  <Avatar
-                    size="md"
-                    alt="Dosen"
-                    className="transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                      <div className="relative shrink-0 ml-1">
+                        <Avatar
+                          src={pRoom.pj_avatar}
+                          size="md"
+                          alt={pRoom.pj_name}
+                          className="transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <h3 className={cn(
+                            "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
+                            isPjSelected ? "text-[#183449]" : "text-slate-700"
+                          )}>
+                            <span className="truncate">{pRoom.pj_name}</span>
+                            <span className="px-1.5 py-0.2 bg-[#588CBC]/20 text-[8px] font-black text-[#183449] rounded uppercase tracking-wider shrink-0">
+                              PJ Kelas
+                            </span>
+                          </h3>
+                        </div>
+
+                        <p className="text-[10px] font-bold text-[#588CBC] truncate">
+                          {pRoom.mata_kuliah} {pRoom.kelas ? `(${pRoom.kelas})` : ''}
+                        </p>
+
+                        <div className="flex justify-between items-center mt-0.5">
+                          <p className="text-xs truncate pr-2 flex-1 text-slate-400 font-medium">
+                            {pRoom.last_message || 'Belum ada pesan'}
+                          </p>
+                          {pRoom.unread_count > 0 && (
+                            <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[9px] font-black rounded-full shrink-0">
+                              {pRoom.unread_count}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="p-3 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-[11px]">
+                  Belum ada relasi PJ Kelas aktif
                 </div>
-
-                {/* Info & Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <h3 className={cn(
-                      "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
-                      isChatOpen && selectedRoom === 'dosen' ? "text-[#183449]" : "text-slate-700"
-                    )}>
-                      <span>Dosen</span>
-                      <span className="px-1.5 py-0.2 bg-slate-200 text-[8px] font-black text-slate-600 rounded uppercase tracking-wider">
-                        Dosen
-                      </span>
-                    </h3>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0 ml-1">
-                      10:30
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs truncate pr-2 mt-0.5 flex-1 text-slate-400 font-medium">
-                      Halo, ada yang bisa saya bantu terkait perkuliahan?
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
+              )}
             </div>
           </div>
 
@@ -577,47 +599,64 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               </div>
             </button>
 
-            {/* Tombol Room 2: Dosen (PP Botak) */}
-            <button
-              type="button"
-              onClick={handleSelectDosen}
-              onMouseEnter={(e) =>
-                showRailTip(e, {
-                  title: 'Dosen',
-                  subtitle: 'Konsultasi perkuliahan & bimbingan',
-                })
-              }
-              onMouseLeave={hideRailTip}
-              onFocus={(e) =>
-                showRailTip(e, {
-                  title: 'Dosen',
-                  subtitle: 'Konsultasi perkuliahan & bimbingan',
-                })
-              }
-              onBlur={hideRailTip}
-              aria-label="Buka Chat Dosen"
-              tabIndex={isOpen ? -1 : 0}
-              className="relative w-full flex justify-center py-1 group outline-none"
-            >
-              {isChatOpen && selectedRoom === 'dosen' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
-                />
-              )}
-              <div
-                className={cn(
-                  "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
-                  isChatOpen && selectedRoom === 'dosen' && "ring-2 ring-[#588CBC]/70 ring-offset-2"
-                )}
-              >
-                <Avatar
-                  size="md"
-                  alt="Dosen"
-                />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
-              </div>
-            </button>
+            {/* Tombol Room PJ Kelas di rail (dynamic) */}
+            {pjRooms.map((pRoom) => {
+              const isPjSel = isChatOpen && selectedRoom === 'pj' && selectedRoomId === pRoom.room_id;
+              return (
+                <button
+                  key={pRoom.room_id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRoom('pj');
+                    if (onSelectPjRoom) onSelectPjRoom(pRoom);
+                    else onOpenChat();
+                  }}
+                  onMouseEnter={(e) =>
+                    showRailTip(e, {
+                      title: pRoom.pj_name,
+                      subtitle: `${pRoom.mata_kuliah}${pRoom.kelas ? ` (${pRoom.kelas})` : ''}`,
+                      badge: pRoom.unread_count > 0 ? `${pRoom.unread_count} pesan baru` : undefined,
+                    })
+                  }
+                  onMouseLeave={hideRailTip}
+                  onFocus={(e) =>
+                    showRailTip(e, {
+                      title: pRoom.pj_name,
+                      subtitle: `${pRoom.mata_kuliah}${pRoom.kelas ? ` (${pRoom.kelas})` : ''}`,
+                    })
+                  }
+                  onBlur={hideRailTip}
+                  aria-label={`Buka Chat ${pRoom.pj_name}`}
+                  tabIndex={isOpen ? -1 : 0}
+                  className="relative w-full flex justify-center py-1 group outline-none"
+                >
+                  {isPjSel && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
+                    />
+                  )}
+                  <div
+                    className={cn(
+                      "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
+                      isPjSel && "ring-2 ring-[#588CBC]/70 ring-offset-2"
+                    )}
+                  >
+                    <Avatar
+                      size="md"
+                      src={pRoom.pj_avatar}
+                      alt={pRoom.pj_name}
+                    />
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                    {pRoom.unread_count > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white shadow-sm animate-bounce">
+                        {pRoom.unread_count}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* Tombol Push Notif & Logout di Rail */}

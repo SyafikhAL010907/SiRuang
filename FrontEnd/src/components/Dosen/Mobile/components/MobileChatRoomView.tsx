@@ -50,6 +50,10 @@ export interface MobileChatRoomViewProps {
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: () => void;
   onViewFile: (dataUrl: string, fileName?: string) => void;
+  /** Partner dinamis (PJ Kelas atau Admin) */
+  partnerName?: string;
+  partnerRole?: string;
+  partnerAvatar?: string;
 }
 
 export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
@@ -79,7 +83,13 @@ export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
   messagesEndRef,
   handleScroll,
   onViewFile,
+  partnerName,
+  partnerRole,
+  partnerAvatar,
 }) => {
+  const displayName = partnerName || 'Admin UNJ';
+  const displayAvatar = partnerAvatar || '/LogoSiRuangPolos.png';
+  const displayRole = partnerRole || 'Online';
   const filteredMessages = localSearchQuery.trim()
     ? messages.filter((m) => m.text.toLowerCase().includes(localSearchQuery.toLowerCase()))
     : messages;
@@ -109,15 +119,15 @@ export const MobileChatRoomView: React.FC<MobileChatRoomViewProps> = ({
         {!isLocalSearchOpen && (
           <div className="flex items-center gap-3 flex-1">
             <div className="relative">
-              <Avatar src="/LogoSiRuangPolos.png" size="sm" />
+              <Avatar src={displayAvatar} size="sm" />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full"></span>
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-black text-slate-800 text-sm tracking-tight truncate">
-                Admin  UNJ
+                {displayName}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-[#588CBC]">Online</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#588CBC]">{displayRole}</p>
               </div>
             </div>
           </div>
