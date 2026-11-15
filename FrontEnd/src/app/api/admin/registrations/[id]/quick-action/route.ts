@@ -248,6 +248,26 @@ export async function GET(
     }
 
     const approvedUser = Array.isArray(approveResult) ? approveResult[0] : approveResult;
+    const targetUserId = approvedUser?.new_user_id || approvedUser?.id;
+
+    // Pastikan data email dan profil pengguna tersimpan permanen di tabel profiles
+    if (targetUserId) {
+      try {
+        await supabaseServer.from('profiles').upsert(
+          {
+            user_id: targetUserId,
+            full_name: regReq.username || approvedUser.username,
+            email: regReq.email || approvedUser.email,
+            phone: regReq.phone || null,
+            faculty: regReq.faculty || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+      } catch (upsertErr) {
+        console.warn('[quick-action] Gagal auto-upsert profiles setelah approve akun:', upsertErr);
+      }
+    }
 
     // Kirim email E7 ke pengguna
     if (approvedUser?.email) {

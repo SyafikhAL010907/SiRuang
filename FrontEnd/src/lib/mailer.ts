@@ -39,7 +39,7 @@ export function escapeHtml(str: string | number | null | undefined): string {
  */
 function getTransporter(): Transporter | null {
   const host = process.env.SMTP_HOST?.trim();
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT.trim(), 10) : 587;
+  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT.trim(), 10) : 465;
   const user = process.env.SMTP_USER?.trim();
   const rawPass = process.env.SMTP_PASS?.trim();
   // Bersihkan spasi dari Google App Password (misal 'abcd efgh ijkl mnop' -> 'abcdefghijklmnop')
@@ -51,16 +51,38 @@ function getTransporter(): Transporter | null {
     return null;
   }
 
+  const isGmail = host.toLowerCase().includes('gmail');
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user,
+        pass,
+      },
+      tls: {
+        rejectUnauthorized: true,
+        minVersion: 'TLSv1.2',
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
+    });
+  }
+
   const isSecure = port === 465;
 
   return nodemailer.createTransport({
     host,
     port,
     secure: isSecure,
-    requireTLS: !isSecure,
     auth: {
       user,
       pass,
+    },
+    tls: {
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2',
     },
     connectionTimeout: 15000,
     greetingTimeout: 10000,
@@ -102,8 +124,10 @@ export async function sendEmail(options: SendMailOptions): Promise<SendMailResul
     };
   }
 
-  const fromName = process.env.SMTP_FROM_NAME || 'SiRuang';
-  const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || '';
+  const fromName = process.env.SMTP_FROM_NAME?.trim() || 'SiRuang';
+  // Untuk Gmail SMTP, from email wajib sama persis dengan user SMTP agar terautentikasi penuh oleh TLS Google
+  const isGmailUser = (process.env.SMTP_HOST || '').toLowerCase().includes('gmail');
+  const fromEmail = isGmailUser ? user : (process.env.SMTP_FROM_EMAIL?.trim() || user);
   const fromAddress = `"${fromName}" <${fromEmail}>`;
 
   // Pastikan semua subjek otomatis diawali dengan [SiRuang]

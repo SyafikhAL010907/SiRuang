@@ -95,6 +95,24 @@ export async function POST(
     }
 
     const approvedUser = Array.isArray(approveResult) ? approveResult[0] : approveResult;
+    const targetUserId = approvedUser?.new_user_id || approvedUser?.id;
+
+    // Pastikan data profil dan email tersimpan permanen di tabel profiles
+    if (targetUserId) {
+      try {
+        await supabaseServer.from('profiles').upsert(
+          {
+            user_id: targetUserId,
+            full_name: approvedUser.username,
+            email: approvedUser.email,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+      } catch (upsertErr) {
+        console.warn('[approve] Gagal auto-upsert profiles setelah approve akun:', upsertErr);
+      }
+    }
 
     // 4. Pengiriman Email E7 ke Pemohon via after() jika email tersedia (Fail-soft)
     if (approvedUser?.email) {
