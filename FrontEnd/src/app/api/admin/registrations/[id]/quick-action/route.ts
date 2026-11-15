@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
+import { getPublicAppUrl } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -242,7 +243,7 @@ export async function GET(
     // Kirim email E7 ke pengguna
     if (approvedUser?.email) {
       try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://si-ruang.vercel.app';
+        const appUrl = getPublicAppUrl(request);
         const loginUrl = `${appUrl}/login`;
 
         await sendEmail({

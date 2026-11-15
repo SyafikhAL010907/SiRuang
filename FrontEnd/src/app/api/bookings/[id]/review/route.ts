@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
 import { notifyBookingPush } from '@/lib/sendPush';
+import { getPublicAppUrl } from '@/lib/appUrl';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -195,23 +196,73 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Ambil email pemohon (PJ) dari profiles / v_user_profiles
-    const { data: pjProfile } = await supabaseServer
-      .from('v_user_profiles')
-      .select('user_id, full_name, email, identifier')
-      .eq('user_id', booking.pemohon_id)
-      .maybeSingle();
+    // Ambil email pemohon (PJ Kelas) dengan multiple fallback
+    let pjEmail = '';
+    let pjFullName = booking.nama_pemohon;
 
-    const pjEmail = pjProfile?.email;
+    // 1. Coba dari v_user_profiles via pemohon_id
+    if (booking.pemohon_id) {
+      const { data: p1 } = await supabaseServer
+        .from('v_user_profiles')
+        .select('email, full_name')
+        .eq('user_id', booking.pemohon_id)
+        .maybeSingle();
+      if (p1?.email) {
+        pjEmail = p1.email.trim();
+        if (p1.full_name) pjFullName = p1.full_name;
+      }
+    }
+
+    // 2. Coba dari v_user_profiles via nim_pemohon (identifier)
+    if (!pjEmail && booking.nim_pemohon) {
+      const { data: p2 } = await supabaseServer
+        .from('v_user_profiles')
+        .select('email, full_name')
+        .eq('identifier', booking.nim_pemohon)
+        .maybeSingle();
+      if (p2?.email) {
+        pjEmail = p2.email.trim();
+        if (p2.full_name) pjFullName = p2.full_name;
+      }
+    }
+
+    // 3. Coba dari tabel profiles langsung
+    if (!pjEmail && booking.pemohon_id) {
+      const { data: p3 } = await supabaseServer
+        .from('profiles')
+        .select('email, full_name')
+        .eq('user_id', booking.pemohon_id)
+        .maybeSingle();
+      if (p3?.email) {
+        pjEmail = p3.email.trim();
+        if (p3.full_name) pjFullName = p3.full_name;
+      }
+    }
+
+    // 4. Coba dari registration_requests
+    if (!pjEmail && booking.nim_pemohon) {
+      const { data: p4 } = await supabaseServer
+        .from('registration_requests')
+        .select('email')
+        .eq('identifier', booking.nim_pemohon)
+        .maybeSingle();
+      if (p4?.email) {
+        pjEmail = p4.email.trim();
+      }
+    }
+
     const roomKode = booking.rooms?.kode || 'Ruangan';
     const roomNama = booking.rooms?.nama || '';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = getPublicAppUrl(request);
     const checkinUrl = `${appUrl}/user?tab=checkin`;
 
     // Kirim email notifikasi ke PJ Kelas (E2 atau E3)
-    if (pjEmail) {
+    if (!pjEmail) {
+      console.warn(`[review] Email PJ Kelas tidak ditemukan untuk pemohon_id: ${booking.pemohon_id}, nim: ${booking.nim_pemohon}. Email notifikasi check-in tidak dapat dikirim.`);
+    } else {
+      console.log(`[review] Mengirim email notifikasi E2/E3 ke PJ Kelas: ${pjEmail}`);
       if (action === 'setuju') {
-        await sendEmail({
+        const mailRes = await sendEmail({
           to: pjEmail,
           subject: `[SiRuang] Pengajuan Ruangan ${roomKode} Disetujui Dosen — Silakan Cek Denah & Check-in`,
           template: 'E2',
@@ -272,18 +323,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Kirim push notification ke PJ Kelas
-    if (pjProfile?.identifier) {
+    const pjIdentifier = booking.nim_pemohon || String(booking.pemohon_id);
+    if (pjIdentifier) {
       try {
         if (action === 'setuju') {
           await notifyBookingPush(
-            pjProfile.identifier,
+            pjIdentifier,
             'Booking Disetujui Dosen!',
             `Ruangan ${roomKode} (${booking.mata_kuliah}) disetujui dosen (Kuning di denah). Silakan klik Check-in untuk mengubah warna menjadi Merah.`,
             `/denah-sfd/lantai${booking.rooms?.lantai || 8}`
           );
         } else {
           await notifyBookingPush(
-            pjProfile.identifier,
+            pjIdentifier,
             'Booking Ditolak Dosen',
             `Peminjaman ruangan ${roomKode} ditolak dosen: "${alasan.trim()}".`,
             '/user'

@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
+import { getPublicAppUrl } from '@/lib/appUrl';
 
 // In-memory rate limiting: max 5 requests per IP / identifier per 10 minutes
 const rateLimitMap = new Map<string, number[]>();
@@ -258,7 +259,7 @@ export async function POST(request: Request) {
     after(async () => {
       try {
         const adminEmail = process.env.ADMIN_EMAIL || 'syafikhal09@gmail.com';
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://si-ruang.vercel.app';
+        const appUrl = getPublicAppUrl(request);
 
         const accUrl = `${appUrl}/api/admin/registrations/${newRequest.id}/quick-action?token=${rawAdminToken}&action=setuju`;
         const tolakUrl = `${appUrl}/api/admin/registrations/${newRequest.id}/quick-action?token=${rawAdminToken}&action=tolak`;

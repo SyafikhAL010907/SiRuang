@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
+import { getPublicAppUrl } from '@/lib/appUrl';
 import { notifyBookingPush } from '@/lib/sendPush';
 import { evaluateBookingStates } from '@/lib/bookingEvaluator';
 
@@ -349,7 +350,7 @@ export async function POST(request: Request) {
 
     // Kirim notifikasi email ke Dosen jika email tersedia
     if (dosenUser.email) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://si-ruang.vercel.app';
+      const appUrl = getPublicAppUrl(request);
       const accUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=setuju`;
       const tolakUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=tolak`;
       const reviewUrl = `${appUrl}/dosen/review/${newBooking.id}?token=${rawToken}`;
