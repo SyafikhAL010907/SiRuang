@@ -258,10 +258,10 @@ export async function POST(request: Request) {
     after(async () => {
       try {
         const adminEmail = process.env.ADMIN_EMAIL || 'syafikhal09@gmail.com';
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://si-ruang.vercel.app';
 
-        const accUrl = `${appUrl}/admin/registration/${newRequest.id}?token=${rawAdminToken}&action=setuju`;
-        const tolakUrl = `${appUrl}/admin/registration/${newRequest.id}?token=${rawAdminToken}&action=tolak`;
+        const accUrl = `${appUrl}/api/admin/registrations/${newRequest.id}/quick-action?token=${rawAdminToken}&action=setuju`;
+        const tolakUrl = `${appUrl}/api/admin/registrations/${newRequest.id}/quick-action?token=${rawAdminToken}&action=tolak`;
         const reviewLink = `${appUrl}/admin/registration/${newRequest.id}?token=${rawAdminToken}`;
         const roleLabel =
           requestedRole === 'dosen'

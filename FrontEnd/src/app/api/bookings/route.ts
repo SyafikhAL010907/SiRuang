@@ -349,9 +349,9 @@ export async function POST(request: Request) {
 
     // Kirim notifikasi email ke Dosen jika email tersedia
     if (dosenUser.email) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      const accUrl = `${appUrl}/dosen/review/${newBooking.id}?token=${rawToken}&action=setuju`;
-      const tolakUrl = `${appUrl}/dosen/review/${newBooking.id}?token=${rawToken}&action=tolak`;
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://si-ruang.vercel.app';
+      const accUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=setuju`;
+      const tolakUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=tolak`;
       const reviewUrl = `${appUrl}/dosen/review/${newBooking.id}?token=${rawToken}`;
 
       try {
