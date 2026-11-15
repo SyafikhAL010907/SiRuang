@@ -15,6 +15,7 @@ export async function GET() {
         updated_at,
         is_marked_unread
       `)
+      .not('user_identifier', 'like', 'dosen:%')
       .order('updated_at', { ascending: false });
 
     if (error) {

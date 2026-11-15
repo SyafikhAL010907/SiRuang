@@ -101,6 +101,7 @@ export const WebTabLayout = () => {
   const handleSelectAdminRoom = () => {
     setActiveRoomType('admin');
     setSelectedPjRoomId(null);
+    chat.setMessages([]);
     setChatPartner({ name: 'Admin UNJ', role: 'OFFICIAL' });
     if (adminRoomId) chat.setRoomId(adminRoomId);
     setIsChatOpen(true);
@@ -110,6 +111,7 @@ export const WebTabLayout = () => {
   const handleSelectPjRoom = (room: any) => {
     setActiveRoomType('pj');
     setSelectedPjRoomId(room.room_id);
+    chat.setMessages([]);
     setChatPartner({ name: room.pj_name || 'PJ Kelas', role: 'PJ Kelas', avatar: room.pj_avatar });
     chat.setRoomId(room.room_id);
     setIsChatOpen(true);

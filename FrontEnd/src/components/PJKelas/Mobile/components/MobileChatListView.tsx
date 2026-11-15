@@ -34,7 +34,9 @@ export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
   React.useEffect(() => {
     async function loadDosenRooms() {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        if (!storedUser) return;
+        const { token } = JSON.parse(storedUser);
         const res = await fetch('/api/chat/dosen-room', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });

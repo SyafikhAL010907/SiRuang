@@ -139,12 +139,22 @@ export async function notifyRecipient(
       return;
     }
 
-    // 2. Jika pengirim adalah pemilik room, penerimanya adalah admin -> return (admin tidak di-push)
-    if (senderIdentifier === room.user_identifier) {
-      return;
-    }
+    // 2. Tentukan recipient identifier
+    let recipientIdentifier = room.user_identifier;
 
-    const recipientIdentifier = room.user_identifier;
+    if (room.user_identifier.startsWith('dosen:')) {
+      const parts = room.user_identifier.split(':');
+      if (parts.length >= 3) {
+        const nidnDosen = parts[1];
+        const nimPj = parts[2];
+        recipientIdentifier = (senderIdentifier === nidnDosen) ? nimPj : nidnDosen;
+      }
+    } else {
+      // Jika room biasa (Admin <-> User), dan pengirim adalah pemilik room, penerimanya adalah admin -> return (admin tidak di-push)
+      if (senderIdentifier === room.user_identifier) {
+        return;
+      }
+    }
 
     // 3. Ambil role penerima dan subscriptions secara paralel (Promise.all)
     const [authRes, subRes] = await Promise.all([

@@ -68,6 +68,7 @@ const MobileLayout = () => {
 
   // Handle buka Admin room
   const handleOpenAdminRoom = () => {
+    chat.setMessages([]);
     setChatPartner({ name: 'Admin UNJ', role: 'Online' });
     if (adminRoomId) chat.setRoomId(adminRoomId);
     setChatView('ROOM');
@@ -76,6 +77,7 @@ const MobileLayout = () => {
 
   // Handle buka PJ room
   const handleOpenPjRoom = (room: any) => {
+    chat.setMessages([]);
     setChatPartner({ name: room.pj_name || 'PJ Kelas', role: 'PJ Kelas', avatar: room.pj_avatar });
     chat.setRoomId(room.room_id);
     setChatView('ROOM');

@@ -240,6 +240,9 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
         if (storedUser) {
             const { token } = JSON.parse(storedUser);
 
+            // Fetch pesan room ini secara instan saat room berganti
+            fetchMessages(roomId, token, userGmail);
+
             // 1. Supabase Realtime WebSocket listener (0 ms delay instan)
             let wasDisconnected = false;
             const channel = supabase

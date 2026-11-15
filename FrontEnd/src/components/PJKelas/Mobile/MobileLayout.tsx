@@ -185,11 +185,13 @@ const MobileLayout = () => {
                 <MobileChatListView
                   key="chat-list"
                   onOpenRoom={() => {
+                    chat.setMessages([]);
                     if (adminRoomId) chat.setRoomId(adminRoomId);
                     setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
                     setChatView('ROOM');
                   }}
                   onOpenDosenRoom={(room) => {
+                    chat.setMessages([]);
                     chat.setRoomId(room.room_id);
                     setChatPartner({
                       name: room.dosen_name,

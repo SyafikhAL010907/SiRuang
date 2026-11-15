@@ -88,7 +88,9 @@ export const WebTabLayout = () => {
   useEffect(() => {
     async function loadDosenRooms() {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        if (!storedUser) return;
+        const { token } = JSON.parse(storedUser);
         const res = await fetch('/api/chat/dosen-room', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -114,6 +116,7 @@ export const WebTabLayout = () => {
   const handleSelectAdminRoom = () => {
     setActiveRoomType('admin');
     setSelectedDosenRoomId(null);
+    chat.setMessages([]);
     if (adminRoomId) chat.setRoomId(adminRoomId);
     setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
     setIsChatOpen(true);
@@ -122,6 +125,7 @@ export const WebTabLayout = () => {
   const handleSelectDosenRoom = (room: any) => {
     setActiveRoomType('dosen');
     setSelectedDosenRoomId(room.room_id);
+    chat.setMessages([]);
     chat.setRoomId(room.room_id);
     setChatPartner({
       name: room.dosen_name,
