@@ -27,3 +27,4 @@ export function verifyCheckinToken(bookingId: string | number, pemohonId: string
     return false;
   }
 }
+
