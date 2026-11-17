@@ -315,98 +315,94 @@ export const UserLandingView: React.FC<UserLandingViewProps> = ({
 
           {/* MENU SHORTCUT & STATS STATUS SFD PJ KELAS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3 lg:mt-4">
-            {/* Shortcut 1: Check-in Ruangan (Presensi Cepat) */}
-            <div
+            {/* Shortcut 1: Check-in Ruangan */}
+            <button
+              type="button"
               onClick={onOpenCheckin}
-              className="bg-white rounded-2xl border-2 border-emerald-200 shadow-md p-3.5 flex items-center justify-between gap-3 hover:border-[#588CBC] hover:shadow-md transition-all cursor-pointer group hover:-translate-y-0.5"
+              className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3.5 text-left cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-[#588CBC]/40 active:scale-[0.99] outline-none focus-visible:ring-4 focus-visible:ring-[#588CBC]/15"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                  <CheckCircle2 size={22} />
-                </div>
-                <div className="flex flex-col leading-tight min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      Presensi
-                    </span>
-                    {readyBooking && (
-                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                    )}
-                  </div>
-                  <span className="text-sm font-black text-slate-800 mt-1 group-hover:text-emerald-700 transition-colors">
-                    Check-in Ruangan
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                    Presensi perkuliahan langsung
-                  </span>
-                </div>
+              <div className="relative w-11 h-11 rounded-xl bg-[#183449]/5 text-[#183449] flex items-center justify-center shrink-0 transition-colors duration-300 group-hover:bg-[#183449] group-hover:text-white">
+                <CheckCircle2 size={20} />
+                {readyBooking && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+                )}
               </div>
-              <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+              <div className="flex flex-col leading-tight min-w-0 flex-1">
+                <span className="text-sm font-bold text-slate-800 tracking-tight">
+                  Check-in Ruangan
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                  Presensi perkuliahan langsung
+                </span>
               </div>
-            </div>
+              <ArrowRight
+                size={16}
+                className="shrink-0 text-slate-300 transition-all duration-300 group-hover:text-[#588CBC] group-hover:translate-x-1"
+              />
+            </button>
 
             {/* Shortcut 2: Riwayat Booking */}
-            <div
+            <button
+              type="button"
               onClick={onOpenHistory}
-              className="bg-white rounded-2xl border-2 border-purple-200 shadow-md p-3.5 flex items-center justify-between gap-3 hover:border-purple-500 hover:shadow-lg transition-all cursor-pointer group hover:-translate-y-0.5"
+              className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3.5 text-left cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-[#588CBC]/40 active:scale-[0.99] outline-none focus-visible:ring-4 focus-visible:ring-[#588CBC]/15"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                  <CalendarDays size={22} />
-                </div>
-                <div className="flex flex-col leading-tight min-w-0">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full w-fit">
-                    Riwayat
-                  </span>
-                  <span className="text-sm font-black text-slate-800 mt-1 group-hover:text-purple-700 transition-colors">
-                    Riwayat Booking
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                    Pantau status &amp; jadwal aktif
-                  </span>
-                </div>
+              <div className="w-11 h-11 rounded-xl bg-[#183449]/5 text-[#183449] flex items-center justify-center shrink-0 transition-colors duration-300 group-hover:bg-[#183449] group-hover:text-white">
+                <CalendarDays size={20} />
               </div>
-              <div className="w-7 h-7 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all">
-                <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
+              <div className="flex flex-col leading-tight min-w-0 flex-1">
+                <span className="text-sm font-bold text-slate-800 tracking-tight">
+                  Riwayat Booking
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                  Pantau status &amp; jadwal aktif
+                </span>
               </div>
-            </div>
+              <ArrowRight
+                size={16}
+                className="shrink-0 text-slate-300 transition-all duration-300 group-hover:text-[#588CBC] group-hover:translate-x-1"
+              />
+            </button>
 
-            {/* Card 3: Ruangan Tersedia (Putih) */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            {/* Card 3: Ruangan Tersedia */}
+            <div className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-[#588CBC]/40">
+              <div className="w-11 h-11 rounded-xl bg-[#183449]/5 text-[#183449] flex items-center justify-center shrink-0 transition-colors duration-300 group-hover:bg-[#183449] group-hover:text-white">
                 <CheckCircle2 size={20} />
               </div>
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-[11px] font-semibold text-slate-500">Ruangan Tersedia</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl font-black text-slate-800">
-                    {roomStats.loading ? '...' : roomStats.tersedia}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400">ruangan</span>
-                </div>
-                <span className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                  ● Status Kosong (Putih)
+              <div className="flex flex-col leading-tight min-w-0 flex-1">
+                <span className="text-sm font-bold text-slate-800 tracking-tight">
+                  Ruangan Tersedia
                 </span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                  Siap dipinjam saat ini
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="text-2xl font-black text-slate-800 tabular-nums leading-none">
+                  {roomStats.loading ? '...' : roomStats.tersedia}
+                </span>
+                <span className="text-[11px] font-medium text-slate-400">ruangan</span>
               </div>
             </div>
 
-            {/* Card 4: Sedang Digunakan (Merah) */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            {/* Card 4: Sedang Digunakan */}
+            <div className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-[#588CBC]/40">
+              <div className="w-11 h-11 rounded-xl bg-[#183449]/5 text-[#183449] flex items-center justify-center shrink-0 transition-colors duration-300 group-hover:bg-[#183449] group-hover:text-white">
                 <DoorClosed size={20} />
               </div>
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-[11px] font-semibold text-slate-500">Sedang Digunakan</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl font-black text-slate-800">
-                    {roomStats.loading ? '...' : roomStats.sedangDigunakan}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400">ruangan</span>
-                </div>
-                <span className="text-[9px] text-rose-600 font-bold mt-0.5">
-                  ● Kuliah Berlangsung (Merah)
+              <div className="flex flex-col leading-tight min-w-0 flex-1">
+                <span className="text-sm font-bold text-slate-800 tracking-tight">
+                  Sedang Digunakan
                 </span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                  Check-in aktif saat ini
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="text-2xl font-black text-slate-800 tabular-nums leading-none">
+                  {roomStats.loading ? '...' : roomStats.sedangDigunakan}
+                </span>
+                <span className="text-[11px] font-medium text-slate-400">ruangan</span>
               </div>
             </div>
           </div>

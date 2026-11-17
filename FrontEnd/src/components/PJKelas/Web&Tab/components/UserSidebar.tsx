@@ -530,46 +530,6 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
             onScroll={hideRailTip}
             className="flex-1 w-full overflow-y-auto scrollbar-hide flex flex-col items-center gap-3 pb-2"
           >
-            {/* Tombol Rail 1: Denah & Ruangan */}
-            <button
-              type="button"
-              onClick={() => onSelectView?.('dashboard')}
-              onMouseEnter={(e) =>
-                showRailTip(e, {
-                  title: 'Denah & Ruangan',
-                  subtitle: 'Visualisasi Lantai 3 & 8 SFD',
-                })
-              }
-              onMouseLeave={hideRailTip}
-              onFocus={(e) =>
-                showRailTip(e, {
-                  title: 'Denah & Ruangan',
-                  subtitle: 'Visualisasi Lantai 3 & 8 SFD',
-                })
-              }
-              onBlur={hideRailTip}
-              aria-label="Denah & Ruangan"
-              tabIndex={isOpen ? -1 : 0}
-              className="relative w-full flex justify-center py-1 group outline-none cursor-pointer"
-            >
-              {activeView === 'dashboard' && !isChatOpen && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
-                />
-              )}
-              <div
-                className={cn(
-                  "w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-105",
-                  activeView === 'dashboard' && !isChatOpen
-                    ? "bg-[#183449] text-white shadow-sm"
-                    : "bg-slate-50 border border-slate-100 text-slate-600 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-200"
-                )}
-              >
-                <LayoutGrid size={18} />
-              </div>
-            </button>
-
             {/* Tombol Template Pertanyaan */}
             <button
               type="button"

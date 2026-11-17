@@ -5,11 +5,8 @@ import { motion } from 'framer-motion';
 import {
   Search,
   Building2,
-  LayoutGrid,
   DoorClosed,
-  CalendarDays,
   ArrowRight,
-  Clock,
   Inbox,
   CheckCircle2,
 } from 'lucide-react';
@@ -185,95 +182,87 @@ export const UserLandingView: React.FC<UserLandingViewProps> = ({
             </p>
           </div>
 
-          {/* SHORTCUT & STATS OVERVIEW DOSEN (REAL-TIME STATUS SFD) */}
+          {/* SHORTCUT & STATS DOSEN (REAL-TIME STATUS SFD) — gaya disamakan dengan card dashboard mahasiswa */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 lg:mt-5">
-            {/* Card 1: Shortcut Persetujuan Booking PJ Kelas */}
-            <div
+            {/* Card 1: Persetujuan Booking (aksi utama) */}
+            <button
+              type="button"
               onClick={onOpenApprovals}
-              className="bg-white rounded-2xl border-2 border-[#588CBC]/30 shadow-sm p-3.5 flex items-center justify-between gap-3 hover:border-[#588CBC] hover:shadow-md transition-all cursor-pointer group hover:-translate-y-0.5"
+              className="group text-left bg-white rounded-2xl border-2 border-[#588CBC]/30 shadow-sm px-4 py-3.5 flex items-center gap-3 hover:border-[#588CBC] hover:shadow-md transition-all cursor-pointer active:scale-[0.99] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#588CBC]/20"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-2xl bg-[#183449]/10 text-[#183449] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:text-white transition-all shadow-xs">
-                  <Inbox size={22} />
-                </div>
-                <div className="flex flex-col leading-tight min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#183449] bg-blue-50 px-2 py-0.5 rounded-full border border-[#588CBC]/20">
-                      Shortcut ACC
-                    </span>
-                    {pendingApprovalCount > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-black animate-pulse">
-                        {pendingApprovalCount} Baru
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-sm font-black text-slate-800 mt-1 group-hover:text-[#183449] transition-colors">
-                    Persetujuan Booking
+              <div className="relative w-11 h-11 rounded-xl bg-[#183449] text-white flex items-center justify-center shrink-0">
+                <Inbox size={20} />
+                {pendingApprovalCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white"
+                    aria-label={`${pendingApprovalCount} permohonan baru`}
+                  >
+                    {pendingApprovalCount}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                    {pendingApprovalCount > 0 ? `${pendingApprovalCount} permohonan menunggu ACC` : 'Semua permohonan telah ditinjau'}
-                  </span>
-                </div>
+                )}
               </div>
-              <div className="w-7 h-7 rounded-full bg-[#183449]/10 text-[#183449] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:text-white transition-all">
-                <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+                <span className="text-sm font-black text-slate-800 truncate">Persetujuan Booking</span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-1">
+                  {pendingApprovalCount > 0
+                    ? `${pendingApprovalCount} permohonan menunggu ACC`
+                    : 'Semua permohonan sudah ditinjau'}
+                </span>
               </div>
-            </div>
+              <ArrowRight
+                size={16}
+                className="text-[#588CBC] shrink-0 group-hover:translate-x-0.5 transition-transform"
+              />
+            </button>
 
-            {/* Card 2: Tersedia (Kosong / Siap Pakai) */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            {/* Card 2: Ruangan Tersedia */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 flex items-center justify-center shrink-0">
                 <CheckCircle2 size={20} />
               </div>
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-[11px] font-semibold text-slate-500">Ruangan Tersedia</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl font-black text-slate-800">
-                    {roomStats.loading ? '...' : roomStats.tersedia}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400">ruangan</span>
-                </div>
-                <span className="text-[9px] text-emerald-600 font-bold mt-0.5">
-                  ● Status Kosong (Putih)
+              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+                <span className="text-sm font-black text-slate-800 truncate">Ruangan Tersedia</span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-1">Siap dipinjam saat ini</span>
+              </div>
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="text-2xl font-black text-slate-800 leading-none">
+                  {roomStats.loading ? '...' : roomStats.tersedia}
                 </span>
+                <span className="text-[10px] font-medium text-slate-400">ruangan</span>
               </div>
             </div>
 
-            {/* Card 3: Sedang Digunakan (Merah) */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            {/* Card 3: Sedang Digunakan */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 flex items-center justify-center shrink-0">
                 <DoorClosed size={20} />
               </div>
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-[11px] font-semibold text-slate-500">Sedang Digunakan</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl font-black text-slate-800">
-                    {roomStats.loading ? '...' : roomStats.sedangDigunakan}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400">ruangan</span>
-                </div>
-                <span className="text-[9px] text-rose-600 font-bold mt-0.5">
-                  ● Kuliah Berlangsung (Merah)
+              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+                <span className="text-sm font-black text-slate-800 truncate">Sedang Digunakan</span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-1">Check-in aktif saat ini</span>
+              </div>
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="text-2xl font-black text-slate-800 leading-none">
+                  {roomStats.loading ? '...' : roomStats.sedangDigunakan}
                 </span>
+                <span className="text-[10px] font-medium text-slate-400">ruangan</span>
               </div>
             </div>
 
             {/* Card 4: Total Ruangan Gedung SFD */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3.5 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 text-slate-500 flex items-center justify-center shrink-0">
                 <Building2 size={20} />
               </div>
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-[11px] font-semibold text-slate-500">Gedung SFD (Lt. 3 &amp; 8)</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-xl font-black text-slate-800">
-                    {roomStats.loading ? '15' : roomStats.total}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-400">total ruangan</span>
-                </div>
-                <span className="text-[9px] text-sky-600 font-bold mt-0.5">
-                  ✓ Denah &amp; Jadwal Terhubung
+              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+                <span className="text-sm font-black text-slate-800 truncate">Gedung SFD</span>
+                <span className="text-[11px] text-slate-400 font-medium truncate mt-1">Lantai 3 &amp; 8 terhubung</span>
+              </div>
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="text-2xl font-black text-slate-800 leading-none">
+                  {roomStats.loading ? '15' : roomStats.total}
                 </span>
+                <span className="text-[10px] font-medium text-slate-400">ruangan</span>
               </div>
             </div>
           </div>

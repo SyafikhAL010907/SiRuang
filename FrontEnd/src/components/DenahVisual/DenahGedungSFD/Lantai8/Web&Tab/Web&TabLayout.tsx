@@ -23,9 +23,10 @@
  *          #B3B3B3 Moonlit Silver · #E0E0E0 Cloud Veil
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, CheckCircle2, Clock, GraduationCap, Info } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, GraduationCap, Info, X } from 'lucide-react';
 import { DenahL8SFD, boxFokus, useAnimatedBox } from '../DenahL8SFD/DenahL8SFD';
 import { NOMOR_LANTAI, LANTAI_LABEL, RUANGAN, cariRuangan, statusHari, useHariIni, JadwalStep, FOCUS, BTN_UTAMA, BTN_TEPI, FONT, SfdStyle } from '../Jadwal/Jadwal';
 import type { Ruangan } from '../Jadwal/Jadwal';
@@ -97,6 +98,381 @@ export function DaftarRuangan({ selected, onSelect, grid = false }: { selected: 
 }
 
 // ============================================================================
+// FILTER TANGGAL & JAM — picker kustom (tema gelap, selaras dengan denah)
+// Nilai yang dikirim tetap sama: tanggal 'YYYY-MM-DD' dan jam 'all' | '08:00-10:00' | dst.
+// ============================================================================
+const NAMA_BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const NAMA_HARI_PENDEK = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+const NAMA_HARI_PANJANG = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+const OPSI_JAM = [
+  { value: 'all', label: '08:00 – 17:00', sub: 'Semua Jam' },
+  { value: '08:00-10:00', label: '08:00 – 10:00', sub: 'Sesi Pagi 1' },
+  { value: '10:00-12:00', label: '10:00 – 12:00', sub: 'Sesi Pagi 2' },
+  { value: '13:00-15:00', label: '13:00 – 15:00', sub: 'Sesi Siang 1' },
+  { value: '15:00-17:00', label: '15:00 – 17:00', sub: 'Sesi Siang 2' },
+];
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toIso = (y: number, m: number, d: number) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
+const hariIniIso = () => {
+  const n = new Date();
+  return toIso(n.getFullYear(), n.getMonth(), n.getDate());
+};
+const parseIso = (s: string) => {
+  const ok = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const [y, m, d] = (ok ? s : hariIniIso()).split('-').map(Number);
+  return { y, m: m - 1, d };
+};
+
+// Tutup popover saat klik di luar / tekan Escape
+function useTutupLuar(open: boolean, onClose: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const down = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('keydown', key);
+    return () => {
+      document.removeEventListener('mousedown', down);
+      document.removeEventListener('keydown', key);
+    };
+  }, [open, onClose]);
+  return ref;
+}
+
+const TRIGGER_BASE = 'flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[11px] font-semibold text-white transition-all cursor-pointer outline-none';
+const TRIGGER_AKTIF = 'border-[#588CBC] bg-[#588CBC]/15 ring-4 ring-[#588CBC]/15';
+const TRIGGER_BIASA = 'border-white/15 bg-white/5 hover:border-white/35 hover:bg-white/10 focus-visible:border-[#588CBC]';
+const POPOVER = 'sfd-in absolute top-full z-40 mt-2 rounded-2xl border border-white/15 bg-[#161616]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl';
+const LABEL_FILTER = 'hidden select-none text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 sm:inline';
+
+function PickerTanggal({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const tutup = useCallback(() => setOpen(false), []);
+  const ref = useTutupLuar(open, tutup);
+  const sel = parseIso(value);
+  const [view, setView] = useState({ y: sel.y, m: sel.m });
+  const today = hariIniIso();
+  const valueIso = toIso(sel.y, sel.m, sel.d);
+  const tp = parseIso(today);
+  const bulanIni = view.y === tp.y && view.m === tp.m; // tidak bisa mundur dari bulan ini
+
+  // Saat dibuka, kalender langsung menampilkan bulan dari tanggal terpilih
+  useEffect(() => {
+    if (open) {
+      const p = parseIso(value);
+      setView({ y: p.y, m: p.m });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const awalBulan = new Date(view.y, view.m, 1).getDay();
+  const jumlahHari = new Date(view.y, view.m + 1, 0).getDate();
+  const sel_ = [
+    ...Array.from({ length: awalBulan }, () => null as number | null),
+    ...Array.from({ length: jumlahHari }, (_, i) => i + 1),
+  ];
+
+  const geser = (arah: number) =>
+    setView((v) => {
+      const t = new Date(v.y, v.m + arah, 1);
+      return { y: t.getFullYear(), m: t.getMonth() };
+    });
+
+  const pilih = (iso: string) => {
+    onChange(iso);
+    setOpen(false);
+  };
+
+  const namaHari = NAMA_HARI_PANJANG[new Date(sel.y, sel.m, sel.d).getDay()];
+
+  return (
+    <div ref={ref} className="relative flex items-center gap-2.5">
+      <span className={LABEL_FILTER}>Tanggal</span>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={`${TRIGGER_BASE} ${open ? TRIGGER_AKTIF : TRIGGER_BIASA}`}
+      >
+        <Calendar size={14} className="shrink-0 text-[#588CBC]" />
+        <span className="tabular-nums">{namaHari}, {sel.d} {NAMA_BULAN[sel.m].slice(0, 3)} {sel.y}</span>
+        {valueIso === today && (
+          <span className="rounded-full bg-[#588CBC]/25 px-1.5 py-px text-[9px] font-black uppercase tracking-wider text-[#9CC3E6]">Hari ini</span>
+        )}
+        <ChevronDown size={14} className={`shrink-0 text-white/50 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div role="dialog" aria-label="Pilih tanggal" className={`${POPOVER} left-0 w-[288px]`}>
+          {/* Header bulan */}
+          <div className="mb-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => geser(-1)}
+              disabled={bulanIni}
+              aria-label="Bulan sebelumnya"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:text-white/20 disabled:hover:bg-transparent disabled:hover:text-white/20"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <p className="select-none text-sm font-extrabold tracking-tight text-white">
+              {NAMA_BULAN[view.m]} <span className="font-semibold text-white/60">{view.y}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => geser(1)}
+              aria-label="Bulan berikutnya"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white cursor-pointer"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Nama hari */}
+          <div className="grid grid-cols-7 pb-1">
+            {NAMA_HARI_PENDEK.map((h, i) => (
+              <span key={h} className={`select-none text-center text-[10px] font-bold uppercase tracking-wider ${i === 0 || i === 6 ? 'text-white/30' : 'text-white/55'}`}>
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {/* Tanggal */}
+          <div className="grid grid-cols-7 gap-y-0.5">
+            {sel_.map((d, i) => {
+              if (d === null) return <span key={`k${i}`} />;
+              const iso = toIso(view.y, view.m, d);
+              const terpilih = iso === valueIso;
+              const hariIni = iso === today;
+              const akhirPekan = (i % 7 === 0) || (i % 7 === 6);
+              const lewat = iso < today; // tanggal yang sudah lewat tidak bisa dipilih
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  onClick={() => !lewat && pilih(iso)}
+                  disabled={lewat}
+                  aria-label={`${d} ${NAMA_BULAN[view.m]} ${view.y}`}
+                  aria-pressed={terpilih}
+                  className={`mx-auto flex h-9 w-9 items-center justify-center rounded-xl text-xs tabular-nums transition ${
+                    lewat
+                      ? 'cursor-not-allowed font-medium text-white/15 line-through decoration-white/10'
+                      : terpilih
+                        ? 'cursor-pointer bg-[#588CBC] font-black text-white shadow-lg shadow-[#588CBC]/30'
+                        : hariIni
+                          ? 'cursor-pointer font-bold text-[#9CC3E6] ring-1 ring-[#588CBC]/70 hover:bg-white/10'
+                          : `cursor-pointer font-semibold hover:bg-white/10 ${akhirPekan ? 'text-white/40' : 'text-white/85'}`
+                  }`}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
+            <button
+              type="button"
+              onClick={() => pilih(today)}
+              className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-[#9CC3E6] transition hover:bg-[#588CBC]/15 cursor-pointer"
+            >
+              Hari Ini
+            </button>
+            <button
+              type="button"
+              onClick={tutup}
+              className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white/55 transition hover:bg-white/10 hover:text-white cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function PickerJam({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const tutup = useCallback(() => setOpen(false), []);
+  const ref = useTutupLuar(open, tutup);
+  const aktif = OPSI_JAM.find((o) => o.value === value) ?? OPSI_JAM[0];
+
+  return (
+    <div ref={ref} className="relative flex items-center gap-2.5">
+      <span className={LABEL_FILTER}>Filter Jam</span>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`${TRIGGER_BASE} ${open ? TRIGGER_AKTIF : TRIGGER_BIASA}`}
+      >
+        <Clock size={14} className="shrink-0 text-[#588CBC]" />
+        <span className="tabular-nums">{aktif.label}</span>
+        <span className="hidden font-medium text-white/50 md:inline">· {aktif.sub}</span>
+        <ChevronDown size={14} className={`shrink-0 text-white/50 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <ul role="listbox" aria-label="Filter jam" className={`${POPOVER} right-0 w-[260px] !p-1.5`}>
+          {OPSI_JAM.map((o) => {
+            const terpilih = o.value === value;
+            return (
+              <li key={o.value} role="option" aria-selected={terpilih}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition cursor-pointer ${
+                    terpilih ? 'bg-[#588CBC]/20' : 'hover:bg-white/10'
+                  }`}
+                >
+                  <span className="flex flex-col leading-tight">
+                    <span className={`text-xs font-bold tabular-nums ${terpilih ? 'text-white' : 'text-white/85'}`}>{o.label}</span>
+                    <span className={`mt-0.5 text-[10px] font-medium ${terpilih ? 'text-[#9CC3E6]' : 'text-white/45'}`}>{o.sub}</span>
+                  </span>
+                  {terpilih && <Check size={15} className="shrink-0 text-[#9CC3E6]" />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// POPUP PENJELASAN "BOOKING BERSYARAT"
+// Dirender lewat portal ke <body> supaya blur & overlay menutupi seluruh layar
+// (tidak terjebak di dalam kontainer peta yang punya overflow/backdrop-filter).
+// Isi masih dummy — tinggal ganti teksnya nanti.
+// ============================================================================
+function BookingBersyaratModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [onClose]);
+
+  const syarat = [
+    'Ruangan sudah punya jadwal resmi dari SIAKAD pada jam yang kamu pilih.',
+    'Kelas resmi tersebut tidak digunakan atau dikosongkan pada hari itu.',
+    'Pengajuan disetujui oleh pihak terkait sebelum ruangan boleh dipakai.',
+  ];
+
+  const alur = [
+    { t: 'Pilih ruangan & jam', d: 'Cek jadwal ruangan, lalu pilih slot yang ingin diajukan.' },
+    { t: 'Isi form pengajuan', d: 'Tulis keperluan dan jumlah peserta dengan jelas.' },
+    { t: 'Tunggu persetujuan', d: 'Statusnya bisa kamu pantau langsung di denah.' },
+  ];
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="judul-booking-bersyarat"
+      style={{ fontFamily: FONT }}
+    >
+      {/* Latar belakang blur — klik di sini untuk menutup */}
+      <div
+        className="sfd-in absolute inset-0 bg-[#111111]/60 backdrop-blur-md"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      <div className="sfd-in relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[#E0E0E0] bg-white text-[#2B2B2B] shadow-2xl shadow-black/40">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 border-b border-[#E0E0E0] px-6 pb-4 pt-5">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#848484]">Panduan</p>
+            <h2 id="judul-booking-bersyarat" className="mt-0.5 text-lg font-extrabold tracking-tight">
+              Apa itu Booking Bersyarat?
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#E0E0E0] text-[#565656] transition hover:border-[#2B2B2B] hover:bg-[#E0E0E0] hover:text-[#2B2B2B]"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Isi */}
+        <div className="space-y-5 overflow-y-auto px-6 py-5">
+          <p className="text-sm leading-relaxed text-[#565656]">
+            Booking Bersyarat adalah pengajuan peminjaman ruangan yang <strong className="font-bold text-[#2B2B2B]">sudah punya jadwal resmi di SIAKAD</strong>, dengan syarat kelas resminya sedang kosong atau tidak dipakai pada jam tersebut.
+          </p>
+
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#2B2B2B]">Syaratnya</h3>
+            <ul className="mt-2 space-y-2">
+              {syarat.map((s) => (
+                <li key={s} className="flex items-start gap-2.5 text-[13px] leading-snug text-[#565656]">
+                  <Check size={14} className="mt-0.5 shrink-0 text-[#2B2B2B]" />
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#2B2B2B]">Alur singkat</h3>
+            <ol className="mt-2 space-y-3">
+              {alur.map((a, i) => (
+                <li key={a.t} className="flex items-start gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2B2B2B] text-[11px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="text-[13px] leading-snug">
+                    <span className="block font-bold text-[#2B2B2B]">{a.t}</span>
+                    <span className="text-[#565656]">{a.d}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <p className="rounded-xl bg-[#F4F4F4] px-3.5 py-3 text-xs leading-relaxed text-[#565656]">
+            Jadwal resmi tetap diprioritaskan. Jika kelas resmi ternyata berlangsung, pengajuanmu bisa dibatalkan.
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-[#E0E0E0] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full cursor-pointer rounded-full bg-[#111111] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-black active:scale-[0.98]"
+          >
+            Mengerti
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ============================================================================
 // 4. PETA INTERAKTIF — tanda hover + zoom saat klik
 // ============================================================================
 function KartuRuangan({
@@ -117,6 +493,7 @@ function KartuRuangan({
   checkinLoading?: boolean;
 }) {
   const hari = useHariIni();
+  const [infoBersyarat, setInfoBersyarat] = useState(false);
   const activeBooking = statusInfo?.bookings?.find((b: any) =>
     ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
   );
@@ -139,32 +516,39 @@ function KartuRuangan({
         <span className="rounded-full border border-[#B3B3B3] px-2 py-0.5">{statusHari(ruangan, hari)}</span>
       </div>
 
-      {/* Info Jadwal Resmi (Biru) */}
+      {/* Info Jadwal Resmi */}
       {isJadwalResmi && officialSchedule && (
-        <div className="mt-3 p-3 rounded-2xl bg-blue-50/90 border border-[#588CBC]/30 shadow-xs">
-          <div className="flex items-center gap-1.5 text-[#183449] text-[10px] font-black uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-[#588CBC] animate-pulse" />
+        <div className="mt-3 rounded-xl border border-[#E0E0E0] bg-[#F7F7F7] p-3">
+          <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#565656]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#3B82F6]" />
             <span>Jadwal Resmi SIAKAD</span>
           </div>
-          <p className="text-xs text-slate-800 font-bold mt-1.5 line-clamp-1">
+          <p className="mt-1.5 line-clamp-1 text-xs font-bold text-[#2B2B2B]">
             {officialSchedule.mata_kuliah} {officialSchedule.kelas ? `(${officialSchedule.kelas})` : ''}
           </p>
-          <div className="mt-1.5 text-[10px] text-slate-600 space-y-1">
+          <div className="mt-1.5 space-y-1 text-[10px] text-[#565656]">
             <div className="flex items-center gap-1.5">
-              <Clock size={12} className="text-[#588CBC] shrink-0" />
-              <span>{officialSchedule.jam_mulai.slice(0, 5)} - {officialSchedule.jam_selesai.slice(0, 5)} WIB</span>
+              <Clock size={12} className="shrink-0 text-[#848484]" />
+              <span className="tabular-nums">{officialSchedule.jam_mulai.slice(0, 5)} - {officialSchedule.jam_selesai.slice(0, 5)} WIB</span>
             </div>
             {officialSchedule.nama_dosen && (
               <div className="flex items-center gap-1.5">
-                <GraduationCap size={12} className="text-[#588CBC] shrink-0" />
+                <GraduationCap size={12} className="shrink-0 text-[#848484]" />
                 <span className="truncate">{officialSchedule.nama_dosen}</span>
               </div>
             )}
           </div>
-          <div className="mt-2.5 text-[9px] bg-white/80 p-2 rounded-xl text-slate-600 border border-blue-100 flex items-start gap-1.5 leading-relaxed">
-            <Info size={12} className="text-[#588CBC] shrink-0 mt-0.5" />
-            <span>Ruangan terdaftar jadwal resmi. Bila kelas kosong, Anda dapat mengajukan <strong>Booking Bersyarat</strong>.</span>
-          </div>
+          <p className="mt-2.5 border-t border-[#E0E0E0] pt-2 text-[10px] leading-relaxed text-[#565656]">
+            Ruangan ini punya jadwal resmi. Jika kelasnya kosong, kamu bisa mengajukan{' '}
+            <button
+              type="button"
+              onClick={() => setInfoBersyarat(true)}
+              className="cursor-pointer font-bold text-[#2B2B2B] underline decoration-[#848484] underline-offset-2 transition hover:decoration-[#2B2B2B]"
+            >
+              Booking Bersyarat
+            </button>
+            .
+          </p>
         </div>
       )}
 
@@ -207,6 +591,8 @@ function KartuRuangan({
           Denah Penuh
         </button>
       </div>
+
+      {infoBersyarat && <BookingBersyaratModal onClose={() => setInfoBersyarat(false)} />}
     </div>
   );
 }
@@ -281,36 +667,15 @@ export function PetaInteraktif({
   return (
     <div className="relative">
       {/* Date & Time Picker */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2.5 px-3 py-2 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10">
-        <div className="flex items-center gap-2">
-          <Calendar size={14} className="text-[#588CBC] shrink-0" />
-          <span className="font-semibold text-[11px] text-white/90 hidden sm:inline">Tanggal:</span>
-          <input
-            type="date"
-            value={activeDate}
-            onChange={(e) => {
-              if (onDateChange) onDateChange(e.target.value);
-              else setInternalDate(e.target.value);
-            }}
-            className="bg-black/60 hover:bg-black/80 border border-white/20 hover:border-white/40 rounded-xl px-2.5 py-1 text-[11px] font-semibold text-white focus:outline-none focus:border-[#588CBC] transition-all cursor-pointer"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Clock size={14} className="text-[#588CBC] shrink-0" />
-          <span className="font-semibold text-[11px] text-white/90 hidden sm:inline">Filter Jam:</span>
-          <select
-            value={selectedJam}
-            onChange={(e) => setSelectedJam(e.target.value)}
-            className="bg-black/60 hover:bg-black/80 border border-white/20 hover:border-white/40 rounded-xl px-2.5 py-1 text-[11px] font-semibold text-white focus:outline-none focus:border-[#588CBC] transition-all cursor-pointer"
-          >
-            <option value="all" className="bg-slate-900 text-white">Semua Jam (Sepanjang Hari)</option>
-            <option value="08:00-10:00" className="bg-slate-900 text-white">08:00 - 10:00 (Sesi Pagi 1)</option>
-            <option value="10:00-12:00" className="bg-slate-900 text-white">10:00 - 12:00 (Sesi Pagi 2)</option>
-            <option value="13:00-15:00" className="bg-slate-900 text-white">13:00 - 15:00 (Sesi Siang 1)</option>
-            <option value="15:00-17:00" className="bg-slate-900 text-white">15:00 - 17:00 (Sesi Siang 2)</option>
-          </select>
-        </div>
+      <div className="relative z-30 mb-2.5 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-white/10 bg-black/40 px-3 py-2 backdrop-blur-md">
+        <PickerTanggal
+          value={activeDate}
+          onChange={(v) => {
+            if (onDateChange) onDateChange(v);
+            else setInternalDate(v);
+          }}
+        />
+        <PickerJam value={selectedJam} onChange={setSelectedJam} />
       </div>
 
       {/* Label lokasi di atas peta saat zoom */}

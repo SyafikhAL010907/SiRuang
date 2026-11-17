@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -21,12 +21,12 @@ import {
   Pencil,
   Trash2,
   Lock,
-  Building2,
-  Calendar,
-  School,
   AlertTriangle,
   ShieldCheck,
   UserMinus,
+  ChevronDown,
+  BadgeCheck,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -73,16 +73,196 @@ interface UserProfileItem {
 }
 
 const CONTENT_LANE = 'w-full max-w-[1400px] mx-auto';
-const TH_CLASS = 'px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500';
+const TH_CLASS = 'px-5 py-3 text-left text-xs font-semibold text-slate-500';
+const INPUT_CLASS =
+  'w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#588CBC] focus:ring-2 focus:ring-[#588CBC]/15 transition-colors';
+const ICON_BTN =
+  'h-9 w-9 inline-flex items-center justify-center rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#588CBC]/40';
 
-const ROLE_BADGE: Record<string, { label: string; cls: string; icon: any }> = {
-  admin: { label: 'ADMIN', cls: 'bg-[#183449] text-white border-[#183449]', icon: Shield },
-  dosen: { label: 'DOSEN', cls: 'bg-blue-50 text-[#183449] border-[#588CBC]/30', icon: Briefcase },
-  pj_kelas: { label: 'PJ KELAS', cls: 'bg-sky-50 text-sky-800 border-sky-200', icon: BookOpen },
-  user: { label: 'MAHASISWA', cls: 'bg-slate-100 text-slate-700 border-slate-200', icon: GraduationCap },
+const ROLE_BADGE: Record<string, { label: string; cls: string; chip: string; icon: any }> = {
+  admin: { label: 'Admin', cls: 'bg-[#183449]/8 text-[#183449] ring-[#183449]/20', chip: 'bg-[#183449] text-white', icon: Shield },
+  dosen: { label: 'Dosen', cls: 'bg-[#588CBC]/12 text-[#2B5474] ring-[#588CBC]/30', chip: 'bg-[#588CBC] text-white', icon: Briefcase },
+  pj_kelas: { label: 'PJ Kelas', cls: 'bg-teal-50 text-teal-800 ring-teal-200', chip: 'bg-teal-600 text-white', icon: BookOpen },
+  user: { label: 'Mahasiswa', cls: 'bg-slate-100 text-slate-700 ring-slate-200', chip: 'bg-slate-500 text-white', icon: GraduationCap },
 };
 
+const ROLE_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'Semua role', adminOnly: false },
+  { value: 'ADMIN', label: 'Admin', adminOnly: true },
+  { value: 'DOSEN', label: 'Dosen', adminOnly: false },
+  { value: 'PJ_KELAS', label: 'PJ Kelas', adminOnly: false },
+  { value: 'MAHASISWA', label: 'Mahasiswa', adminOnly: false },
+];
+
 const PROTECTED_DEMO_IDS = [1, 2, 3, 4, 6];
+
+/* ---------- Small UI helpers ---------- */
+
+const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
+  const meta = ROLE_BADGE[role] || ROLE_BADGE['user'];
+  const Icon = meta.icon;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-2 h-8 pl-1 pr-3 rounded-full ring-1 ring-inset text-xs font-bold whitespace-nowrap',
+        meta.cls
+      )}
+    >
+      <span className={cn('w-6 h-6 rounded-full flex items-center justify-center', meta.chip)}>
+        <Icon size={12} strokeWidth={2.5} />
+      </span>
+      {meta.label}
+    </span>
+  );
+};
+
+const StatusBadge: React.FC = () => (
+  <span className="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-3.5 rounded-full bg-gradient-to-b from-emerald-50 to-emerald-100/70 text-emerald-800 ring-1 ring-inset ring-emerald-300/60 text-xs font-bold">
+    <BadgeCheck size={16} className="text-emerald-600" />
+    Aktif
+  </span>
+);
+
+const Field: React.FC<{ label: React.ReactNode; children: React.ReactNode; className?: string }> = ({
+  label,
+  children,
+  className,
+}) => (
+  <label className={cn('flex flex-col gap-1.5', className)}>
+    <span className="text-xs font-semibold text-slate-600">{label}</span>
+    {children}
+  </label>
+);
+
+const Avatar: React.FC<{ name: string; solid?: boolean }> = ({ name, solid }) => (
+  <div
+    className={cn(
+      'w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0',
+      solid ? 'bg-[#183449] text-white' : 'bg-[#183449]/10 text-[#183449]'
+    )}
+  >
+    {name.charAt(0).toUpperCase()}
+  </div>
+);
+
+const RoleFilter: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  showAdmin: boolean;
+}> = ({ value, onChange, showAdmin }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const options = ROLE_FILTER_OPTIONS.filter((o) => showAdmin || !o.adminOnly);
+  const current = ROLE_FILTER_OPTIONS.find((o) => o.value === value);
+  const active = value !== 'ALL';
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          'h-10 min-w-[170px] pl-3 pr-2.5 rounded-lg border bg-white text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#588CBC]/30',
+          active || open ? 'border-[#588CBC] text-[#183449]' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+        )}
+      >
+        <SlidersHorizontal size={14} className={active ? 'text-[#588CBC]' : 'text-slate-400'} />
+        <span className="flex-1 text-left">{active && current ? current.label : 'Pilih role'}</span>
+        <ChevronDown size={15} className={cn('text-slate-400 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            role="listbox"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute right-0 top-[calc(100%+6px)] z-30 w-full min-w-[190px] p-1.5 bg-white rounded-xl border border-slate-200 shadow-lg shadow-[#183449]/10"
+          >
+            {options.map((o) => {
+              const selected = o.value === value;
+              return (
+                <li key={o.value} role="option" aria-selected={selected}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(o.value);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer',
+                      selected
+                        ? 'bg-[#183449]/5 text-[#183449] font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    )}
+                  >
+                    {o.label}
+                    {selected && <Check size={14} className="text-[#588CBC]" />}
+                  </button>
+                </li>
+              );
+            })}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const ModalShell: React.FC<{ children: React.ReactNode; maxW: string; scroll?: boolean }> = ({
+  children,
+  maxW,
+  scroll,
+}) => (
+  <div
+    className={cn(
+      'fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#183449]/45 backdrop-blur-xs',
+      scroll && 'overflow-y-auto'
+    )}
+  >
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      className={cn('w-full bg-white rounded-2xl p-6 shadow-2xl border border-slate-200', maxW, scroll && 'my-8')}
+    >
+      {children}
+    </motion.div>
+  </div>
+);
+
+const CloseBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label="Tutup"
+    className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+  >
+    <X size={18} />
+  </button>
+);
+
+/* ---------- Main component ---------- */
 
 const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<TabMode>('pending');
@@ -256,6 +436,8 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
     });
   };
 
+  const closeRejectModal = () => setRejectModal({ open: false, id: null, name: null, identifier: null, reason: '' });
+
   const confirmReject = async () => {
     if (!rejectModal.id || processingId) return;
     setProcessingId(rejectModal.id);
@@ -306,6 +488,11 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
       },
     });
   };
+
+  const closeEditModal = () => setEditModal((prev) => ({ ...prev, open: false, user: null }));
+
+  const setEditField = (key: keyof typeof editModal.form, value: string) =>
+    setEditModal((prev) => ({ ...prev, form: { ...prev.form, [key]: value } }));
 
   const saveEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -469,6 +656,14 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
     });
   }, [users, searchQuery, roleFilter]);
 
+  const visibleCount = activeTab === 'pending' ? filteredRegistrations.length : filteredUsers.length;
+
+  const tabCls = (active: boolean) =>
+    cn(
+      'flex items-center gap-2 h-9 px-4 rounded-lg text-sm font-semibold transition-colors cursor-pointer',
+      active ? 'bg-[#183449] text-white shadow-sm' : 'text-slate-500 hover:text-[#183449] hover:bg-slate-50'
+    );
+
   return (
     <div
       className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#F8FAFB] relative"
@@ -483,78 +678,76 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
       <AnimatePresence>
         {toast.show && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: -16 }}
+            role="status"
             className={cn(
-              'fixed top-5 right-5 z-50 px-5 py-3 rounded-2xl shadow-xl font-bold text-xs flex items-center gap-2 border text-white',
-              toast.type === 'success' ? 'bg-[#183449] border-[#588CBC]/40' : 'bg-rose-600 border-rose-400'
+              'fixed top-5 right-5 z-[60] pl-3 pr-5 py-3 rounded-xl shadow-lg font-semibold text-sm flex items-center gap-2.5 text-white',
+              toast.type === 'success' ? 'bg-[#183449]' : 'bg-rose-600'
             )}
           >
-            {toast.type === 'success' ? <Check size={16} className="text-emerald-400" /> : <AlertCircle size={16} />}
+            <span
+              className={cn(
+                'w-6 h-6 rounded-full flex items-center justify-center',
+                toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/20 text-white'
+              )}
+            >
+              {toast.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
+            </span>
             <span>{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* TOP BAR */}
-      <header className="px-8 py-3 bg-white/80 backdrop-blur-md border-b border-slate-100 z-10 shrink-0">
+      <header className="px-8 h-14 flex items-center bg-white/85 backdrop-blur-md border-b border-slate-200/70 z-10 shrink-0">
         <div className={`${CONTENT_LANE} flex items-center justify-between gap-4`}>
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-slate-500 hover:text-[#588CBC] transition-colors cursor-pointer group"
+            className="flex items-center gap-2 text-slate-500 hover:text-[#183449] transition-colors cursor-pointer group"
           >
             <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-            <span className="text-xs font-bold">Kembali ke Dashboard</span>
+            <span className="text-sm font-semibold">Kembali ke Dashboard</span>
           </button>
 
-          <button
-            onClick={() => loadData(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all cursor-pointer shadow-xs"
-          >
-            <RefreshCw size={14} className={cn(refreshing && 'animate-spin text-[#588CBC]')} />
-            <span>{refreshing ? 'Memperbarui...' : 'Segarkan Data'}</span>
-          </button>
+          
         </div>
       </header>
 
       {/* CONTENT */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8 py-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`${CONTENT_LANE} flex flex-col gap-6`}>
+        <div className={`${CONTENT_LANE} flex flex-col gap-6`}>
           {/* HEADER */}
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-1 bg-[#588CBC] rounded-full" />
-                <span className="text-[10px] font-black text-[#183449] uppercase tracking-[0.3em]">
-                  Manajemen Akun SiRuang
-                </span>
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-4">
+              <div className="w-1 self-stretch min-h-[56px] rounded-full bg-gradient-to-b from-[#588CBC] to-[#183449]" />
+              <div className="flex flex-col gap-1">
+                <h2 className="text-3xl font-black text-[#183449] tracking-tight">Manajemen Akun</h2>
+                <p className="text-sm text-slate-500 max-w-xl leading-relaxed">
+                  Verifikasi pendaftaran akun baru, kelola profil dan hak akses, atau hapus akun pengguna.
+                </p>
               </div>
-              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Manajemen Akun</h2>
-              <p className="text-sm text-slate-400 font-medium max-w-2xl leading-relaxed">
-                Verifikasi pendaftaran akun baru, kelola profil, hak akses pengguna, dan hapus akun pengguna.
-              </p>
             </div>
 
             {/* TAB SELECTOR */}
-            <div className="flex items-center gap-2 p-1 bg-white border border-slate-200 rounded-2xl shadow-xs shrink-0">
+            <div
+              role="tablist"
+              className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shrink-0"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'pending'}
                 onClick={() => setActiveTab('pending')}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer',
-                  activeTab === 'pending'
-                    ? 'bg-[#183449] text-white shadow-md'
-                    : 'text-slate-500 hover:text-slate-800'
-                )}
+                className={tabCls(activeTab === 'pending')}
               >
-                <Clock size={14} />
+                <Clock size={15} />
                 <span>Pengajuan Akun</span>
                 {registrations.length > 0 && (
                   <span
                     className={cn(
-                      'px-2 py-0.5 rounded-full text-[10px] font-black',
+                      'min-w-5 h-5 px-1.5 rounded-md text-[11px] font-bold inline-flex items-center justify-center',
                       activeTab === 'pending' ? 'bg-[#588CBC] text-white' : 'bg-amber-100 text-amber-800'
                     )}
                   >
@@ -565,19 +758,16 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
 
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'users'}
                 onClick={() => setActiveTab('users')}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all cursor-pointer',
-                  activeTab === 'users'
-                    ? 'bg-[#183449] text-white shadow-md'
-                    : 'text-slate-500 hover:text-slate-800'
-                )}
+                className={tabCls(activeTab === 'users')}
               >
-                <Users size={14} />
+                <Users size={15} />
                 <span>Akun Terdaftar</span>
                 <span
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-black',
+                    'min-w-5 h-5 px-1.5 rounded-md text-[11px] font-bold inline-flex items-center justify-center',
                     activeTab === 'users' ? 'bg-[#588CBC] text-white' : 'bg-slate-100 text-slate-600'
                   )}
                 >
@@ -588,45 +778,46 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
           </div>
 
           {/* TABLE CARD */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-white/95 rounded-2xl border border-slate-200 shadow-sm shadow-[#183449]/5">
             {/* TOOLBAR */}
-            <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-700">
-                  {activeTab === 'pending' ? 'Menunggu Persetujuan Admin' : 'Daftar Pengguna Sistem'}
-                </span>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  ({activeTab === 'pending' ? filteredRegistrations.length : filteredUsers.length} data)
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-sm font-bold text-[#183449]">
+                  {activeTab === 'pending' ? 'Menunggu persetujuan admin' : 'Daftar pengguna sistem'}
+                </h3>
+                <span className="h-5 px-2 rounded-md bg-slate-100 text-slate-600 text-xs font-semibold inline-flex items-center">
+                  {visibleCount} data
                 </span>
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
                 {/* SEARCH */}
                 <div className="relative group">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#588CBC] transition-colors">
-                    <Search size={14} />
-                  </div>
+                  <Search
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#588CBC] transition-colors"
+                  />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari nama, NIM/NIP, prodi..."
-                    className="h-9 pl-9 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#588CBC] focus:ring-2 focus:ring-[#588CBC]/10 transition-all w-60"
+                    className={cn(INPUT_CLASS, 'pl-9 pr-9 w-64')}
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      aria-label="Hapus pencarian"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
 
                 {/* ROLE FILTER */}
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC] cursor-pointer"
-                >
-                  <option value="ALL">Semua Peran</option>
-                  {activeTab === 'users' && <option value="ADMIN">Admin</option>}
-                  <option value="DOSEN">Dosen</option>
-                  <option value="PJ_KELAS">PJ Kelas</option>
-                  <option value="MAHASISWA">Mahasiswa</option>
-                </select>
+                <RoleFilter value={roleFilter} onChange={setRoleFilter} showAdmin={activeTab === 'users'} />
               </div>
             </div>
 
@@ -634,88 +825,79 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
             {activeTab === 'pending' && (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px]">
-                  <thead className="bg-slate-50/80 border-b border-slate-100">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className={TH_CLASS}>Pemohon</th>
-                      <th className={TH_CLASS}>Peran Diajukan</th>
-                      <th className={TH_CLASS}>Informasi Akademik &amp; Kontak</th>
-                      <th className={TH_CLASS}>Waktu Pengajuan</th>
-                      <th className={`${TH_CLASS} text-center`}>Aksi Verifikasi</th>
+                      <th className={TH_CLASS}>Role diajukan</th>
+                      <th className={TH_CLASS}>Informasi akademik &amp; kontak</th>
+                      <th className={TH_CLASS}>Waktu pengajuan</th>
+                      <th className={`${TH_CLASS} text-center`}>Verifikasi</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-xs text-slate-400">
+                        <td colSpan={5} className="py-14 text-center text-sm text-slate-400">
                           <RefreshCw className="animate-spin inline-block mr-2" size={16} />
                           Memuat data permohonan...
                         </td>
                       </tr>
                     ) : filteredRegistrations.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-16 text-center text-xs text-slate-400">
-                          <UserCheck className="mx-auto mb-2 text-slate-300" size={32} />
-                          <p className="font-bold text-slate-600 text-sm">Tidak ada pengajuan akun pending</p>
-                          <p className="text-slate-400 mt-1">Semua pendaftaran akun baru telah diverifikasi.</p>
+                        <td colSpan={5} className="py-16 text-center">
+                          <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                            <UserCheck size={22} />
+                          </div>
+                          <p className="font-bold text-slate-700 text-sm">Tidak ada pengajuan akun pending</p>
+                          <p className="text-slate-400 text-sm mt-1">Semua pendaftaran akun baru telah diverifikasi.</p>
                         </td>
                       </tr>
                     ) : (
                       filteredRegistrations.map((item) => {
-                        const roleMeta = ROLE_BADGE[item.requested_role] || ROLE_BADGE['user'];
-                        const RoleIcon = roleMeta.icon;
                         const isBusy = processingId === item.id;
 
                         return (
-                          <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50/50 transition-colors">
+                          <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
                             {/* PEMOHON */}
-                            <td className="px-4 py-4">
+                            <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-2xl bg-[#183449]/10 text-[#183449] flex items-center justify-center text-xs font-black shrink-0">
-                                  {item.username.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <p className="text-xs font-black text-slate-800">{item.username}</p>
-                                  <p className="text-[11px] font-bold text-slate-400 mt-0.5">
-                                    {item.identifier_type.toUpperCase()}: {item.identifier}
+                                <Avatar name={item.username} />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-slate-800 truncate">{item.username}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    {item.identifier_type.toUpperCase()}{' '}
+                                    <span className="font-semibold text-slate-600">{item.identifier}</span>
                                   </p>
                                 </div>
                               </div>
                             </td>
 
-                            {/* PERAN */}
-                            <td className="px-4 py-4">
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border',
-                                  roleMeta.cls
-                                )}
-                              >
-                                <RoleIcon size={12} />
-                                <span>{roleMeta.label}</span>
-                              </span>
+                            {/* ROLE */}
+                            <td className="px-5 py-4">
+                              <RoleBadge role={item.requested_role} />
                             </td>
 
                             {/* DETAIL */}
-                            <td className="px-4 py-4">
-                              <div className="space-y-1 text-xs">
+                            <td className="px-5 py-4">
+                              <div className="space-y-1">
                                 {item.requested_role === 'user' ? (
-                                  <p className="text-slate-400 text-[11px] italic">Mahasiswa Biasa (Read-only &amp; Chat)</p>
+                                  <p className="text-xs text-slate-400">Mahasiswa biasa (hanya baca &amp; chat)</p>
                                 ) : item.requested_role === 'pj_kelas' ? (
                                   <>
-                                    <p className="font-bold text-slate-700">
+                                    <p className="text-sm font-semibold text-slate-700">
                                       {item.kelas || '-'} · {item.prodi || '-'} ({item.angkatan || '-'})
                                     </p>
-                                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                                      <Mail size={12} /> {item.email || '-'}
+                                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                      <Mail size={12} className="text-slate-400" /> {item.email || '-'}
                                     </p>
                                   </>
                                 ) : (
                                   <>
-                                    <p className="font-bold text-slate-700">
+                                    <p className="text-sm font-semibold text-slate-700">
                                       {item.departemen ? `Dept. ${item.departemen}` : item.prodi || 'Dosen'}
                                     </p>
-                                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                                      <Mail size={12} /> {item.email || '-'}
+                                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                      <Mail size={12} className="text-slate-400" /> {item.email || '-'}
                                       {item.phone && ` · WA: ${item.phone}`}
                                     </p>
                                   </>
@@ -724,35 +906,32 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
                             </td>
 
                             {/* WAKTU */}
-                            <td className="px-4 py-4">
-                              <p className="text-xs font-semibold text-slate-700">
+                            <td className="px-5 py-4">
+                              <p className="text-sm font-semibold text-slate-700">
                                 {new Date(item.created_at).toLocaleDateString('id-ID', {
                                   day: '2-digit',
                                   month: 'short',
                                   year: 'numeric',
                                 })}
                               </p>
-                              <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                                <Clock size={11} />
-                                Berlaku s/d {new Date(item.expires_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
+                              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                <Clock size={11} className="text-slate-400" />
+                                Berlaku s/d{' '}
+                                {new Date(item.expires_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
                               </p>
                             </td>
 
                             {/* AKSI */}
-                            <td className="px-4 py-4">
+                            <td className="px-5 py-4">
                               <div className="flex items-center justify-center gap-2">
                                 <button
                                   type="button"
                                   disabled={isBusy}
                                   onClick={() => handleApprove(item)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                                   title="Setujui pendaftaran akun"
                                 >
-                                  {isBusy ? (
-                                    <RefreshCw className="animate-spin" size={13} />
-                                  ) : (
-                                    <Check size={13} />
-                                  )}
+                                  {isBusy ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                                   <span>Setujui</span>
                                 </button>
 
@@ -760,10 +939,10 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
                                   type="button"
                                   disabled={isBusy}
                                   onClick={() => openRejectModal(item)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:border-rose-300 text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                                   title="Tolak pendaftaran akun"
                                 >
-                                  <X size={13} />
+                                  <X size={14} />
                                   <span>Tolak</span>
                                 </button>
                               </div>
@@ -780,140 +959,144 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
             {/* TAB CONTENT 2: AKUN TERDAFTAR */}
             {activeTab === 'users' && (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[950px]">
-                  <thead className="bg-slate-50/80 border-b border-slate-100">
+                <table className="w-full min-w-[980px]">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className={TH_CLASS}>Pengguna &amp; Identitas</th>
-                      <th className={TH_CLASS}>Peran Sistem</th>
-                      <th className={TH_CLASS}>Kelas &amp; Program Studi</th>
-                      <th className={TH_CLASS}>Kontak (Email / No. HP)</th>
+                      <th className={TH_CLASS}>Pengguna &amp; identitas</th>
+                      <th className={TH_CLASS}>Role sistem</th>
+                      <th className={TH_CLASS}>Kelas &amp; program studi</th>
+                      <th className={TH_CLASS}>Kontak</th>
                       <th className={TH_CLASS}>Status</th>
                       <th className={`${TH_CLASS} text-center`}>Aksi</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-xs text-slate-400">
+                        <td colSpan={6} className="py-14 text-center text-sm text-slate-400">
                           <RefreshCw className="animate-spin inline-block mr-2" size={16} />
                           Memuat data pengguna...
                         </td>
                       </tr>
                     ) : filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-16 text-center text-xs text-slate-400">
-                          <Users className="mx-auto mb-2 text-slate-300" size={32} />
-                          <p className="font-bold text-slate-600 text-sm">Pengguna tidak ditemukan</p>
-                          <p className="text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian atau filter peran.</p>
+                        <td colSpan={6} className="py-16 text-center">
+                          <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                            <Users size={22} />
+                          </div>
+                          <p className="font-bold text-slate-700 text-sm">Pengguna tidak ditemukan</p>
+                          <p className="text-slate-400 text-sm mt-1">
+                            Coba sesuaikan kata kunci pencarian atau filter role.
+                          </p>
                         </td>
                       </tr>
                     ) : (
                       filteredUsers.map((u) => {
-                        const roleMeta = ROLE_BADGE[u.role] || ROLE_BADGE['user'];
-                        const RoleIcon = roleMeta.icon;
+                        const busy = processingId === u.user_id;
 
                         return (
-                          <tr key={u.user_id} className="border-t border-slate-100 hover:bg-slate-50/50 transition-colors">
+                          <tr key={u.user_id} className="hover:bg-slate-50/60 transition-colors">
                             {/* PENGGUNA */}
-                            <td className="px-4 py-4">
+                            <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-2xl bg-linear-to-br from-[#183449] to-[#2B5474] text-white flex items-center justify-center text-xs font-black shrink-0 shadow-xs">
-                                  {u.username.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <p className="text-xs font-black text-slate-800">{u.full_name || u.username}</p>
-                                  <p className="text-[11px] font-bold text-slate-400 mt-0.5">
-                                    {u.identifier_type?.toUpperCase() || 'ID'}: {u.identifier}
+                                <Avatar name={u.username} solid />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-slate-800 truncate">{u.full_name || u.username}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    {u.identifier_type?.toUpperCase() || 'ID'}{' '}
+                                    <span className="font-semibold text-slate-600">{u.identifier}</span>
                                   </p>
                                 </div>
                               </div>
                             </td>
 
-                            {/* PERAN */}
-                            <td className="px-4 py-4">
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border',
-                                  roleMeta.cls
-                                )}
-                              >
-                                <RoleIcon size={12} />
-                                <span>{roleMeta.label}</span>
-                              </span>
+                            {/* ROLE */}
+                            <td className="px-5 py-4">
+                              <RoleBadge role={u.role} />
                             </td>
 
                             {/* KELAS / PRODI */}
-                            <td className="px-4 py-4">
-                              <p className="text-xs font-bold text-slate-700">
+                            <td className="px-5 py-4">
+                              <p className="text-sm font-semibold text-slate-700">
                                 {u.kelas ? `${u.kelas}` : u.departemen ? `Dept. ${u.departemen}` : '-'}
                               </p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">
+                              <p className="text-xs text-slate-500 mt-0.5">
                                 {u.prodi ? `${u.prodi}${u.angkatan ? ` · ${u.angkatan}` : ''}` : u.faculty || '-'}
                               </p>
                             </td>
 
                             {/* KONTAK */}
-                            <td className="px-4 py-4">
-                              <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                                <Mail size={12} className="text-slate-400" />
-                                {u.email || '-'}
+                            <td className="px-5 py-4">
+                              <p className="text-sm text-slate-700 flex items-center gap-1.5">
+                                <Mail size={13} className="text-slate-400 shrink-0" />
+                                {u.email || <span className="text-slate-400">-</span>}
                               </p>
                               {u.phone && (
-                                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                                  <Phone size={12} className="text-slate-400" />
+                                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                  <Phone size={12} className="text-slate-400 shrink-0" />
                                   {u.phone}
                                 </p>
                               )}
                             </td>
 
                             {/* STATUS */}
-                            <td className="px-4 py-4">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Aktif
-                              </span>
+                            <td className="px-5 py-4">
+                              <StatusBadge />
                             </td>
 
-                            {/* AKSI EDIT & DELETE */}
-                            <td className="px-4 py-4">
+                            {/* AKSI */}
+                            <td className="px-5 py-4">
                               <div className="flex items-center justify-center gap-1.5">
-                                {u.role === 'user' && (
-                                  <button
-                                    type="button"
-                                    disabled={processingId === u.user_id}
-                                    onClick={() => quickChangeRole(u, 'pj_kelas')}
-                                    className="p-1.5 rounded-xl border border-sky-200 text-sky-700 bg-sky-50/50 hover:bg-sky-100 transition-all cursor-pointer disabled:opacity-50"
-                                    title="Promosikan ke PJ Kelas"
-                                  >
-                                    <ShieldCheck size={14} />
-                                  </button>
-                                )}
-                                {u.role === 'pj_kelas' && (
-                                  <button
-                                    type="button"
-                                    disabled={processingId === u.user_id}
-                                    onClick={() => quickChangeRole(u, 'user')}
-                                    className="p-1.5 rounded-xl border border-amber-200 text-amber-700 bg-amber-50/50 hover:bg-amber-100 transition-all cursor-pointer disabled:opacity-50"
-                                    title="Kembalikan ke Mahasiswa (Demosi)"
-                                  >
-                                    <UserMinus size={14} />
-                                  </button>
-                                )}
+                                {/* Slot tetap supaya tombol edit & hapus selalu sejajar */}
+                                <div className="w-9 h-9">
+                                  {u.role === 'user' && (
+                                    <button
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() => quickChangeRole(u, 'pj_kelas')}
+                                      className={cn(ICON_BTN, 'text-teal-700 bg-teal-50 ring-1 ring-inset ring-teal-200 hover:bg-teal-600 hover:text-white hover:ring-teal-600')}
+                                      title="Promosikan ke PJ Kelas"
+                                      aria-label="Promosikan ke PJ Kelas"
+                                    >
+                                      <ShieldCheck size={15} />
+                                    </button>
+                                  )}
+                                  {u.role === 'pj_kelas' && (
+                                    <button
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() => quickChangeRole(u, 'user')}
+                                      className={cn(ICON_BTN, 'text-amber-700 bg-amber-50 ring-1 ring-inset ring-amber-200 hover:bg-amber-500 hover:text-white hover:ring-amber-500')}
+                                      title="Kembalikan ke Mahasiswa (Demosi)"
+                                      aria-label="Kembalikan ke Mahasiswa"
+                                    >
+                                      <UserMinus size={15} />
+                                    </button>
+                                  )}
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => openEditModal(u)}
-                                  className="p-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-[#183449] hover:border-[#183449] transition-all cursor-pointer shadow-2xs"
-                                  title="Edit Data Pengguna"
+                                  className={cn(
+                                    ICON_BTN,
+                                    'text-[#2B5474] bg-[#588CBC]/10 ring-1 ring-inset ring-[#588CBC]/25 hover:bg-[#183449] hover:text-white hover:ring-[#183449]'
+                                  )}
+                                  title="Edit data pengguna"
+                                  aria-label="Edit data pengguna"
                                 >
-                                  <Pencil size={14} />
+                                  <Pencil size={15} />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => openDeleteModal(u)}
-                                  className="p-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 transition-all cursor-pointer shadow-2xs"
-                                  title="Hapus Pengguna"
+                                  className={cn(
+                                    ICON_BTN,
+                                    'text-rose-600 bg-rose-50 ring-1 ring-inset ring-rose-200 hover:bg-rose-600 hover:text-white hover:ring-rose-600'
+                                  )}
+                                  title="Hapus pengguna"
+                                  aria-label="Hapus pengguna"
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={15} />
                                 </button>
                               </div>
                             </td>
@@ -927,261 +1110,237 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
             )}
 
             {/* FOOTER */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 text-xs text-slate-400 font-medium bg-slate-50/30">
-              <span>
-                Menampilkan{' '}
-                <strong className="text-slate-700">
-                  {activeTab === 'pending' ? filteredRegistrations.length : filteredUsers.length}
-                </strong>{' '}
-                data {activeTab === 'pending' ? 'permohonan' : 'pengguna aktif'}
-              </span>
+            <div className="px-5 py-3.5 border-t border-slate-200 text-sm text-slate-500 bg-slate-50/60 rounded-b-2xl">
+              Menampilkan <strong className="text-[#183449]">{visibleCount}</strong> data{' '}
+              {activeTab === 'pending' ? 'permohonan' : 'pengguna aktif'}
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* MODAL EDIT PENGGUNA */}
       <AnimatePresence>
         {editModal.open && editModal.user && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-xl bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 my-8"
-            >
-              <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+          <ModalShell maxW="max-w-xl" scroll>
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <Avatar name={editModal.user.username} solid />
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Edit Data Pengguna</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Mengubah data identitas &amp; profil untuk <strong className="text-slate-700">{editModal.user.identifier}</strong>
+                  <h3 className="text-lg font-black text-[#183449]">Edit data pengguna</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mengubah identitas &amp; profil untuk{' '}
+                    <strong className="text-slate-700">{editModal.user.identifier}</strong>
                   </p>
                 </div>
-                <button
-                  onClick={() => setEditModal((prev) => ({ ...prev, open: false, user: null }))}
-                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
+              </div>
+              <CloseBtn onClick={closeEditModal} />
+            </div>
+
+            <form onSubmit={saveEditUser} className="space-y-4 pt-5">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nama lengkap">
+                  <input
+                    type="text"
+                    required
+                    value={editModal.form.full_name}
+                    onChange={(e) => setEditField('full_name', e.target.value)}
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                <Field label="Username">
+                  <input
+                    type="text"
+                    required
+                    value={editModal.form.username}
+                    onChange={(e) => setEditField('username', e.target.value)}
+                    className={INPUT_CLASS}
+                  />
+                </Field>
               </div>
 
-              <form onSubmit={saveEditUser} className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Nama Lengkap</label>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Role sistem">
+                  <select
+                    value={editModal.form.role}
+                    onChange={(e) => setEditField('role', e.target.value)}
+                    className={cn(INPUT_CLASS, 'cursor-pointer')}
+                  >
+                    <option value="user">Mahasiswa (user)</option>
+                    <option value="pj_kelas">PJ Kelas (pj_kelas)</option>
+                    <option value="dosen">Dosen (dosen)</option>
+                    <option value="admin">Administrator (admin)</option>
+                  </select>
+                </Field>
+                <Field label="Email">
+                  <input
+                    type="email"
+                    value={editModal.form.email}
+                    onChange={(e) => setEditField('email', e.target.value)}
+                    placeholder="nama@email.com"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="No. WhatsApp / HP">
+                  <input
+                    type="tel"
+                    value={editModal.form.phone}
+                    onChange={(e) => setEditField('phone', e.target.value)}
+                    placeholder="0812xxxx"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                <Field label="Fakultas">
+                  <input
+                    type="text"
+                    value={editModal.form.faculty}
+                    onChange={(e) => setEditField('faculty', e.target.value)}
+                    placeholder="Fakultas Teknik"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+              </div>
+
+              {/* KHUSUS MAHASISWA & PJ KELAS */}
+              {(editModal.form.role === 'user' || editModal.form.role === 'pj_kelas') && (
+                <div className="grid grid-cols-3 gap-3 p-4 bg-[#588CBC]/5 rounded-xl border border-[#588CBC]/20">
+                  <Field label="Kelas">
                     <input
                       type="text"
-                      required
-                      value={editModal.form.full_name}
-                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, full_name: e.target.value } }))}
-                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
+                      value={editModal.form.kelas}
+                      onChange={(e) => setEditField('kelas', e.target.value)}
+                      placeholder="Contoh: TE-3A"
+                      className={INPUT_CLASS}
                     />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Username</label>
+                  </Field>
+                  <Field label="Program studi">
                     <input
                       type="text"
-                      required
-                      value={editModal.form.username}
-                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, username: e.target.value } }))}
-                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
+                      value={editModal.form.prodi}
+                      onChange={(e) => setEditField('prodi', e.target.value)}
+                      placeholder="PVTE"
+                      className={INPUT_CLASS}
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Peran Sistem (Role)</label>
-                    <select
-                      value={editModal.form.role}
-                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, role: e.target.value as any } }))}
-                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC] cursor-pointer"
-                    >
-                      <option value="user">Mahasiswa (user)</option>
-                      <option value="pj_kelas">PJ Kelas (pj_kelas)</option>
-                      <option value="dosen">Dosen (dosen)</option>
-                      <option value="admin">Administrator (admin)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Email</label>
-                    <input
-                      type="email"
-                      value={editModal.form.email}
-                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, email: e.target.value } }))}
-                      placeholder="nama@email.com"
-                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">No. WhatsApp / HP</label>
-                    <input
-                      type="tel"
-                      value={editModal.form.phone}
-                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, phone: e.target.value } }))}
-                      placeholder="0812xxxx"
-                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Fakultas</label>
+                  </Field>
+                  <Field label="Angkatan">
                     <input
                       type="text"
-                      value={editModal.form.faculty}
-                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, faculty: e.target.value } }))}
-                      placeholder="Fakultas Teknik"
-                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
+                      maxLength={4}
+                      value={editModal.form.angkatan}
+                      onChange={(e) => setEditField('angkatan', e.target.value)}
+                      placeholder="2024"
+                      className={INPUT_CLASS}
                     />
-                  </div>
+                  </Field>
                 </div>
+              )}
 
-                {/* KHUSUS MAHASISWA & PJ KELAS */}
-                {(editModal.form.role === 'user' || editModal.form.role === 'pj_kelas') && (
-                  <div className="grid grid-cols-3 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Kelas</label>
-                      <input
-                        type="text"
-                        value={editModal.form.kelas}
-                        onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, kelas: e.target.value } }))}
-                        placeholder="Contoh: TE-3A"
-                        className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Program Studi</label>
-                      <input
-                        type="text"
-                        value={editModal.form.prodi}
-                        onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, prodi: e.target.value } }))}
-                        placeholder="PVTE"
-                        className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Angkatan</label>
-                      <input
-                        type="text"
-                        maxLength={4}
-                        value={editModal.form.angkatan}
-                        onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, angkatan: e.target.value } }))}
-                        placeholder="2024"
-                        className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                      />
-                    </div>
-                  </div>
-                )}
+              {/* KHUSUS DOSEN */}
+              {editModal.form.role === 'dosen' && (
+                <div className="grid grid-cols-2 gap-3 p-4 bg-[#588CBC]/5 rounded-xl border border-[#588CBC]/20">
+                  <Field label="Departemen">
+                    <input
+                      type="text"
+                      value={editModal.form.departemen}
+                      onChange={(e) => setEditField('departemen', e.target.value)}
+                      placeholder="Teknik Elektro"
+                      className={INPUT_CLASS}
+                    />
+                  </Field>
+                  <Field label="Program studi">
+                    <input
+                      type="text"
+                      value={editModal.form.prodi}
+                      onChange={(e) => setEditField('prodi', e.target.value)}
+                      placeholder="Pendidikan Vokasional"
+                      className={INPUT_CLASS}
+                    />
+                  </Field>
+                </div>
+              )}
 
-                {/* KHUSUS DOSEN */}
-                {editModal.form.role === 'dosen' && (
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Departemen</label>
-                      <input
-                        type="text"
-                        value={editModal.form.departemen}
-                        onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, departemen: e.target.value } }))}
-                        placeholder="Teknik Elektro"
-                        className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Program Studi</label>
-                      <input
-                        type="text"
-                        value={editModal.form.prodi}
-                        onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, prodi: e.target.value } }))}
-                        placeholder="Pendidikan Vokasional"
-                        className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1 pt-2 border-t border-slate-100">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                    <Lock size={12} /> Reset Kata Sandi (Opsional - Kosongkan jika tidak diubah)
-                  </label>
+              <div className="pt-4 border-t border-slate-200">
+                <Field
+                  label={
+                    <span className="flex items-center gap-1.5">
+                      <Lock size={12} /> Reset kata sandi
+                      <span className="font-normal text-slate-400">(opsional, kosongkan jika tidak diubah)</span>
+                    </span>
+                  }
+                >
                   <input
                     type="password"
                     minLength={8}
                     maxLength={72}
                     value={editModal.form.password}
-                    onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, password: e.target.value } }))}
+                    onChange={(e) => setEditField('password', e.target.value)}
                     placeholder="Masukkan password baru jika ingin mereset (min. 8 karakter)"
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#588CBC]"
+                    className={INPUT_CLASS}
                   />
-                </div>
+                </Field>
+              </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setEditModal((prev) => ({ ...prev, open: false, user: null }))}
-                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!!processingId}
-                    className="px-5 py-2 rounded-xl bg-[#183449] hover:bg-[#2B5474] text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    {processingId ? 'Menyimpan...' : 'Simpan Perubahan'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="h-10 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!!processingId}
+                  className="h-10 px-5 rounded-lg bg-[#183449] hover:bg-[#2B5474] text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {processingId ? 'Menyimpan...' : 'Simpan perubahan'}
+                </button>
+              </div>
+            </form>
+          </ModalShell>
         )}
       </AnimatePresence>
 
       {/* MODAL HAPUS PENGGUNA */}
       <AnimatePresence>
         {deleteModal.open && deleteModal.user && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-4"
-            >
-              <div className="flex items-start justify-between">
+          <ModalShell maxW="max-w-md">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
                     <AlertTriangle size={20} />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-800">Hapus Pengguna</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Tindakan ini permanen</p>
+                    <h3 className="text-base font-black text-[#183449]">Hapus pengguna</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Tindakan ini permanen</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setDeleteModal({ open: false, user: null })}
-                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
+                <CloseBtn onClick={() => setDeleteModal({ open: false, user: null })} />
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1">
-                <p className="text-slate-500">Anda akan menghapus akun:</p>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                <p className="text-xs text-slate-500">Anda akan menghapus akun:</p>
                 <p className="font-bold text-slate-800 text-sm">
                   {deleteModal.user.full_name || deleteModal.user.username}
                 </p>
-                <p className="text-slate-400">
-                  {deleteModal.user.identifier_type?.toUpperCase() || 'ID'}: {deleteModal.user.identifier} · Role: {deleteModal.user.role}
-                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>
+                    {deleteModal.user.identifier_type?.toUpperCase() || 'ID'}: {deleteModal.user.identifier}
+                  </span>
+                  <RoleBadge role={deleteModal.user.role} />
+                </div>
               </div>
 
               {PROTECTED_DEMO_IDS.includes(deleteModal.user.user_id) ? (
-                <div className="p-3 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold">
-                  ⚠️ Akun ini merupakan akun demo inti sistem (ID {deleteModal.user.user_id}) yang dilindungi dan tidak dapat dihapus.
+                <div className="p-3 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold flex items-start gap-2">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    Akun ini merupakan akun demo inti sistem (ID {deleteModal.user.user_id}) yang dilindungi dan tidak
+                    dapat dihapus.
+                  </span>
                 </div>
               ) : (
                 <p className="text-xs text-slate-500 leading-relaxed">
@@ -1189,11 +1348,11 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
                 </p>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setDeleteModal({ open: false, user: null })}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="h-10 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
@@ -1201,59 +1360,47 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
                   type="button"
                   disabled={!!processingId || PROTECTED_DEMO_IDS.includes(deleteModal.user.user_id)}
                   onClick={confirmDeleteUser}
-                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-10 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {processingId ? 'Menghapus...' : 'Ya, Hapus Pengguna'}
+                  {processingId ? 'Menghapus...' : 'Ya, hapus pengguna'}
                 </button>
               </div>
-            </motion.div>
-          </div>
+            </div>
+          </ModalShell>
         )}
       </AnimatePresence>
 
       {/* MODAL TOLAK PENDAFTARAN */}
       <AnimatePresence>
         {rejectModal.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-4"
-            >
-              <div className="flex items-start justify-between">
+          <ModalShell maxW="max-w-md">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Tolak Pendaftaran Akun</h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Permohonan untuk <strong className="text-slate-700">{rejectModal.name}</strong> ({rejectModal.identifier}) akan dihapus dari sistem.
+                  <h3 className="text-lg font-black text-[#183449]">Tolak pendaftaran akun</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Permohonan untuk <strong className="text-slate-700">{rejectModal.name}</strong> (
+                    {rejectModal.identifier}) akan dihapus dari sistem.
                   </p>
                 </div>
-                <button
-                  onClick={() => setRejectModal({ open: false, id: null, name: null, identifier: null, reason: '' })}
-                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
+                <CloseBtn onClick={closeRejectModal} />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Alasan Penolakan (Opsional - Dikirim via Email)
-                </label>
+              <Field label="Alasan penolakan (opsional, dikirim via email)">
                 <textarea
                   rows={3}
                   value={rejectModal.reason}
                   onChange={(e) => setRejectModal((prev) => ({ ...prev, reason: e.target.value }))}
                   placeholder="Contoh: NIM tidak terdaftar di SIAKAD, silakan gunakan NIM resmi..."
-                  className="w-full p-3 rounded-2xl border border-slate-200 text-xs font-medium text-slate-700 focus:outline-none focus:border-[#588CBC] focus:ring-2 focus:ring-[#588CBC]/10"
+                  className="w-full p-3 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#588CBC] focus:ring-2 focus:ring-[#588CBC]/15 resize-none"
                 />
-              </div>
+              </Field>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setRejectModal({ open: false, id: null, name: null, identifier: null, reason: '' })}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={closeRejectModal}
+                  className="h-10 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
@@ -1261,13 +1408,13 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
                   type="button"
                   disabled={!!processingId}
                   onClick={confirmReject}
-                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  className="h-10 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {processingId ? 'Memproses...' : 'Tolak & Hapus'}
+                  {processingId ? 'Memproses...' : 'Tolak & hapus'}
                 </button>
               </div>
-            </motion.div>
-          </div>
+            </div>
+          </ModalShell>
         )}
       </AnimatePresence>
     </div>

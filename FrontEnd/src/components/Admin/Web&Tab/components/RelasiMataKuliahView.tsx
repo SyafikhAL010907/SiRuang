@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -16,6 +16,8 @@ import {
   BookOpen,
   UserCheck,
   Calendar,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 
 interface RelasiMataKuliahViewProps {
@@ -60,8 +62,308 @@ interface PJOption {
   angkatan: string;
 }
 
+interface RelationFormData {
+  mata_kuliah: string;
+  kelas: string;
+  dosen_id: string;
+  pj_id: string;
+  jadwal_hari: string;
+  jadwal_jam: string;
+  semester: string;
+}
+
 const TH_CLASS = 'px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500';
 const CONTENT_LANE = 'w-full max-w-[1400px] mx-auto';
+
+const HARI_OPTIONS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+const MODAL_INPUT =
+  'w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#183449] focus:ring-2 focus:ring-[#183449]/10 transition-colors';
+
+/* ---------- Komponen pop up (dropdown & form) ---------- */
+
+interface SelectOption {
+  value: string;
+  label: string;
+  sub?: string;
+}
+
+const SelectField: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  options: SelectOption[];
+  placeholder: string;
+}> = ({ value, onChange, options, placeholder }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`w-full h-10 pl-3 pr-2.5 rounded-lg border bg-white text-sm flex items-center gap-2 text-left cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#183449]/15 ${
+          open ? 'border-[#183449] ring-2 ring-[#183449]/10' : 'border-slate-200 hover:border-slate-300'
+        }`}
+      >
+        <span className={`flex-1 truncate ${current ? 'text-slate-800' : 'text-slate-400'}`}>
+          {current ? current.label : placeholder}
+        </span>
+        <ChevronDown size={16} className={`text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            role="listbox"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-56 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200 shadow-lg shadow-[#183449]/10"
+          >
+            {options.length === 0 && <li className="px-3 py-2.5 text-xs text-slate-400">Belum ada pilihan tersedia.</li>}
+            {options.map((o) => {
+              const selected = o.value === value;
+              return (
+                <li key={o.value} role="option" aria-selected={selected}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(o.value);
+                      setOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                      selected ? 'bg-[#183449]/5' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className={`block text-sm truncate ${selected ? 'font-bold text-[#183449]' : 'font-medium text-slate-700'}`}>
+                        {o.label}
+                      </span>
+                      {o.sub && <span className="block text-xs text-slate-400 truncate mt-0.5">{o.sub}</span>}
+                    </span>
+                    {selected && <Check size={15} className="text-[#183449] shrink-0" />}
+                  </button>
+                </li>
+              );
+            })}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const FormField: React.FC<{ label: string; required?: boolean; hint?: string; children: React.ReactNode }> = ({
+  label,
+  required,
+  hint,
+  children,
+}) => (
+  <div className="flex flex-col gap-1.5">
+    <span className="text-xs font-semibold text-slate-600">
+      {label}
+      {required && <span className="text-rose-500 ml-0.5">*</span>}
+    </span>
+    {children}
+    {hint && <span className="text-xs text-slate-400 leading-relaxed">{hint}</span>}
+  </div>
+);
+
+const RelationFormModal: React.FC<{
+  mode: 'add' | 'edit';
+  formData: RelationFormData;
+  setFormData: React.Dispatch<React.SetStateAction<RelationFormData>>;
+  dosenOptions: DosenOption[];
+  pjOptions: PJOption[];
+  submitting: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void;
+}> = ({ mode, formData, setFormData, dosenOptions, pjOptions, submitting, onSubmit, onClose }) => {
+  const isAdd = mode === 'add';
+  const set = (key: keyof RelationFormData, value: string) => setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const dosenSelect: SelectOption[] = dosenOptions.map((d) => ({
+    value: String(d.id),
+    label: d.name,
+    sub: d.identifier ? `NIP ${d.identifier}` : undefined,
+  }));
+  const pjSelect: SelectOption[] = pjOptions.map((p) => ({
+    value: String(p.id),
+    label: p.name,
+    sub: `${p.identifier ? `NIM ${p.identifier} · ` : ''}${p.role === 'pj_kelas' ? 'PJ Kelas' : 'Mahasiswa'}`,
+  }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#183449]/45 backdrop-blur-xs p-4 overflow-y-auto">
+      <motion.div
+        initial={{ scale: 0.97, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.97, opacity: 0 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 my-auto"
+      >
+        {/* HEADER */}
+        <div className="flex items-start justify-between gap-3 px-6 pt-5 pb-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#183449] text-white flex items-center justify-center shrink-0">
+              {isAdd ? <Plus size={18} /> : <Pencil size={17} />}
+            </div>
+            <div>
+              <h3 className="text-base font-black text-[#183449]">
+                {isAdd ? 'Tambah relasi mata kuliah' : 'Ubah relasi mata kuliah'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isAdd
+                  ? 'Hubungkan mata kuliah dengan dosen pengampu dan PJ kelas.'
+                  : 'Perbarui dosen pengampu, PJ kelas, atau jadwal.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="px-6 pt-5 pb-6 flex flex-col gap-5">
+          {/* MATA KULIAH */}
+          <div className="flex flex-col gap-4">
+            <FormField label="Mata kuliah" required>
+              <input
+                type="text"
+                required
+                placeholder={isAdd ? 'Contoh: Pemrograman Web' : undefined}
+                value={formData.mata_kuliah}
+                onChange={(e) => set('mata_kuliah', e.target.value)}
+                className={MODAL_INPUT}
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Kelas" required>
+                <input
+                  type="text"
+                  required
+                  placeholder={isAdd ? 'Contoh: PTIK A' : undefined}
+                  value={formData.kelas}
+                  onChange={(e) => set('kelas', e.target.value)}
+                  className={MODAL_INPUT}
+                />
+              </FormField>
+              <FormField label="Semester" required>
+                <input
+                  type="text"
+                  required
+                  placeholder={isAdd ? 'Ganjil 2026/2027' : undefined}
+                  value={formData.semester}
+                  onChange={(e) => set('semester', e.target.value)}
+                  className={MODAL_INPUT}
+                />
+              </FormField>
+            </div>
+          </div>
+
+          {/* PENGAMPU */}
+          <div className="flex flex-col gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <FormField
+              label="Dosen pengampu"
+              required
+              hint={isAdd && dosenOptions.length === 0 ? 'Belum ada akun Dosen terdaftar.' : undefined}
+            >
+              <SelectField
+                value={formData.dosen_id}
+                onChange={(v) => set('dosen_id', v)}
+                options={dosenSelect}
+                placeholder="Pilih dosen"
+              />
+            </FormField>
+
+            <FormField
+              label="PJ kelas"
+              required
+              hint={isAdd ? 'Mahasiswa yang dipilih otomatis dipromosikan perannya menjadi PJ Kelas.' : undefined}
+            >
+              <SelectField
+                value={formData.pj_id}
+                onChange={(v) => set('pj_id', v)}
+                options={pjSelect}
+                placeholder="Pilih PJ kelas atau mahasiswa"
+              />
+            </FormField>
+          </div>
+
+          {/* JADWAL */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Hari reguler">
+              <SelectField
+                value={formData.jadwal_hari}
+                onChange={(v) => set('jadwal_hari', v)}
+                options={HARI_OPTIONS.map((h) => ({ value: h, label: h }))}
+                placeholder="Pilih hari"
+              />
+            </FormField>
+            <FormField label="Jam reguler">
+              <input
+                type="text"
+                placeholder={isAdd ? '08:00 - 09:40' : undefined}
+                value={formData.jadwal_jam}
+                onChange={(e) => set('jadwal_jam', e.target.value)}
+                className={MODAL_INPUT}
+              />
+            </FormField>
+          </div>
+
+          {/* AKSI */}
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 px-4 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="h-10 px-5 rounded-lg bg-[#183449] hover:bg-[#2B5474] text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {submitting ? 'Menyimpan...' : isAdd ? 'Simpan relasi' : 'Perbarui relasi'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+/* ---------- Halaman utama ---------- */
 
 const RelasiMataKuliahView: React.FC<RelasiMataKuliahViewProps> = ({ onBack }) => {
   const [relations, setRelations] = useState<RelationRow[]>([]);
@@ -80,7 +382,7 @@ const RelasiMataKuliahView: React.FC<RelasiMataKuliahViewProps> = ({ onBack }) =
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
   // Form State
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RelationFormData>({
     mata_kuliah: '',
     kelas: '',
     dosen_id: '',
@@ -536,288 +838,32 @@ const RelasiMataKuliahView: React.FC<RelasiMataKuliahViewProps> = ({ onBack }) =
       {/* MODAL: TAMBAH RELASI */}
       <AnimatePresence>
         {isAddOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#588CBC]" />
-                  <h3 className="text-sm font-bold text-slate-800">Tambah Relasi Mata Kuliah</h3>
-                </div>
-                <button
-                  onClick={() => setIsAddOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreate} className="p-6 flex flex-col gap-4 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Mata Kuliah *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Pemrograman Web"
-                    value={formData.mata_kuliah}
-                    onChange={(e) => setFormData({ ...formData, mata_kuliah: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Kelas *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: PTIK A"
-                      value={formData.kelas}
-                      onChange={(e) => setFormData({ ...formData, kelas: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Semester *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ganjil 2026/2027"
-                      value={formData.semester}
-                      onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Dosen Pengampu *</label>
-                  <select
-                    required
-                    value={formData.dosen_id}
-                    onChange={(e) => setFormData({ ...formData, dosen_id: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800 bg-white"
-                  >
-                    <option value="">-- Pilih Dosen --</option>
-                    {dosenOptions.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} {d.identifier ? `(${d.identifier})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {dosenOptions.length === 0 && (
-                    <p className="text-[10px] text-amber-600 mt-1">Belum ada akun Dosen terdaftar.</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">PJ Kelas *</label>
-                  <select
-                    required
-                    value={formData.pj_id}
-                    onChange={(e) => setFormData({ ...formData, pj_id: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800 bg-white"
-                  >
-                    <option value="">-- Pilih PJ Kelas / Mahasiswa --</option>
-                    {pjOptions.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.identifier ? `(${p.identifier})` : ''} — {p.role === 'pj_kelas' ? 'PJ Kelas' : 'Mahasiswa'}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    * Mahasiswa yang dipilih otomatis dipromosikan perannya menjadi PJ Kelas.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Hari Reguler</label>
-                    <select
-                      value={formData.jadwal_hari}
-                      onChange={(e) => setFormData({ ...formData, jadwal_hari: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800 bg-white"
-                    >
-                      {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((h) => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Jam Reguler</label>
-                    <input
-                      type="text"
-                      placeholder="08:00 - 09:40"
-                      value={formData.jadwal_jam}
-                      onChange={(e) => setFormData({ ...formData, jadwal_jam: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddOpen(false)}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2 rounded-lg bg-[#588CBC] text-white font-bold hover:bg-[#4a7aab] transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {submitting ? 'Menyimpan...' : 'Simpan Relasi'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+          <RelationFormModal
+            mode="add"
+            formData={formData}
+            setFormData={setFormData}
+            dosenOptions={dosenOptions}
+            pjOptions={pjOptions}
+            submitting={submitting}
+            onSubmit={handleCreate}
+            onClose={() => setIsAddOpen(false)}
+          />
         )}
       </AnimatePresence>
 
       {/* MODAL: UBAH RELASI */}
       <AnimatePresence>
         {editItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#588CBC]" />
-                  <h3 className="text-sm font-bold text-slate-800">Ubah Relasi Mata Kuliah</h3>
-                </div>
-                <button
-                  onClick={() => setEditItem(null)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleUpdate} className="p-6 flex flex-col gap-4 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Mata Kuliah *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.mata_kuliah}
-                    onChange={(e) => setFormData({ ...formData, mata_kuliah: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Kelas *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.kelas}
-                      onChange={(e) => setFormData({ ...formData, kelas: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Semester *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.semester}
-                      onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Dosen Pengampu *</label>
-                  <select
-                    required
-                    value={formData.dosen_id}
-                    onChange={(e) => setFormData({ ...formData, dosen_id: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800 bg-white"
-                  >
-                    {dosenOptions.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} {d.identifier ? `(${d.identifier})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">PJ Kelas *</label>
-                  <select
-                    required
-                    value={formData.pj_id}
-                    onChange={(e) => setFormData({ ...formData, pj_id: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800 bg-white"
-                  >
-                    {pjOptions.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.identifier ? `(${p.identifier})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Hari Reguler</label>
-                    <select
-                      value={formData.jadwal_hari}
-                      onChange={(e) => setFormData({ ...formData, jadwal_hari: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800 bg-white"
-                    >
-                      {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'].map((h) => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Jam Reguler</label>
-                    <input
-                      type="text"
-                      value={formData.jadwal_jam}
-                      onChange={(e) => setFormData({ ...formData, jadwal_jam: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#588CBC] font-semibold text-slate-800"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 mt-4 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setEditItem(null)}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2 rounded-lg bg-[#588CBC] text-white font-bold hover:bg-[#4a7aab] transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {submitting ? 'Menyimpan...' : 'Perbarui Relasi'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+          <RelationFormModal
+            mode="edit"
+            formData={formData}
+            setFormData={setFormData}
+            dosenOptions={dosenOptions}
+            pjOptions={pjOptions}
+            submitting={submitting}
+            onSubmit={handleUpdate}
+            onClose={() => setEditItem(null)}
+          />
         )}
       </AnimatePresence>
 

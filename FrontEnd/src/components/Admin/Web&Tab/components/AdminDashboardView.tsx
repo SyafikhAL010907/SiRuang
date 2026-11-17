@@ -138,8 +138,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       </header>
 
       {/* CONTENT
-          Dibuat muat 1 layar di zoom 100%. overflow-y-auto + scrollbar-hide
-          cuma jadi pengaman untuk layar yang lebih kecil (scrollbar tidak terlihat). */}
+          overflow-y-auto + scrollbar-hide: konten bisa di-scroll tanpa scrollbar terlihat,
+          jadi 2 card baru di paling bawah tinggal digulir ke bawah. */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8 py-5">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -160,73 +160,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
           {/* STATS GRID */}
           <StatGrid variant="web" rooms={rooms} isInfoActive={isInfoActive} />
-
-          {/* DEDICATED CARDS: PENGAJUAN BOOKING & IMPORT JADWAL SIAKAD */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Card 1: Pengajuan & Monitoring Booking */}
-            <div
-              onClick={onOpenBookingManagement}
-              className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:border-[#588CBC]/40 transition-all cursor-pointer group flex flex-col justify-between gap-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-[#183449]/10 text-[#183449] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:text-white transition-all shadow-2xs">
-                    <CalendarCheck size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#183449] bg-blue-50 px-2.5 py-0.5 rounded-full border border-[#588CBC]/20">
-                      Monitoring SFD
-                    </span>
-                    <h3 className="text-base font-black text-slate-800 mt-1 group-hover:text-[#183449] transition-colors">
-                      Pengajuan Booking Ruangan
-                    </h3>
-                  </div>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:text-white transition-all">
-                  <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                Pantau seluruh pengajuan ruangan, status persetujuan dosen, jadwal aktif, dan riwayat presensi peminjaman di Gedung SFD.
-              </p>
-              <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[11px] font-bold text-[#183449]">
-                <span>Buka Monitoring Booking</span>
-                <span className="text-[#588CBC] group-hover:translate-x-1 transition-transform">→</span>
-              </div>
-            </div>
-
-            {/* Card 2: Import Jadwal Resmi (SIAKAD) */}
-            <div
-              onClick={onOpenImportJadwal}
-              className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:border-emerald-500/40 transition-all cursor-pointer group flex flex-col justify-between gap-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-2xs">
-                    <FileSpreadsheet size={22} />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      Sinkronisasi SIAKAD
-                    </span>
-                    <h3 className="text-base font-black text-slate-800 mt-1 group-hover:text-emerald-700 transition-colors">
-                      Import Jadwal Resmi (SIAKAD)
-                    </h3>
-                  </div>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                  <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                Unggah file spreadsheet jadwal perkuliahan semester dari SIAKAD untuk sinkronisasi otomatis status jadwal resmi pada denah.
-              </p>
-              <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[11px] font-bold text-emerald-700">
-                <span>Kelola Import Jadwal</span>
-                <span className="text-emerald-600 group-hover:translate-x-1 transition-transform">→</span>
-              </div>
-            </div>
-          </div>
 
           {/* items-stretch: kartu hitam ikut setinggi kolom Denah Gedung,
               jadi bagian bawahnya sejajar dengan card denah paling bawah */}
@@ -277,6 +210,49 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <BuildingDenahGrid variant="web" />
               </div>
             </div>
+          </div>
+
+          {/* PENGAJUAN BOOKING & IMPORT JADWAL SIAKAD (paling bawah) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">
+            {/* Card: Pengajuan & Monitoring Booking */}
+            <button
+              type="button"
+              onClick={onOpenBookingManagement}
+              className="group text-left bg-white rounded-2xl border-2 border-[#588CBC]/30 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-[#588CBC] hover:shadow-md transition-all cursor-pointer active:scale-[0.99] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#588CBC]/20"
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#183449] text-white flex items-center justify-center shrink-0">
+                <CalendarCheck size={22} />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+                <span className="text-sm font-black text-slate-800">Pengajuan Booking Ruangan</span>
+                <span className="text-[11px] text-slate-400 font-medium leading-relaxed mt-1 line-clamp-2">
+                  Pantau pengajuan ruangan, persetujuan dosen, jadwal aktif, dan riwayat presensi di Gedung SFD.
+                </span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 text-[#588CBC] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:border-[#183449] group-hover:text-white transition-all">
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </button>
+
+            {/* Card: Import Jadwal Resmi (SIAKAD) */}
+            <button
+              type="button"
+              onClick={onOpenImportJadwal}
+              className="group text-left bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-[#588CBC]/60 hover:shadow-md transition-all cursor-pointer active:scale-[0.99] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#588CBC]/20"
+            >
+              <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 text-[#183449] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:border-[#183449] group-hover:text-white transition-all">
+                <FileSpreadsheet size={22} />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col leading-tight">
+                <span className="text-sm font-black text-slate-800">Import Jadwal Resmi (SIAKAD)</span>
+                <span className="text-[11px] text-slate-400 font-medium leading-relaxed mt-1 line-clamp-2">
+                  Unggah spreadsheet jadwal kuliah semester dari SIAKAD agar status jadwal resmi di denah ikut terbarui.
+                </span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 text-[#588CBC] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:border-[#183449] group-hover:text-white transition-all">
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </button>
           </div>
         </motion.div>
       </div>
