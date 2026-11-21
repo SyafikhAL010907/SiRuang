@@ -7,12 +7,15 @@ import {
   Settings,
   Search,
   Trash2,
-  X
+  X,
+  CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isBuildingAdmin } from '@/lib/roles';
 
 export interface MobileHeaderProps {
   adminName: string;
+  userRole?: string;
   rooms: any[];
   activeTab: string;
   isInfoActive: boolean;
@@ -33,6 +36,7 @@ export interface MobileHeaderProps {
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   adminName,
+  userRole,
   rooms,
   activeTab,
   isInfoActive,
@@ -108,6 +112,20 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       {/* Top Actions Area */}
       <div className="px-4 -mt-7 relative z-30 pb-3">
         {activeTab !== 'message' ? (
+          isBuildingAdmin(userRole) ? (
+            <div className="w-full bg-white rounded-4xl p-4 shadow-xl shadow-slate-200/50 border border-[#588CBC]/20 flex items-center justify-between group transition-all relative overflow-hidden">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#588CBC]/10 rounded-2xl flex items-center justify-center text-[#183449] shadow-inner">
+                  <CalendarCheck size={24} />
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-[10px] font-black text-[#183449] uppercase tracking-widest mb-0.5">Admin Gedung</p>
+                  <h4 className="text-sm font-bold text-slate-700 leading-tight">Pengelolaan Ruangan</h4>
+                  <p className="text-[9px] font-medium text-slate-400 mt-0.5">Verifikasi & ACC pengajuan ruangan</p>
+                </div>
+              </div>
+            </div>
+          ) : (
           /* PREMIUM LARGE TOGGLE SWITCH (Replaces Quick Access) */
           <div className="w-full bg-white rounded-4xl p-4 shadow-xl shadow-slate-200/50 border border-[#588CBC]/20 flex items-center justify-between group transition-all relative overflow-hidden">
             <div className="flex items-center gap-4">
@@ -149,6 +167,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               </motion.div>
             </div>
           </div>
+          )
         ) : (
           /* SEARCH & DELETE MODE */
           <motion.div

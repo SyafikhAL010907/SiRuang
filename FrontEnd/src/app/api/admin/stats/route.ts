@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { ALL_ADMIN_ROLES } from '@/lib/roles';
+import { requireAdminDev } from '@/lib/authHelper';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
   try {
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
+
     const { count, error } = await supabaseServer
       .from('authentication')
       .select('id', { count: 'exact', head: true })

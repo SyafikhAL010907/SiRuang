@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { getUserFromRequest } from '@/lib/authHelper';
-import { isAdminDev } from '@/lib/roles';
+import { requireAdminDev } from '@/lib/authHelper';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user || !isAdminDev(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     const { data: users, error } = await supabaseServer
       .from('v_user_profiles')

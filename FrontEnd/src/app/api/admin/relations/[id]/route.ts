@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { getUserFromRequest } from '@/lib/authHelper';
+import { requireAdminDev } from '@/lib/authHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,10 +9,8 @@ export async function PUT(
   context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     const rawParams = await Promise.resolve(context?.params);
     const targetId = rawParams?.id;
@@ -114,10 +112,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     const rawParams = await Promise.resolve(context?.params);
     const targetId = rawParams?.id;

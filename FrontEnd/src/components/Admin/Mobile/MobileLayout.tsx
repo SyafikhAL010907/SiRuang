@@ -29,7 +29,27 @@ import BuildingDenahGrid from '../Shared/Cards/BuildingDenahGrid';
 import { isBuildingAdmin } from '@/lib/roles';
 
 const MobileLayout = () => {
-  const [activeTab, setActiveTab] = useState('home');
+  const [userRole, setUserRole] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) return JSON.parse(storedUser).role || '';
+      } catch {}
+    }
+    return '';
+  });
+
+  const [activeTab, setActiveTab] = useState<'home' | 'message' | 'managemen' | 'denah' | 'profile' | string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser && isBuildingAdmin(JSON.parse(storedUser).role)) {
+          return 'managemen';
+        }
+      } catch {}
+    }
+    return 'home';
+  });
   const [view, setView] = useState<'LIST' | 'ROOM'>('LIST');
   const [subView, setSubView] = useState<
     'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
@@ -47,6 +67,18 @@ const MobileLayout = () => {
     }
     return 'dashboard';
   });
+
+  // Proteksi: admin gedung yang memaksa membuka tab selain booking-management/profile/message dikembalikan ke booking-management
+  useEffect(() => {
+    if (isBuildingAdmin(userRole)) {
+      if (activeTab === 'home' || activeTab === 'denah') {
+        setActiveTab('managemen');
+        setSubView('booking-management');
+      } else if (activeTab === 'managemen' && subView !== 'booking-management') {
+        setSubView('booking-management');
+      }
+    }
+  }, [activeTab, subView, userRole]);
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -148,19 +180,25 @@ const MobileLayout = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
+      setUserRole(parsed.role || '');
       setAdminName(parsed.username || parsed.Username || 'Admin');
       setAdminGmail(parsed.identifier || parsed.gmail || '');
       fetchRooms(parsed.token);
-      fetchStats(parsed.token);
       fetchAllUsers(parsed.token);
-      // ⚠️  DISABLE: Comment baris fetchAIStatus di bawah jika tidak pakai AI
-      fetchAIStatus(parsed.token);
+
+      // Hanya AdminDev yang memanggil stats & AI status
+      if (!isBuildingAdmin(parsed.role)) {
+        fetchStats(parsed.token);
+        fetchAIStatus(parsed.token);
+      }
 
       // Fallback polling santai sebagai safety net (60 detik) karena Realtime WebSocket sudah aktif 0ms
       const interval = setInterval(() => {
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
         fetchRooms(parsed.token);
-        fetchStats(parsed.token);
+        if (!isBuildingAdmin(parsed.role)) {
+          fetchStats(parsed.token);
+        }
       }, 60000);
 
       // Refetch instan 1x saat tab admin kembali aktif (debounce 5 detik)
@@ -171,7 +209,9 @@ const MobileLayout = () => {
           if (now - lastTabActiveFetch >= 5000) {
             lastTabActiveFetch = now;
             fetchRooms(parsed.token);
-            fetchStats(parsed.token);
+            if (!isBuildingAdmin(parsed.role)) {
+              fetchStats(parsed.token);
+            }
           }
         }
       };
@@ -291,6 +331,7 @@ const MobileLayout = () => {
             {/* FIXED HEADER SECTION */}
             <MobileHeader
               adminName={adminName}
+              userRole={userRole}
               rooms={rooms}
               activeTab={activeTab}
               isInfoActive={isInfoActive}
@@ -378,8 +419,10 @@ const MobileLayout = () => {
                 ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'booking-management' ? (
                   <BookingManagementView
                     onBack={() => {
-                      setActiveTab('home');
-                      setSubView('dashboard');
+                      if (!isBuildingAdmin(userRole)) {
+                        setActiveTab('home');
+                        setSubView('dashboard');
+                      }
                     }}
                   />
                 ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'import-jadwal' ? (
@@ -391,6 +434,7 @@ const MobileLayout = () => {
                   />
                 ) : activeTab === 'managemen' ? (
                   <MobileManagementView
+                    userRole={userRole}
                     onSelectRoleAccess={() => setSubView('role-access')}
                     onSelectManajemenAkun={() => setSubView('manajemen-akun')}
                     onSelectRelasiMataKuliah={() => setSubView('relasi-mata-kuliah')}
@@ -432,14 +476,20 @@ const MobileLayout = () => {
 
             {/* BOTTOM NAV */}
             <MobileBottomNav
+              userRole={userRole}
               showBlessModal={showBlessModal}
               setShowBlessModal={setShowBlessModal}
               activeTab={activeTab}
               setActiveTab={(tab) => {
-                setActiveTab(tab);
-                if (tab === 'home') setSubView('dashboard');
-                else if (tab === 'profile') setSubView('profile');
-                else setSubView('dashboard');
+                if (tab === 'booking-management') {
+                  setActiveTab('managemen');
+                  setSubView('booking-management');
+                } else {
+                  setActiveTab(tab);
+                  if (tab === 'home') setSubView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard');
+                  else if (tab === 'profile') setSubView('profile');
+                  else setSubView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard');
+                }
               }}
               subView={subView}
               unreadCount={unreadRoomsCount}

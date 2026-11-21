@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { NextResponse } from 'next/server';
 import { supabaseServer } from './supabaseServer';
-import { UserRole } from './roles';
+import { isAdminDev, isAnyAdmin, isBuildingAdmin, UserRole } from './roles';
 
 const JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
@@ -101,5 +102,49 @@ export async function getUserFromRequest(request: Request): Promise<TokenPayload
   sessionCache.set(cacheKey, Date.now() + SESSION_CACHE_TTL_MS);
 
   return decoded;
+}
+
+export async function requireAuth(
+  request: Request
+): Promise<{ user: TokenPayload } | { errorResponse: NextResponse }> {
+  const user = await getUserFromRequest(request);
+  if (!user) {
+    return {
+      errorResponse: NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu' }, { status: 401 }),
+    };
+  }
+  return { user };
+}
+
+export async function requireAdminDev(
+  request: Request
+): Promise<{ user: TokenPayload } | { errorResponse: NextResponse }> {
+  const auth = await requireAuth(request);
+  if ('errorResponse' in auth) return auth;
+  if (!isAdminDev(auth.user.role)) {
+    return {
+      errorResponse: NextResponse.json(
+        { error: 'Forbidden: Akses khusus Admin Dev' },
+        { status: 403 }
+      ),
+    };
+  }
+  return auth;
+}
+
+export async function requireAnyAdmin(
+  request: Request
+): Promise<{ user: TokenPayload } | { errorResponse: NextResponse }> {
+  const auth = await requireAuth(request);
+  if ('errorResponse' in auth) return auth;
+  if (!isAnyAdmin(auth.user.role)) {
+    return {
+      errorResponse: NextResponse.json(
+        { error: 'Forbidden: Akses khusus Admin' },
+        { status: 403 }
+      ),
+    };
+  }
+  return auth;
 }
 

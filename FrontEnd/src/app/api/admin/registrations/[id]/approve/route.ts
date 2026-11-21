@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
+import { isAdminDev } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function POST(
     const user = await getUserFromRequest(request);
     let adminRecord: any = null;
 
-    if (user && user.role === 'admin') {
+    if (user && isAdminDev(user.role)) {
       const { data } = await supabaseServer
         .from('authentication')
         .select('id')

@@ -27,6 +27,18 @@ import ChatInputArea from './components/ChatInputArea';
 import { isBuildingAdmin } from '@/lib/roles';
 
 const WebTabLayout = () => {
+  const [userRole, setUserRole] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          return JSON.parse(storedUser).role || '';
+        }
+      } catch {}
+    }
+    return '';
+  });
+
   const [mainView, setMainView] = useState<
     'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
   >(() => {
@@ -43,6 +55,15 @@ const WebTabLayout = () => {
     }
     return 'dashboard';
   });
+
+  // Proteksi rute tab admin: jika role admin gedung memaksa buka tab selain booking-management/profile, kembalikan ke booking-management
+  useEffect(() => {
+    if (isBuildingAdmin(userRole)) {
+      if (mainView !== 'booking-management' && mainView !== 'profile') {
+        setMainView('booking-management');
+      }
+    }
+  }, [mainView, userRole]);
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -145,17 +166,23 @@ const WebTabLayout = () => {
       const parsed = JSON.parse(storedUser);
       setAdminName(parsed.username || parsed.Username || 'Admin');
       setAdminGmail(parsed.identifier || parsed.gmail || '');
+      setUserRole(parsed.role || '');
       fetchRooms(parsed.token);
-      fetchStats(parsed.token);
       fetchAllUsers(parsed.token);
-      // ⚠️  DISABLE: Comment baris fetchAIStatus di bawah jika tidak pakai AI
-      fetchAIStatus(parsed.token); // Ambil status AI saat pertama load
+
+      // Hanya AdminDev yang memanggil stats & AI status (Admin Gedung tidak memiliki akses dan akan 403)
+      if (!isBuildingAdmin(parsed.role)) {
+        fetchStats(parsed.token);
+        fetchAIStatus(parsed.token);
+      }
 
       // Fallback polling santai sebagai safety net (60 detik) karena Realtime WebSocket sudah aktif 0ms
       const interval = setInterval(() => {
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
         fetchRooms(parsed.token);
-        fetchStats(parsed.token);
+        if (!isBuildingAdmin(parsed.role)) {
+          fetchStats(parsed.token);
+        }
       }, 60000);
 
       // Refetch instan 1x saat tab admin kembali aktif (debounce 5 detik)
@@ -166,7 +193,9 @@ const WebTabLayout = () => {
           if (now - lastTabActiveFetch >= 5000) {
             lastTabActiveFetch = now;
             fetchRooms(parsed.token);
-            fetchStats(parsed.token);
+            if (!isBuildingAdmin(parsed.role)) {
+              fetchStats(parsed.token);
+            }
           }
         }
       };
@@ -257,6 +286,10 @@ const WebTabLayout = () => {
       {/* Sidebar - Chat List */}
       <AdminSidebar
         adminName={adminName}
+        userRole={userRole}
+        currentView={mainView}
+        onSelectView={setMainView}
+        onDeselectChat={() => setSelectedChat(null)}
         rooms={rooms}
         filteredRooms={filteredRooms}
         selectedChat={selectedChat}
@@ -352,18 +385,24 @@ const WebTabLayout = () => {
           <AdminProfile
             adminName={adminName}
             adminGmail={adminGmail}
-            onBack={() => setMainView('dashboard')}
+            onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')}
           />
         ) : mainView === 'role-access' ? (
-          <RoleAccessView onBack={() => setMainView('dashboard')} />
+          <RoleAccessView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
         ) : mainView === 'manajemen-akun' ? (
-          <ManajemenAkunView onBack={() => setMainView('dashboard')} />
+          <ManajemenAkunView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
         ) : mainView === 'relasi-mata-kuliah' ? (
-          <RelasiMataKuliahView onBack={() => setMainView('dashboard')} />
+          <RelasiMataKuliahView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
         ) : mainView === 'booking-management' ? (
-          <BookingManagementView onBack={() => setMainView('dashboard')} />
+          <BookingManagementView
+            onBack={() => {
+              if (!isBuildingAdmin(userRole)) {
+                setMainView('dashboard');
+              }
+            }}
+          />
         ) : mainView === 'import-jadwal' ? (
-          <ImportJadwalResmiView onBack={() => setMainView('dashboard')} />
+          <ImportJadwalResmiView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
         ) : (
           <AdminDashboardView
             adminName={adminName}

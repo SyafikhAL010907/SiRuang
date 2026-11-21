@@ -1,10 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, KeyRound, Network, CalendarCheck, FileSpreadsheet, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { isBuildingAdmin } from '@/lib/roles';
 
 export interface MobileManagementViewProps {
+  userRole?: string;
   onSelectRoleAccess: () => void;
   onSelectManajemenAkun: () => void;
   onSelectRelasiMataKuliah: () => void;
@@ -61,12 +63,30 @@ const MANAGEMENT_ITEMS = [
 ];
 
 export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
+  userRole,
   onSelectRoleAccess,
   onSelectManajemenAkun,
   onSelectRelasiMataKuliah,
   onSelectBookingManagement,
   onSelectImportJadwal,
 }) => {
+  const [storedRole] = useState<string>(() => {
+    if (userRole) return userRole;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) return JSON.parse(stored).role || '';
+      } catch {}
+    }
+    return '';
+  });
+
+  const buildingAdmin = isBuildingAdmin(userRole || storedRole);
+
+  const visibleItems = buildingAdmin
+    ? MANAGEMENT_ITEMS.filter((item) => item.key === 'booking-management')
+    : MANAGEMENT_ITEMS;
+
   const handlers: Record<string, (() => void) | undefined> = {
     'role-access': onSelectRoleAccess,
     'manajemen-akun': onSelectManajemenAkun,
@@ -92,16 +112,18 @@ export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
           </span>
         </div>
         <h3 className="text-lg font-black tracking-tight leading-tight">
-          Manajemen Sistem Admin
+          {buildingAdmin ? 'Pengajuan Booking Gedung' : 'Manajemen Sistem Admin'}
         </h3>
         <p className="text-[11px] text-white/70 font-medium mt-1 leading-relaxed">
-          Pilih salah satu menu manajemen di bawah untuk mengelola role hak akses, akun pengguna, atau relasi mata kuliah.
+          {buildingAdmin
+            ? 'Tinjau dan verifikasi pengajuan ruangan perkuliahan oleh dosen dan mahasiswa.'
+            : 'Pilih salah satu menu manajemen di bawah untuk mengelola role hak akses, akun pengguna, atau relasi mata kuliah.'}
         </p>
       </div>
 
-      {/* 3 Menu Cards */}
+      {/* Menu Cards */}
       <div className="flex flex-col gap-3">
-        {MANAGEMENT_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
             <button

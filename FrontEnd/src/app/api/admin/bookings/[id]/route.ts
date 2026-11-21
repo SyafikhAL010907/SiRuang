@@ -5,6 +5,7 @@ import { sendEmail, escapeHtml } from '@/lib/mailer';
 import { notifyBookingPushByUserId } from '@/lib/sendPush';
 import { generateCheckinToken } from '@/lib/checkinToken';
 import { getPublicAppUrl } from '@/lib/appUrl';
+import { isAnyAdmin } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export async function PUT(
 ) {
   try {
     const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'admin') {
+    if (!user || !isAnyAdmin(user.role)) {
       return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
     }
 
