@@ -184,10 +184,35 @@ const MobileLayout = () => {
               {chatView === 'LIST' ? (
                 <MobileChatListView
                   key="chat-list"
-                  onOpenRoom={() => {
+                  onOpenRoom={async (adm) => {
                     chat.setMessages([]);
-                    if (adminRoomId) chat.setRoomId(adminRoomId);
-                    setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
+                    if (adm) {
+                      setChatPartner({
+                        name: adm.full_name || 'Admin UNJ',
+                        role: adm.role === 'admin' ? 'Helpdesk SiRuang' : adm.role?.replace('_', ' ').toUpperCase(),
+                        avatar: adm.avatar_url || '/LogoSiRuangPolos.png',
+                      });
+                      const storedUser = localStorage.getItem('user');
+                      if (storedUser) {
+                        try {
+                          const { token, identifier, gmail } = JSON.parse(storedUser);
+                          const userKey = identifier || gmail;
+                          const res = await fetch(`/api/chat/user-room?identifier=${userKey}&admin_identifier=${adm.identifier}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.id) {
+                            chat.setRoomId(data.id);
+                            chat.fetchMessages(data.id, token, userKey);
+                          }
+                        } catch (err) {
+                          console.error('Gagal membuka room admin:', err);
+                        }
+                      }
+                    } else {
+                      if (adminRoomId) chat.setRoomId(adminRoomId);
+                      setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
+                    }
                     setChatView('ROOM');
                   }}
                   onOpenDosenRoom={(room) => {

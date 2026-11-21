@@ -41,6 +41,23 @@ export async function GET(request: Request) {
       avatar_url: a.avatar_url && a.avatar_url.trim() !== '' ? a.avatar_url : '/LogoSiRuangPolos.png',
     }));
 
+    // Fallback jika ada admin gedung yang belum ada di DB agar tetap ada 4 admin (Dev, SFD, LE, LS)
+    const knownRoles = new Set(mapped.map((m: any) => m.role));
+    const fallbacks = [
+      { id: 991, identifier: 'admin', username: 'Admin UNJ', full_name: 'Admin UNJ', role: 'admin', avatar_url: '/LogoSiRuangPolos.png' },
+      { id: 992, identifier: '980101000101', username: 'Admin SFD', full_name: 'Admin Gedung SFD', role: 'admin_sfd', avatar_url: '/LogoSiRuangPolos.png' },
+      { id: 993, identifier: '980101000201', username: 'Admin LE', full_name: 'Admin Gedung LE', role: 'admin_le', avatar_url: '/LogoSiRuangPolos.png' },
+      { id: 994, identifier: '980101000301', username: 'Admin LS', full_name: 'Admin Gedung LS', role: 'admin_ls', avatar_url: '/LogoSiRuangPolos.png' },
+    ];
+
+    if (!q) {
+      for (const fb of fallbacks) {
+        if (!knownRoles.has(fb.role) && !(fb.role === 'admin' && knownRoles.has('admin_dev'))) {
+          mapped.push(fb);
+        }
+      }
+    }
+
     return NextResponse.json(mapped);
   } catch (err: any) {
     return NextResponse.json({ error: 'Internal server error: ' + err.message }, { status: 500 });

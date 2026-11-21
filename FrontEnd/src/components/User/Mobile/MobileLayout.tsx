@@ -20,6 +20,7 @@ const MobileLayout = () => {
   // Navigation states
   const [activeTab, setActiveTab] = useState<'home' | 'denah' | 'chats' | 'profile'>('home');
   const [chatView, setChatView] = useState<'LIST' | 'ROOM'>('LIST');
+  const [activeAdminTarget, setActiveAdminTarget] = useState<any | null>(null);
 
   // Modal / UI states
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -170,7 +171,29 @@ const MobileLayout = () => {
               {chatView === 'LIST' ? (
                 <MobileChatListView
                   key="chat-list"
-                  onOpenRoom={() => setChatView('ROOM')}
+                  onOpenRoom={async (adm) => {
+                    if (adm) {
+                      setActiveAdminTarget(adm);
+                      const storedUser = localStorage.getItem('user');
+                      if (storedUser) {
+                        try {
+                          const { token, identifier, gmail } = JSON.parse(storedUser);
+                          const userKey = identifier || gmail;
+                          const res = await fetch(`/api/chat/user-room?identifier=${userKey}&admin_identifier=${adm.identifier}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.id) {
+                            chat.setRoomId(data.id);
+                            chat.fetchMessages(data.id, token, userKey);
+                          }
+                        } catch (err) {
+                          console.error('Gagal membuka room admin:', err);
+                        }
+                      }
+                    }
+                    setChatView('ROOM');
+                  }}
                 />
               ) : (
                 <MobileChatRoomView

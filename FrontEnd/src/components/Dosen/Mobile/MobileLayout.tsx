@@ -67,10 +67,35 @@ const MobileLayout = () => {
   }, [chat.roomId, adminRoomId]);
 
   // Handle buka Admin room
-  const handleOpenAdminRoom = () => {
+  const handleOpenAdminRoom = async (adm?: any) => {
     chat.setMessages([]);
-    setChatPartner({ name: 'Admin UNJ', role: 'Online' });
-    if (adminRoomId) chat.setRoomId(adminRoomId);
+    if (adm) {
+      setChatPartner({
+        name: adm.full_name || 'Admin UNJ',
+        role: adm.role === 'admin' ? 'Online' : adm.role?.replace('_', ' ').toUpperCase(),
+        avatar: adm.avatar_url,
+      });
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const { token, identifier, gmail } = JSON.parse(storedUser);
+          const userKey = identifier || gmail;
+          const res = await fetch(`/api/chat/user-room?identifier=${userKey}&admin_identifier=${adm.identifier}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json();
+          if (res.ok && data.id) {
+            chat.setRoomId(data.id);
+            chat.fetchMessages(data.id, token, userKey);
+          }
+        } catch (err) {
+          console.error('Gagal membuka room admin:', err);
+        }
+      }
+    } else {
+      setChatPartner({ name: 'Admin UNJ', role: 'Online' });
+      if (adminRoomId) chat.setRoomId(adminRoomId);
+    }
     setChatView('ROOM');
     setActiveTab('chats');
   };

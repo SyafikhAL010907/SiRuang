@@ -77,17 +77,60 @@ func GetRooms(c *gin.Context) {
 	hasNewCols := HasChatColumns()
 
 	if isBuildingAdmin(callerRole) {
-		// Admin gedung (sfd/le/ls): hanya melihat room yang ditujukan ke dirinya
-		// Room lama (participant_b NULL) TIDAK terlihat olehnya
+		// Admin gedung (sfd/le/ls): melihat room ke Admin Dev + room ke semua akun PJ (pj_kelas)
+		// Room admin gedung lain TIDAK terlihat olehnya
 		if !hasNewCols {
 			c.JSON(http.StatusOK, []models.ChatRoom{})
 			return
 		}
 
+		// 1. Ambil identifier Admin Dev
+		var adminDevID string
+		_ = database.DB.QueryRow("SELECT identifier FROM authentication WHERE role::text IN ('admin', 'admin_dev') ORDER BY id ASC LIMIT 1").Scan(&adminDevID)
+		if adminDevID != "" {
+			var existDevRoom bool
+			_ = database.DB.QueryRow(`
+				SELECT EXISTS(
+					SELECT 1 FROM chat_rooms 
+					WHERE (user_identifier = $1 AND participant_b_identifier = $2)
+					   OR (user_identifier = $2 AND participant_b_identifier = $1)
+				)`, callerID, adminDevID).Scan(&existDevRoom)
+			if !existDevRoom {
+				_, _ = database.DB.Exec(`
+					INSERT INTO chat_rooms (user_identifier, room_type, participant_b_identifier, participant_b_role)
+					VALUES ($1, 'user_to_admin', $2, 'admin')
+					ON CONFLICT DO NOTHING`, callerID, adminDevID)
+			}
+		}
+
+		// 2. Ambil semua akun dengan role 'pj_kelas' dan pastikan room ada
+		pjRows, errPj := database.DB.Query("SELECT identifier FROM authentication WHERE role = 'pj_kelas'")
+		if errPj == nil {
+			defer pjRows.Close()
+			for pjRows.Next() {
+				var pjID string
+				if err := pjRows.Scan(&pjID); err == nil && pjID != "" {
+					var existPjRoom bool
+					_ = database.DB.QueryRow(`
+						SELECT EXISTS(
+							SELECT 1 FROM chat_rooms 
+							WHERE user_identifier = $1 AND participant_b_identifier = $2
+						)`, pjID, callerID).Scan(&existPjRoom)
+					if !existPjRoom {
+						_, _ = database.DB.Exec(`
+							INSERT INTO chat_rooms (user_identifier, room_type, participant_b_identifier, participant_b_role)
+							VALUES ($1, 'user_to_admin', $2, $3)
+							ON CONFLICT DO NOTHING`, pjID, callerID, callerRole)
+					}
+				}
+			}
+		}
+
+		// 3. Query semua room yang melibatkan Admin Gedung ini (dan Admin Dev)
 		rows, err := database.DB.Query(`
 			SELECT 
 				cr.id, 
-				cr.user_identifier, 
+				CASE WHEN cr.user_identifier = $1 THEN cr.participant_b_identifier ELSE cr.user_identifier END as partner_identifier,
 				COALESCE(cr.room_type, 'user_to_admin'),
 				COALESCE(cr.participant_b_identifier, ''),
 				COALESCE(cr.participant_b_role, ''),
@@ -95,16 +138,17 @@ func GetRooms(c *gin.Context) {
 				COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) as updated_at, 
 				COALESCE(NULLIF(p.full_name, ''), a.username, cr.user_identifier),
 				(SELECT COUNT(*) FROM chat_messages WHERE room_id = cr.id AND is_read = 0 AND sender_identifier != $1) as unread_count,
-				EXISTS(SELECT 1 FROM active_sessions WHERE identifier = cr.user_identifier) as is_online,
+				EXISTS(SELECT 1 FROM active_sessions WHERE identifier = (CASE WHEN cr.user_identifier = $1 THEN cr.participant_b_identifier ELSE cr.user_identifier END)) as is_online,
 				cr.is_marked_unread,
 				COALESCE(p.avatar_url, '') as avatar_url,
 				COALESCE(a.role::text, 'user') as role
 			FROM chat_rooms cr
-			LEFT JOIN authentication a ON cr.user_identifier = a.identifier
+			LEFT JOIN authentication a ON (CASE WHEN cr.user_identifier = $1 THEN cr.participant_b_identifier ELSE cr.user_identifier END) = a.identifier
 			LEFT JOIN profiles p ON a.id = p.user_id
-			WHERE cr.participant_b_identifier = $1
+			WHERE cr.participant_b_identifier = $1 
+			   OR (cr.user_identifier = $1 AND cr.participant_b_identifier = $2)
 			ORDER BY COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) DESC, cr.id DESC`,
-			callerID,
+			callerID, adminDevID,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal ambil daftar room: " + err.Error()})
@@ -123,6 +167,16 @@ func GetRooms(c *gin.Context) {
 				log.Println("[ERROR] Scan room admin gedung:", err)
 				continue
 			}
+
+			// Filter: jangan tampilkan room admin gedung lain
+			if room.Role == "admin_sfd" || room.Role == "admin_le" || room.Role == "admin_ls" {
+				continue
+			}
+
+			if room.AvatarURL == "" && (room.Role == "admin" || room.Role == "admin_dev") {
+				room.AvatarURL = "/LogoSiRuangPolos.png"
+			}
+
 			rooms = append(rooms, room)
 		}
 		if rooms == nil {
@@ -873,6 +927,24 @@ func SearchAdmin(c *gin.Context) {
 
 	if results == nil {
 		results = []AdminResult{}
+	}
+
+	if q == "" {
+		knownRoles := make(map[string]bool)
+		for _, r := range results {
+			knownRoles[r.Role] = true
+		}
+		fallbacks := []AdminResult{
+			{ID: 991, Identifier: "admin", Username: "Admin UNJ", FullName: "Admin UNJ", Role: "admin", AvatarURL: "/LogoSiRuangPolos.png"},
+			{ID: 992, Identifier: "980101000101", Username: "Admin SFD", FullName: "Admin Gedung SFD", Role: "admin_sfd", AvatarURL: "/LogoSiRuangPolos.png"},
+			{ID: 993, Identifier: "980101000201", Username: "Admin LE", FullName: "Admin Gedung LE", Role: "admin_le", AvatarURL: "/LogoSiRuangPolos.png"},
+			{ID: 994, Identifier: "980101000301", Username: "Admin LS", FullName: "Admin Gedung LS", Role: "admin_ls", AvatarURL: "/LogoSiRuangPolos.png"},
+		}
+		for _, fb := range fallbacks {
+			if !knownRoles[fb.Role] && !(fb.Role == "admin" && knownRoles["admin_dev"]) {
+				results = append(results, fb)
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, results)

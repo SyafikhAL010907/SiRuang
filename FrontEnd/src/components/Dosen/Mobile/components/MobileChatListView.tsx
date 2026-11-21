@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Avatar from '@/components/Shared/Avatar';
 
 export interface MobileChatListViewProps {
-  onOpenRoom: () => void;
+  onOpenRoom: (admin?: any) => void;
   onOpenPjRoom?: (room: any) => void;
 }
 
@@ -16,6 +16,12 @@ export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
   onOpenPjRoom,
 }) => {
   const [pjRooms, setPjRooms] = useState<any[]>([]);
+  const [adminList, setAdminList] = useState<any[]>([
+    { identifier: 'admin', full_name: 'Admin UNJ', role: 'admin', desc: 'Layanan konsultasi ruangan & bantuan teknis' },
+    { identifier: '980101000101', full_name: 'Admin Gedung SFD', role: 'admin_sfd', desc: 'Helpdesk operasional Gedung SFD' },
+    { identifier: '980101000201', full_name: 'Admin Gedung LE', role: 'admin_le', desc: 'Helpdesk operasional Gedung LE' },
+    { identifier: '980101000301', full_name: 'Admin Gedung LS', role: 'admin_ls', desc: 'Helpdesk operasional Gedung LS' },
+  ]);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -32,7 +38,25 @@ export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
         }
       } catch {}
     };
+
+    const loadAdmins = async () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = storedUser ? JSON.parse(storedUser).token : '';
+        const res = await fetch('/api/chat/search-admin', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setAdminList(data);
+          }
+        }
+      } catch {}
+    };
+
     fetchRooms();
+    loadAdmins();
   }, []);
 
   return (
@@ -58,47 +82,64 @@ export const MobileChatListView: React.FC<MobileChatListViewProps> = ({
             Saluran Chat Aktif
           </h4>
 
-          {/* ROOM 1: ADMIN HELPDESK */}
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.98 }}
-            onClick={onOpenRoom}
-            className="w-full bg-white p-4.5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 group active:bg-slate-50 transition-all text-left cursor-pointer"
-          >
-            <div className="relative shrink-0">
-              <div className="w-13 h-13 bg-[#588CBC]/10 rounded-2xl flex items-center justify-center text-[#588CBC] ring-2 ring-slate-100/80">
-                <Image
-                  src="/LogoSiRuangPolos.png"
-                  alt="SiRuang"
-                  width={34}
-                  height={34}
-                  className="drop-shadow-xs object-contain"
-                />
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
-            </div>
+          {/* 4 ADMIN ROOMS */}
+          {adminList.map((adm) => {
+            const isDev = adm.role === 'admin' || adm.role === 'admin_dev';
+            let badgeText = 'Helpdesk';
+            let badgeBg = 'bg-[#588CBC]/15 text-[#183449]';
+            if (adm.role === 'admin_sfd') {
+              badgeText = 'Gedung SFD';
+              badgeBg = 'bg-emerald-100 text-emerald-800';
+            } else if (adm.role === 'admin_le') {
+              badgeText = 'Gedung LE';
+              badgeBg = 'bg-indigo-100 text-indigo-800';
+            } else if (adm.role === 'admin_ls') {
+              badgeText = 'Gedung LS';
+              badgeBg = 'bg-amber-100 text-amber-800';
+            }
 
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-center mb-0.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <h4 className="text-sm font-black text-slate-800 tracking-tight truncate">Admin UNJ</h4>
-                  <span className="px-1.5 py-0.2 bg-[#588CBC]/15 text-[#183449] text-[8px] font-black rounded uppercase">
-                    Helpdesk
-                  </span>
+            return (
+              <motion.button
+                key={adm.identifier || adm.id}
+                type="button"
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onOpenRoom(adm)}
+                className="w-full bg-white p-4.5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 group active:bg-slate-50 transition-all text-left cursor-pointer"
+              >
+                <div className="relative shrink-0">
+                  <div className="w-13 h-13 bg-[#588CBC]/10 rounded-2xl flex items-center justify-center text-[#588CBC] ring-2 ring-slate-100/80">
+                    <Avatar
+                      size="md"
+                      src={adm.avatar_url || '/LogoSiRuangPolos.png'}
+                      alt={adm.full_name}
+                    />
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
                 </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
-                  Online
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 font-medium truncate">
-                Layanan konsultasi ruangan &amp; bantuan teknis
-              </p>
-            </div>
 
-            <div className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#183449] group-hover:text-white transition-all shrink-0">
-              <ChevronRight size={18} />
-            </div>
-          </motion.button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-0.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h4 className="text-sm font-black text-slate-800 tracking-tight truncate">{adm.full_name}</h4>
+                      <span className={`px-1.5 py-0.2 text-[8px] font-black rounded uppercase ${badgeBg}`}>
+                        {badgeText}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
+                      Online
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-medium truncate">
+                    {adm.desc || (isDev ? 'Layanan konsultasi ruangan & bantuan teknis' : `Helpdesk operasional ${badgeText}`)}
+                  </p>
+                </div>
+
+                <div className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#183449] group-hover:text-white transition-all shrink-0">
+                  <ChevronRight size={18} />
+                </div>
+              </motion.button>
+            );
+          })}
 
           {/* PJ Kelas Rooms */}
           {pjRooms.length > 0 && (

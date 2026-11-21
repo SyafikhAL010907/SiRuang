@@ -74,6 +74,35 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   // State room chat yang dipilih (admin atau dosen)
   const [selectedRoom, setSelectedRoom] = useState<'admin' | 'dosen'>(activeRoom);
 
+  // Daftar 4 Admin default (Dev, SFD, LE, LS)
+  const [adminList, setAdminList] = useState<any[]>([
+    { identifier: 'admin', full_name: 'Admin UNJ', role: 'admin', avatar_url: '/LogoSiRuangPolos.png' },
+    { identifier: '980101000101', full_name: 'Admin Gedung SFD', role: 'admin_sfd', avatar_url: '/LogoSiRuangPolos.png' },
+    { identifier: '980101000201', full_name: 'Admin Gedung LE', role: 'admin_le', avatar_url: '/LogoSiRuangPolos.png' },
+    { identifier: '980101000301', full_name: 'Admin Gedung LS', role: 'admin_ls', avatar_url: '/LogoSiRuangPolos.png' },
+  ]);
+
+  useEffect(() => {
+    const loadAdmins = async () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = storedUser ? JSON.parse(storedUser).token : '';
+        const res = await fetch('/api/chat/search-admin', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setAdminList(data);
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat daftar admin:', err);
+      }
+    };
+    loadAdmins();
+  }, []);
+
   // Search Admin state
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
   const [adminSearchResults, setAdminSearchResults] = useState<any[]>([]);
@@ -398,71 +427,111 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                 </div>
               )}
 
-              {/* Room 1: Admin UNJ (Official Helpdesk) */}
-              <motion.div
-                initial={false}
-                onClick={handleSelectAdmin}
-                className={cn(
-                  "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
-                  isChatOpen && selectedRoom === 'admin'
-                    ? "bg-white shadow-md border border-[#588CBC]/20"
-                    : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
-                )}
-              >
-                {/* Garis vertikal di samping profil (sama persis AdminSidebar) */}
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
-                    isChatOpen && selectedRoom === 'admin' ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
-                  )}
-                />
+              {/* Daftar 4 Chat Room Admin (Dev, SFD, LE, LS) */}
+              {adminList
+                .filter((adm) => {
+                  if (!adminSearchQuery.trim()) return true;
+                  const q = adminSearchQuery.toLowerCase();
+                  return (
+                    (adm.full_name || '').toLowerCase().includes(q) ||
+                    (adm.username || '').toLowerCase().includes(q) ||
+                    (adm.role || '').toLowerCase().includes(q)
+                  );
+                })
+                .map((adm) => {
+                  const isDev = adm.role === 'admin' || adm.role === 'admin_dev';
+                  const isSelected =
+                    isChatOpen &&
+                    selectedRoom === 'admin' &&
+                    ((activeAdmin?.identifier && activeAdmin.identifier === adm.identifier) ||
+                      (!activeAdmin && isDev));
 
-                {/* Avatar bulat persis seperti Gambar 2 dengan status online dot */}
-                <div className="relative shrink-0 ml-1">
-                  <Avatar
-                    size="md"
-                    src={adminAvatar}
-                    alt={activeAdmin?.full_name || "Admin UNJ"}
-                    className="transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm animate-pulse" />
-                </div>
+                  let badgeLabel = 'OFFICIAL';
+                  let badgeBg = 'bg-[#183449]';
+                  if (adm.role === 'admin_sfd') {
+                    badgeLabel = 'GEDUNG SFD';
+                    badgeBg = 'bg-emerald-600';
+                  } else if (adm.role === 'admin_le') {
+                    badgeLabel = 'GEDUNG LE';
+                    badgeBg = 'bg-indigo-600';
+                  } else if (adm.role === 'admin_ls') {
+                    badgeLabel = 'GEDUNG LS';
+                    badgeBg = 'bg-amber-600';
+                  }
 
-                {/* Info & Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <h3 className={cn(
-                      "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
-                      isChatOpen && selectedRoom === 'admin' ? "text-[#183449]" : "text-slate-700"
-                    )}>
-                      <span>{activeAdmin?.full_name || 'Admin UNJ'}</span>
-                      <span className="px-1.5 py-0.2 bg-[#183449] text-[8px] font-black text-white rounded uppercase tracking-wider">
-                        {activeAdmin?.role ? activeAdmin.role.replace('_', ' ') : 'Official'}
-                      </span>
-                    </h3>
-                    {lastTimeText && (
-                      <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0 ml-1">
-                        {lastTimeText}
-                      </span>
-                    )}
-                  </div>
+                  return (
+                    <motion.div
+                      key={adm.identifier || adm.id}
+                      initial={false}
+                      onClick={() => {
+                        setSelectedRoom('admin');
+                        if (onSelectAdminTarget) {
+                          onSelectAdminTarget(adm);
+                        } else {
+                          onOpenChat();
+                        }
+                      }}
+                      className={cn(
+                        "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
+                        isSelected
+                          ? "bg-white shadow-md border border-[#588CBC]/20"
+                          : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
+                      )}
+                    >
+                      {/* Garis vertikal di samping profil */}
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
+                          isSelected ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
+                        )}
+                      />
 
-                  <div className="flex justify-between items-center">
-                    <div className={cn(
-                      "text-xs truncate pr-2 mt-0.5 flex-1 flex items-center",
-                      (unreadCount > 0) ? "text-slate-700 font-bold" : "text-slate-400 font-medium"
-                    )}>
-                      {renderLastMessagePreview(lastMessage)}
-                    </div>
-                    {unreadCount > 0 && (
-                      <div className="bg-[#588CBC] text-white text-[10px] font-bold h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full shadow-sm animate-bounce shrink-0">
-                        {unreadCount}
+                      {/* Avatar bulat */}
+                      <div className="relative shrink-0 ml-1">
+                        <Avatar
+                          size="md"
+                          src={adm.avatar_url || '/LogoSiRuangPolos.png'}
+                          alt={adm.full_name || adm.username}
+                          className="transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm animate-pulse" />
                       </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
+
+                      {/* Info & Text */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <h3 className={cn(
+                            "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
+                            isSelected ? "text-[#183449]" : "text-slate-700"
+                          )}>
+                            <span>{adm.full_name || adm.username}</span>
+                            <span className={cn(
+                              "px-1.5 py-0.2 text-[8px] font-black text-white rounded uppercase tracking-wider shrink-0",
+                              badgeBg
+                            )}>
+                              {badgeLabel}
+                            </span>
+                          </h3>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <div className={cn(
+                            "text-xs truncate pr-2 mt-0.5 flex-1 flex items-center",
+                            (isDev && unreadCount > 0) ? "text-slate-700 font-bold" : "text-slate-400 font-medium"
+                          )}>
+                            {isDev ? renderLastMessagePreview(lastMessage) : <span>Mulai konsultasi...</span>}
+                          </div>
+                          {isDev && unreadCount > 0 && (
+                            <div className="bg-[#588CBC] text-white text-[10px] font-bold h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full shadow-sm animate-bounce shrink-0">
+                              {unreadCount}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
 
               {/* Room Dosen Berelasi */}
               {dosenRooms && dosenRooms.length > 0 ? (
@@ -648,101 +717,132 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               </div>
             </button>
 
-            {/* Tombol Room 1: Admin UNJ */}
-            <button
-              type="button"
-              onClick={handleSelectAdmin}
-              onMouseEnter={(e) =>
-                showRailTip(e, {
-                  title: 'Admin UNJ (Official)',
-                  subtitle: lastMessage?.text?.startsWith('{')
-                    ? '📎 Lampiran File'
-                    : lastMessage?.text || 'Konsultasi perkuliahan & ruangan',
-                  badge: unreadCount > 0 ? `${unreadCount} pesan baru` : undefined,
-                })
-              }
-              onMouseLeave={hideRailTip}
-              onFocus={(e) =>
-                showRailTip(e, {
-                  title: 'Admin UNJ (Official)',
-                  subtitle: lastMessage?.text?.startsWith('{')
-                    ? '📎 Lampiran File'
-                    : lastMessage?.text || 'Konsultasi perkuliahan & ruangan',
-                  badge: unreadCount > 0 ? `${unreadCount} pesan baru` : undefined,
-                })
-              }
-              onBlur={hideRailTip}
-              aria-label="Buka Chat Admin"
-              tabIndex={isOpen ? -1 : 0}
-              className="relative w-full flex justify-center py-1 group outline-none"
-            >
-              {isChatOpen && selectedRoom === 'admin' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
-                />
-              )}
-              <div
-                className={cn(
-                  "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
-                  isChatOpen && selectedRoom === 'admin' && "ring-2 ring-[#588CBC]/70 ring-offset-2"
-                )}
-              >
-                <Avatar
-                  size="md"
-                  src={adminAvatar}
-                  alt="Admin UNJ"
-                />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm animate-pulse" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#588CBC] text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white shadow-sm animate-bounce">
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-            </button>
+            {/* Daftar Room Admin di Rail (Dev, SFD, LE, LS) */}
+            {adminList.map((adm) => {
+              const isDev = adm.role === 'admin' || adm.role === 'admin_dev';
+              const isSelected =
+                isChatOpen &&
+                selectedRoom === 'admin' &&
+                ((activeAdmin?.identifier && activeAdmin.identifier === adm.identifier) ||
+                  (!activeAdmin && isDev));
+              return (
+                <button
+                  key={adm.identifier || adm.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRoom('admin');
+                    if (onSelectAdminTarget) {
+                      onSelectAdminTarget(adm);
+                    } else {
+                      onOpenChat();
+                    }
+                  }}
+                  onMouseEnter={(e) =>
+                    showRailTip(e, {
+                      title: adm.full_name || 'Admin',
+                      subtitle: adm.role === 'admin' ? 'Admin UNJ (Official)' : adm.role?.replace('_', ' ').toUpperCase(),
+                      badge: isDev && unreadCount > 0 ? `${unreadCount} pesan baru` : undefined,
+                    })
+                  }
+                  onMouseLeave={hideRailTip}
+                  onFocus={(e) =>
+                    showRailTip(e, {
+                      title: adm.full_name || 'Admin',
+                      subtitle: adm.role === 'admin' ? 'Admin UNJ (Official)' : adm.role?.replace('_', ' ').toUpperCase(),
+                      badge: isDev && unreadCount > 0 ? `${unreadCount} pesan baru` : undefined,
+                    })
+                  }
+                  onBlur={hideRailTip}
+                  aria-label={`Buka Chat ${adm.full_name || 'Admin'}`}
+                  tabIndex={isOpen ? -1 : 0}
+                  className="relative w-full flex justify-center py-1 group outline-none"
+                >
+                  {isSelected && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
+                    />
+                  )}
+                  <div
+                    className={cn(
+                      "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
+                      isSelected && "ring-2 ring-[#588CBC]/70 ring-offset-2"
+                    )}
+                  >
+                    <Avatar
+                      size="md"
+                      src={adm.avatar_url || '/LogoSiRuangPolos.png'}
+                      alt={adm.full_name || 'Admin'}
+                    />
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm animate-pulse" />
+                    {isDev && unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#588CBC] text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white shadow-sm animate-bounce">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
 
-            {/* Tombol Room 2: Dosen (PP Botak) */}
-            <button
-              type="button"
-              onClick={handleSelectDosen}
-              onMouseEnter={(e) =>
-                showRailTip(e, {
-                  title: 'Dosen',
-                  subtitle: 'Konsultasi perkuliahan & bimbingan',
-                })
-              }
-              onMouseLeave={hideRailTip}
-              onFocus={(e) =>
-                showRailTip(e, {
-                  title: 'Dosen',
-                  subtitle: 'Konsultasi perkuliahan & bimbingan',
-                })
-              }
-              onBlur={hideRailTip}
-              aria-label="Buka Chat Dosen"
-              tabIndex={isOpen ? -1 : 0}
-              className="relative w-full flex justify-center py-1 group outline-none"
-            >
-              {isChatOpen && selectedRoom === 'dosen' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
-                />
-              )}
-              <div
-                className={cn(
-                  "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
-                  isChatOpen && selectedRoom === 'dosen' && "ring-2 ring-[#588CBC]/70 ring-offset-2"
-                )}
-              >
-                <Avatar
-                  size="md"
-                  alt="Dosen"
-                />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
-              </div>
-            </button>
+            {/* Tombol Room Dosen di rail (dynamic) */}
+            {dosenRooms.map((dRoom) => {
+              const isDosenSel = isChatOpen && selectedRoom === 'dosen' && selectedRoomId === dRoom.room_id;
+              return (
+                <button
+                  key={dRoom.room_id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRoom('dosen');
+                    if (onSelectDosenRoom) onSelectDosenRoom(dRoom);
+                    else onOpenChat();
+                  }}
+                  onMouseEnter={(e) =>
+                    showRailTip(e, {
+                      title: dRoom.dosen_name,
+                      subtitle: `${dRoom.mata_kuliah}${dRoom.kelas ? ` (${dRoom.kelas})` : ''}`,
+                      badge: dRoom.unread_count > 0 ? `${dRoom.unread_count} pesan baru` : undefined,
+                    })
+                  }
+                  onMouseLeave={hideRailTip}
+                  onFocus={(e) =>
+                    showRailTip(e, {
+                      title: dRoom.dosen_name,
+                      subtitle: `${dRoom.mata_kuliah}${dRoom.kelas ? ` (${dRoom.kelas})` : ''}`,
+                    })
+                  }
+                  onBlur={hideRailTip}
+                  aria-label={`Buka Chat ${dRoom.dosen_name}`}
+                  tabIndex={isOpen ? -1 : 0}
+                  className="relative w-full flex justify-center py-1 group outline-none"
+                >
+                  {isDosenSel && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
+                    />
+                  )}
+                  <div
+                    className={cn(
+                      "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
+                      isDosenSel && "ring-2 ring-[#588CBC]/70 ring-offset-2"
+                    )}
+                  >
+                    <Avatar
+                      size="md"
+                      src={dRoom.dosen_avatar}
+                      alt={dRoom.dosen_name}
+                    />
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                    {dRoom.unread_count > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white shadow-sm animate-bounce">
+                        {dRoom.unread_count}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* Tombol Push Notif & Logout di Rail */}
