@@ -87,7 +87,7 @@ func main() {
 
 		// Admin Routes
 		admin := protected.Group("/admin")
-		admin.Use(middleware.RoleMiddleware("admin"))
+		admin.Use(middleware.RoleMiddleware("admin", "admin_dev", "admin_sfd", "admin_le", "admin_ls"))
 		{
 			admin.GET("/dashboard", handlers.AdminDashboard)
 			admin.GET("/stats", handlers.GetStats)

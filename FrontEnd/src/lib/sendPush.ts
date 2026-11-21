@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabaseServer';
 import { shouldPush } from '@/lib/pushRules';
 import { sendOneNotification } from '@/lib/webPush';
+import { isAnyAdmin } from '@/lib/roles';
 
 /**
  * Bersihkan nama file dari path/URL, URL-encoding, dan prefix timestamp/random.
@@ -176,8 +177,8 @@ export async function notifyRecipient(
       return;
     }
 
-    // 4. Jika role penerima adalah 'admin', return (admin tidak pernah di-push)
-    if (recipientAuth.role === 'admin') {
+    // 4. Jika role penerima adalah admin, return (admin tidak pernah di-push)
+    if (isAnyAdmin(recipientAuth.role)) {
       return;
     }
 

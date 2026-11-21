@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { notifyBroadcast } from '@/lib/sendPush';
+import { ALL_ADMIN_ROLES } from '@/lib/roles';
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
       const { data: users } = await supabaseServer
         .from('authentication')
         .select('identifier')
-        .neq('role', 'admin');
+        .in('role', ['user', 'pj_kelas', 'dosen']);
       targetIdentifiers = (users || []).map((u) => u.identifier);
     }
 

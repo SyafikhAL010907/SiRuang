@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { isAnyAdmin, isAdminDev, isBuildingAdmin } from '@/lib/roles';
 
 interface DecodedToken {
   identifier: string;
@@ -34,7 +35,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    if (!decoded || decoded.role !== 'admin') {
+    if (!decoded || !isAnyAdmin(decoded.role)) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
@@ -78,7 +79,7 @@ export async function middleware(request: NextRequest) {
     if (redirectParam && redirectParam.startsWith('/')) {
       // Cek apakah redirect cocok dengan role pengguna
       if (
-        (redirectParam.startsWith('/admin') && decoded.role === 'admin') ||
+        (redirectParam.startsWith('/admin') && isAnyAdmin(decoded.role)) ||
         (redirectParam.startsWith('/dosen') && decoded.role === 'dosen') ||
         (redirectParam.startsWith('/pj') && decoded.role === 'pj_kelas') ||
         (redirectParam.startsWith('/user') && decoded.role === 'user')
@@ -87,9 +88,11 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    if (isAnyAdmin(decoded.role)) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+
     switch (decoded.role) {
-      case 'admin':
-        return NextResponse.redirect(new URL('/admin', request.url));
       case 'dosen':
         return NextResponse.redirect(new URL('/dosen', request.url));
       case 'pj_kelas':
@@ -113,4 +116,5 @@ export const config = {
     '/login',
   ],
 };
+
 

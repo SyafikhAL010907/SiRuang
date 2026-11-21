@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { supabaseServer } from './supabaseServer';
+import { UserRole } from './roles';
 
 const JWT_SECRET = (() => {
   const secret = process.env.JWT_SECRET;
@@ -14,7 +15,7 @@ const JWT_SECRET = (() => {
 export interface TokenPayload {
   identifier: string;
   identifier_type: string;
-  role: string;
+  role: UserRole | string;
   username: string;
 }
 

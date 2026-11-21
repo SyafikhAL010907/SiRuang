@@ -88,7 +88,7 @@ func HandleLogin(c *gin.Context) {
 	database.DB.QueryRow("SELECT COUNT(*) FROM active_sessions WHERE identifier = $1", user.Identifier).Scan(&activeCount)
 
 	switch user.Role {
-	case "admin":
+	case "admin", "admin_dev", "admin_sfd", "admin_le", "admin_ls":
 		database.DB.Exec("DELETE FROM active_sessions WHERE last_activity < $1", time.Now().Add(-24*time.Hour))
 		fmt.Printf("[DEBUG] Admin Login: %s, Active Sessions: %d, Max: %d\n", user.Identifier, activeCount, MaxAdminDevices)
 		if activeCount >= MaxAdminDevices {

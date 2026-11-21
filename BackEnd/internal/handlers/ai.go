@@ -273,7 +273,7 @@ func processRoom(roomID int, mlServiceURL string) {
 
 	if adminIdentifier == "" {
 		database.DB.QueryRow(
-			"SELECT identifier FROM authentication WHERE role = 'admin' LIMIT 1",
+			"SELECT identifier FROM authentication WHERE role IN ('admin', 'admin_dev') LIMIT 1",
 		).Scan(&adminIdentifier)
 	}
 	if adminIdentifier == "" {

@@ -1,6 +1,8 @@
+import { isAdminDev, isBuildingAdmin, isAnyAdmin } from './roles';
+
 /**
  * Helper navigasi route dashboard berdasarkan role user yang tersimpan di localStorage / state.
- * - Admin -> '/admin'
+ * - Admin / AdminDev / Admin Gedung -> '/admin' (Admin Gedung diarahkan ke tab 'booking-management' di dalam /admin)
  * - Dosen -> '/dosen'
  * - PJ Kelas -> '/pj'
  * - User/Mahasiswa -> '/user'
@@ -24,9 +26,11 @@ export function getRoleDashboardPath(role?: string): string {
     }
   }
 
+  if (isAnyAdmin(targetRole)) {
+    return '/admin';
+  }
+
   switch (targetRole) {
-    case 'admin':
-      return '/admin';
     case 'dosen':
       return '/dosen';
     case 'pj_kelas':
@@ -37,3 +41,4 @@ export function getRoleDashboardPath(role?: string): string {
       return '/login';
   }
 }
+

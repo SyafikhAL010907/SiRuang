@@ -24,9 +24,25 @@ import ImportJadwalResmiView from './components/ImportJadwalResmiView';
 import ChatHeader from './components/ChatHeader';
 import ChatMessagesArea from './components/ChatMessagesArea';
 import ChatInputArea from './components/ChatInputArea';
+import { isBuildingAdmin } from '@/lib/roles';
 
 const WebTabLayout = () => {
-  const [mainView, setMainView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'>('dashboard');
+  const [mainView, setMainView] = useState<
+    'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
+  >(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (isBuildingAdmin(parsed.role)) {
+            return 'booking-management';
+          }
+        }
+      } catch {}
+    }
+    return 'dashboard';
+  });
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);

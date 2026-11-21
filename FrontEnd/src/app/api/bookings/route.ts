@@ -6,6 +6,7 @@ import { sendEmail, escapeHtml } from '@/lib/mailer';
 import { getPublicAppUrl } from '@/lib/appUrl';
 import { notifyBookingPush } from '@/lib/sendPush';
 import { evaluateBookingStates } from '@/lib/bookingEvaluator';
+import { isAnyAdmin } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Data pemohon tidak ditemukan' }, { status: 404 });
     }
 
-    if (dbUser.role !== 'pj_kelas' && dbUser.role !== 'admin') {
+    if (dbUser.role !== 'pj_kelas' && !isAnyAdmin(dbUser.role)) {
       return NextResponse.json(
         { error: 'Akses ditolak: Hanya akun PJ Kelas yang berhak mengajukan peminjaman ruangan.' },
         { status: 403 }

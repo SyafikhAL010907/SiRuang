@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { generateToken } from '@/lib/authHelper';
+import { isAnyAdmin } from '@/lib/roles';
 
 const MAX_ADMIN_DEVICES = 4;
 
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
 
     const activeCount = count || 0;
 
-    if (user.role === 'admin') {
+    if (isAnyAdmin(user.role)) {
       // Hapus sesi admin yang lebih tua dari 24 jam
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       await supabaseServer.from('active_sessions').delete().lt('last_activity', yesterday);

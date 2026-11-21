@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
+import { isAdminDev } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
       .eq('identifier', user.identifier)
       .maybeSingle();
 
-    if (!dbUser || dbUser.role !== 'admin') {
+    if (!dbUser || !isAdminDev(dbUser.role)) {
       return NextResponse.json({ error: 'Akses ditolak: Hanya Admin yang berwenang.' }, { status: 403 });
     }
 
