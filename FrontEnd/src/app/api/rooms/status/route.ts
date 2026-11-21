@@ -19,7 +19,14 @@ export async function GET(request: NextRequest) {
     await evaluateBookingStates();
 
     const { searchParams } = new URL(request.url);
-    const gedung = (searchParams.get('gedung') || 'SFD').toUpperCase();
+    const rawGedung = searchParams.get('gedung');
+    if (!rawGedung) {
+      return NextResponse.json(
+        { error: 'Parameter query gedung wajib disertakan (contoh: ?gedung=SFD, ?gedung=LE, ?gedung=LS)' },
+        { status: 400 }
+      );
+    }
+    const gedung = rawGedung.trim().toUpperCase();
     const lantai = parseInt(searchParams.get('lantai') || '8', 10);
     const tanggal = searchParams.get('tanggal') || new Date().toISOString().split('T')[0];
     const jam = searchParams.get('jam') || 'all';

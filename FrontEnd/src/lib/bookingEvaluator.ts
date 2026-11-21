@@ -4,9 +4,13 @@ import { notifyBookingPushByUserId } from './sendPush';
 
 /**
  * Lazy evaluator untuk status booking:
- * 1. Booking berstatus 'menunggu_checkin' atau 'dijadwalkan_admin' yang melewati batas 30 menit
+ * 1. Booking berstatus 'berlangsung' yang telah melewati jam_selesai diubah menjadi 'selesai'.
+ * 2. Booking berstatus 'dijadwalkan', 'dijadwalkan_admin', atau 'menunggu_checkin' yang melewati batas 30 menit
  *    dari jam_mulai tanpa check-in diubah menjadi 'hangus' (E10).
- * 2. Booking berstatus 'berlangsung' yang telah melewati jam_selesai diubah menjadi 'selesai'.
+ * 3. Booking berstatus 'menunggu_approval' atau 'menunggu_dosen' yang telah melewati batas waktu
+ *    (tanggal lampau atau hari ini lewat jam_mulai) diubah menjadi 'hangus' TANPA kirim email.
+ * 4. Status terminal ('dibatalkan', 'dibatalkan_prioritas', 'kedaluwarsa', 'selesai', 'ditolak', 'hangus')
+ *    tidak di-evaluate ulang.
  */
 export async function evaluateBookingStates(): Promise<void> {
   try {
@@ -24,8 +28,8 @@ export async function evaluateBookingStates(): Promise<void> {
       .eq('status', 'berlangsung')
       .or(`tanggal.lt.${todayDate},and(tanggal.eq.${todayDate},jam_selesai.lt.${currentTimeStr})`);
 
-    // 2. Hangus: ambil booking aktif yang belum checkin
-    const { data: pendingBookings } = await supabaseServer
+    // 2. Hangus karena telat check-in: booking berstatus 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin'
+    const { data: pendingCheckins } = await supabaseServer
       .from('bookings')
       .select(`
         id,
@@ -36,14 +40,14 @@ export async function evaluateBookingStates(): Promise<void> {
         pemohon_id,
         rooms:room_id (kode, nama)
       `)
-      .in('status', ['dijadwalkan_admin', 'menunggu_checkin'])
+      .in('status', ['dijadwalkan_admin', 'dijadwalkan', 'menunggu_checkin'])
       .lte('tanggal', todayDate);
 
-    if (pendingBookings && pendingBookings.length > 0) {
-      const hangusIds: string[] = [];
-      const hangusItems: typeof pendingBookings = [];
+    if (pendingCheckins && pendingCheckins.length > 0) {
+      const hangusCheckinIds: string[] = [];
+      const hangusCheckinItems: typeof pendingCheckins = [];
 
-      for (const b of pendingBookings) {
+      for (const b of pendingCheckins) {
         let isExpired = false;
         if (b.tanggal < todayDate) {
           isExpired = true;
@@ -57,19 +61,19 @@ export async function evaluateBookingStates(): Promise<void> {
         }
 
         if (isExpired) {
-          hangusIds.push(b.id);
-          hangusItems.push(b);
+          hangusCheckinIds.push(b.id);
+          hangusCheckinItems.push(b);
         }
       }
 
-      if (hangusIds.length > 0) {
+      if (hangusCheckinIds.length > 0) {
         await supabaseServer
           .from('bookings')
           .update({ status: 'hangus', updated_at: now.toISOString() })
-          .in('id', hangusIds);
+          .in('id', hangusCheckinIds);
 
         // Kirim email E10 & push notification fail-soft
-        for (const item of hangusItems) {
+        for (const item of hangusCheckinItems) {
           try {
             const { data: pjProfile } = await supabaseServer
               .from('v_user_profiles')
@@ -114,9 +118,42 @@ export async function evaluateBookingStates(): Promise<void> {
         }
       }
     }
+
+    // 3. Hangus lazy untuk pengajuan 'menunggu_approval' atau 'menunggu_dosen' yang lewat waktu (TANPA email)
+    const { data: pendingApprovals } = await supabaseServer
+      .from('bookings')
+      .select('id, tanggal, jam_mulai')
+      .in('status', ['menunggu_approval', 'menunggu_dosen'])
+      .lte('tanggal', todayDate);
+
+    if (pendingApprovals && pendingApprovals.length > 0) {
+      const hangusApprovalIds: string[] = [];
+
+      for (const b of pendingApprovals) {
+        let isExpired = false;
+        if (b.tanggal < todayDate) {
+          isExpired = true;
+        } else {
+          const [hStr, mStr] = b.jam_mulai.split(':');
+          const startMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+          if (currentMinutesTotal > startMin) {
+            isExpired = true;
+          }
+        }
+
+        if (isExpired) {
+          hangusApprovalIds.push(b.id);
+        }
+      }
+
+      if (hangusApprovalIds.length > 0) {
+        await supabaseServer
+          .from('bookings')
+          .update({ status: 'hangus', updated_at: now.toISOString() })
+          .in('id', hangusApprovalIds);
+      }
+    }
   } catch (err) {
     console.warn('Evaluasi status booking dilewati:', err);
   }
 }
-
-

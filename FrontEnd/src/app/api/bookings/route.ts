@@ -7,6 +7,7 @@ import { getPublicAppUrl } from '@/lib/appUrl';
 import { notifyBookingPush } from '@/lib/sendPush';
 import { evaluateBookingStates } from '@/lib/bookingEvaluator';
 import { isAnyAdmin } from '@/lib/roles';
+import { getAdminGedungForBuilding } from '@/lib/bookingApprovalHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
           rooms:room_id (id, kode, nama, gedung, lantai, bookable)
         `)
         .or(`pemohon_id.eq.${dbUser.user_id},nim_pemohon.eq.${dbUser.identifier}`)
-        .in('status', ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
+        .in('status', ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
         .order('created_at', { ascending: false });
 
       if (myBookings && myBookings.length > 0) {
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
         *,
         rooms:room_id (id, kode, nama, gedung, lantai, bookable)
       `)
-      .in('status', ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
+      .in('status', ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
       .order('created_at', { ascending: false });
     if (bErr) {
       return NextResponse.json({ error: bErr.message }, { status: 500 });
@@ -206,7 +207,7 @@ export async function POST(request: Request) {
     // Cek apakah ruangan bookable
     const { data: roomTarget, error: rErr } = await supabaseServer
       .from('rooms')
-      .select('id, kode, nama, bookable, lantai')
+      .select('id, kode, nama, bookable, lantai, gedung')
       .eq('id', roomId)
       .maybeSingle();
 
@@ -237,15 +238,15 @@ export async function POST(request: Request) {
       .select('id, mata_kuliah, kelas, nama_pemohon, jam_mulai, jam_selesai, status')
       .eq('room_id', roomId)
       .eq('tanggal', tanggal)
-      .in('status', ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
+      .in('status', ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
       .lt('jam_mulai', jamSelesai)
       .gt('jam_selesai', jamMulai);
 
     if (roomConflicts && roomConflicts.length > 0) {
       const c = roomConflicts[0];
       const statusLabel =
-        c.status === 'menunggu_dosen'
-          ? 'sedang dalam antrean pengajuan verifikasi dosen'
+        c.status === 'menunggu_approval' || c.status === 'menunggu_dosen'
+          ? 'sedang dalam antrean pengajuan persetujuan'
           : c.status === 'berlangsung'
           ? 'sedang digunakan secara aktif'
           : 'telah disetujui / dibooking';
@@ -272,7 +273,7 @@ export async function POST(request: Request) {
       `)
       .or(`pemohon_id.eq.${dbUser.user_id},nim_pemohon.eq.${dbUser.identifier}`)
       .eq('tanggal', tanggal)
-      .in('status', ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
+      .in('status', ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'])
       .lt('jam_mulai', jamSelesai)
       .gt('jam_selesai', jamMulai);
 
@@ -305,12 +306,30 @@ export async function POST(request: Request) {
       officialScheduleId = overlapSchedules[0].id;
     }
 
-    // Buat token persetujuan dosen
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 hari
+    // Buat token persetujuan dosen dan admin gedung (7 hari)
+    const rawTokenDosen = crypto.randomBytes(32).toString('hex');
+    const dosenTokenHash = crypto.createHash('sha256').update(rawTokenDosen).digest('hex');
+    const dosenTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Insert ke tabel bookings
+    const rawTokenAdmin = crypto.randomBytes(32).toString('hex');
+    const adminTokenHash = crypto.createHash('sha256').update(rawTokenAdmin).digest('hex');
+    const adminTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Lookup admin gedung mapping berdasarkan kode gedung ruangan
+    let adminGedungInfo: import('@/lib/bookingApprovalHelper').AdminGedungInfo | null = null;
+    try {
+      if (roomTarget.gedung) {
+        adminGedungInfo = await getAdminGedungForBuilding(roomTarget.gedung);
+      }
+    } catch (agErr) {
+      console.warn('[bookings/POST] Gagal lookup admin gedung:', agErr);
+    }
+
+    if (!adminGedungInfo || !adminGedungInfo.email) {
+      console.warn(`[bookings/POST] Peringatan: Tidak ditemukan admin gedung atau email untuk gedung "${roomTarget.gedung}". Booking tetap dibuat.`);
+    }
+
+    // Insert ke tabel bookings dengan status baru menunggu_approval
     const { data: newBooking, error: insErr } = await supabaseServer
       .from('bookings')
       .insert({
@@ -332,9 +351,14 @@ export async function POST(request: Request) {
         jam_selesai: jamSelesai,
         is_conditional: isConditional,
         official_schedule_id: officialScheduleId,
-        status: 'menunggu_dosen',
-        dosen_token_hash: tokenHash,
-        dosen_token_expires: tokenExpires,
+        status: 'menunggu_approval',
+        approval_dosen: 'pending',
+        approval_admin_gedung: 'pending',
+        dosen_token_hash: dosenTokenHash,
+        dosen_token_expires: dosenTokenExpires,
+        admin_gedung_id: adminGedungInfo?.adminId || null,
+        admin_gedung_token_hash: adminTokenHash,
+        admin_gedung_token_expires: adminTokenExpires,
       })
       .select(`
         *,
@@ -383,47 +407,41 @@ export async function POST(request: Request) {
       }
     }
 
-    // Kirim notifikasi email ke Dosen jika target email dosen tersedia di profilnya
-    console.log(`[bookings/POST] Dosen email check: id=${dosenUser.user_id} email="${targetDosenEmail}" SMTP_HOST="${process.env.SMTP_HOST ? 'SET' : 'MISSING'}"`);
-    if (targetDosenEmail) {
-      const appUrl = getPublicAppUrl(request);
-      const accUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=setuju`;
-      const tolakUrl = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawToken}&action=tolak`;
-      const reviewUrl = `${appUrl}/dosen/review/${newBooking.id}?token=${rawToken}`;
+    const appUrl = getPublicAppUrl(request);
+    const emailTasks: Promise<any>[] = [];
 
-      try {
-        const mailResult = await sendEmail({
+    // Email E1 untuk Dosen Pengampu
+    if (targetDosenEmail) {
+      const accUrlDosen = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawTokenDosen}&action=setuju`;
+      const tolakUrlDosen = `${appUrl}/api/bookings/${newBooking.id}/quick-action?token=${rawTokenDosen}&action=tolak`;
+      const reviewUrlDosen = `${appUrl}/dosen/review/${newBooking.id}?token=${rawTokenDosen}`;
+
+      emailTasks.push(
+        sendEmail({
           to: targetDosenEmail,
           subject: `[SiRuang] Pengajuan Peminjaman Ruangan: ${roomTarget.kode} (${mataKuliah})`,
           template: 'E1',
           relatedId: newBooking.id,
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-              
-              <!-- Header Brand & Logo -->
               <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
                 <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
-                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; ${escapeHtml(roomTarget.gedung || 'Gedung')}</h1>
                 <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Sistem Verifikasi &amp; Peminjaman Ruangan Perkuliahan</p>
               </div>
-
               <div style="display: inline-block; background-color: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
                 Permohonan Masuk
               </div>
-
               <h2 style="color: #183449; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Verifikasi Pengajuan Ruangan Kelas</h2>
               <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo Bapak/Ibu <strong>${escapeHtml(dosenUser.full_name || dosenUser.username)}</strong>,</p>
-              
               <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
                 PJ Kelas <strong>${escapeHtml(dbUser.full_name || dbUser.username)}</strong> (NIM: ${escapeHtml(dbUser.identifier)}, Kelas: ${escapeHtml(kelas)}) mengajukan permohonan ruangan untuk perkuliahan dengan rincian berikut:
               </p>
-
-              <!-- Card Detail Pengajuan -->
               <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #588CBC; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                   <tr>
                     <td style="padding: 5px 0; color: #64748b; width: 140px;">Ruangan:</td>
-                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomTarget.kode)} - ${escapeHtml(roomTarget.nama)} (Lantai ${roomTarget.lantai || 8})</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomTarget.kode)} - ${escapeHtml(roomTarget.nama)} (Lantai ${roomTarget.lantai || '-'})</td>
                   </tr>
                   <tr>
                     <td style="padding: 5px 0; color: #64748b;">Mata Kuliah:</td>
@@ -440,49 +458,108 @@ export async function POST(request: Request) {
                   </tr>` : ''}
                 </table>
               </div>
-
               <p style="color: #334155; font-size: 14px; font-weight: 600; margin: 20px 0 14px 0; text-align: center;">
-                Tanggapi langsung dengan memilih aksi cepat di bawah ini:
+                Tanggapi langsung dengan memilih aksi di bawah ini:
               </p>
-
-              <!-- Tombol Aksi Desain Modern & Simetris: ACC & Tolak -->
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="table-layout: fixed; width: 100%; max-width: 440px; margin: 22px auto; border-collapse: separate; border-spacing: 12px 0;">
                 <tr>
                   <td align="center" valign="middle" style="width: 50%; padding: 0;">
-                    <a href="${accUrl}" style="display: block; box-sizing: border-box; width: 100%; background: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32); white-space: nowrap;">
+                    <a href="${accUrlDosen}" style="display: block; box-sizing: border-box; width: 100%; background: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32); white-space: nowrap;">
                       <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10004;&#65039;</span><span style="vertical-align: middle;">Setujui (ACC)</span>
                     </a>
                   </td>
                   <td align="center" valign="middle" style="width: 50%; padding: 0;">
-                    <a href="${tolakUrl}" style="display: block; box-sizing: border-box; width: 100%; background: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28); white-space: nowrap;">
+                    <a href="${tolakUrlDosen}" style="display: block; box-sizing: border-box; width: 100%; background: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28); white-space: nowrap;">
                       <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10006;&#65039;</span><span style="vertical-align: middle;">Tolak Pengajuan</span>
                     </a>
                   </td>
                 </tr>
               </table>
-
               <p style="text-align: center; margin: 12px 0 0 0;">
-                <a href="${reviewUrl}" style="color: #588CBC; font-size: 12px; text-decoration: underline; font-weight: 600;">
+                <a href="${reviewUrlDosen}" style="color: #588CBC; font-size: 12px; text-decoration: underline; font-weight: 600;">
                   atau buka tinjauan lengkap di dashboard web SiRuang
                 </a>
               </p>
-
-              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
-              <div style="background-color: #f8fafc; border-radius: 10px; padding: 12px 16px; border: 1px dashed #cbd5e1;">
-                <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.5;">
-                  &bull; <strong>1-Klik Langsung Selesai:</strong> Menekan tombol Setujui (ACC) langsung mengubah status ruangan menjadi <strong>KUNING (Disetujui Dosen)</strong> tanpa perlu login ke web.<br />
-                  &bull; <strong>Notifikasi Otomatis:</strong> Begitu di-ACC, email presensi &amp; check-in akan otomatis terkirim ke PJ Kelas pemohon.
-                </p>
-              </div>
             </div>
           `,
-        });
-        console.log(`[bookings/POST] Email E1 result: success=${mailResult.success} error="${mailResult.error || '-'}"`);
-      } catch (mailErr) {
-        console.warn('Gagal mengirim email ke dosen:', mailErr);
-      }
+        })
+      );
     } else {
-      console.warn(`[bookings/POST] Email dosen TIDAK dikirim — dosenUser.email kosong/null. dosenId=${dosenUser.user_id}`);
+      console.warn(`[bookings/POST] Email dosen TIDAK dikirim — email kosong. dosenId=${dosenUser.user_id}`);
+    }
+
+    // Email E1-Admin untuk Admin Gedung
+    if (adminGedungInfo?.email) {
+      const accUrlAdmin = `${appUrl}/api/bookings/${newBooking.id}/quick-action-admin?token=${rawTokenAdmin}&action=setuju`;
+      const tolakUrlAdmin = `${appUrl}/api/bookings/${newBooking.id}/quick-action-admin?token=${rawTokenAdmin}&action=tolak`;
+
+      emailTasks.push(
+        sendEmail({
+          to: adminGedungInfo.email,
+          subject: `[SiRuang] Pengajuan Ruangan Butuh Persetujuan Admin Gedung: ${roomTarget.kode} (${mataKuliah})`,
+          template: 'E1-Admin',
+          relatedId: newBooking.id,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
+                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Admin Gedung ${escapeHtml(roomTarget.gedung || '')}</h1>
+                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Pemberitahuan Permohonan Peminjaman Ruangan</p>
+              </div>
+              <div style="display: inline-block; background-color: #e0e7ff; color: #3730a3; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
+                Approval Admin Gedung
+              </div>
+              <h2 style="color: #183449; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Persetujuan Peminjaman Ruangan</h2>
+              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(adminGedungInfo.fullName || 'Admin Gedung')}</strong>,</p>
+              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                PJ Kelas <strong>${escapeHtml(dbUser.full_name || dbUser.username)}</strong> (NIM: ${escapeHtml(dbUser.identifier)}, Kelas: ${escapeHtml(kelas)}) mengajukan permohonan ruangan di gedung Anda:
+              </p>
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #4338ca; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b; width: 140px;">Ruangan:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomTarget.kode)} - ${escapeHtml(roomTarget.nama)} (Lantai ${roomTarget.lantai || '-'})</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">Mata Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(mataKuliah)} (${sks} SKS)</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">Dosen Pengampu:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(dosenUser.full_name || dosenUser.username || namaDosen)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b;">Waktu Kuliah:</td>
+                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${dayName.toUpperCase()}, ${tanggal} &bull; ${jamMulai.slice(0, 5)} - ${jamSelesai.slice(0, 5)} WIB</td>
+                  </tr>
+                </table>
+              </div>
+              <p style="color: #334155; font-size: 14px; font-weight: 600; margin: 20px 0 14px 0; text-align: center;">
+                Tanggapi langsung dengan memilih aksi di bawah ini:
+              </p>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="table-layout: fixed; width: 100%; max-width: 440px; margin: 22px auto; border-collapse: separate; border-spacing: 12px 0;">
+                <tr>
+                  <td align="center" valign="middle" style="width: 50%; padding: 0;">
+                    <a href="${accUrlAdmin}" style="display: block; box-sizing: border-box; width: 100%; background: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.32); white-space: nowrap;">
+                      <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10004;&#65039;</span><span style="vertical-align: middle;">Setujui (ACC)</span>
+                    </a>
+                  </td>
+                  <td align="center" valign="middle" style="width: 50%; padding: 0;">
+                    <a href="${tolakUrlAdmin}" style="display: block; box-sizing: border-box; width: 100%; background: #dc2626; background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 13px 14px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 13px; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28); white-space: nowrap;">
+                      <span style="font-size: 14px; vertical-align: middle; margin-right: 6px;">&#10006;&#65039;</span><span style="vertical-align: middle;">Tolak Pengajuan</span>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          `,
+        })
+      );
+    }
+
+    // Eksekusi paralel pengiriman email
+    if (emailTasks.length > 0) {
+      await Promise.allSettled(emailTasks);
     }
 
     // Kirim push notification ke PJ Pemohon dan Dosen Pengampu (fail-soft)

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { sendEmail, escapeHtml } from '@/lib/mailer';
-import { notifyBookingPush } from '@/lib/sendPush';
+import { escapeHtml } from '@/lib/mailer';
 import { getPublicAppUrl } from '@/lib/appUrl';
-import { generateCheckinToken } from '@/lib/checkinToken';
+import { notifyPjCheckin, notifyPjRejection } from '@/lib/bookingApprovalHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,21 +20,23 @@ function renderHtmlCard({
   details,
   badgeText,
   form,
+  httpStatus = 200,
 }: {
   title: string;
   isSuccess: boolean;
-  variant?: 'success' | 'error' | 'expired' | 'warning';
+  variant?: 'success' | 'error' | 'expired' | 'warning' | 'conflict';
   heading: string;
   message: string;
   details?: { label: string; value: string }[];
   badgeText?: string;
   form?: string;
+  httpStatus?: number;
 }) {
-  const isExpired = variant === 'expired';
-  const iconColor = isExpired ? '#475569' : isSuccess ? '#16a34a' : '#dc2626';
-  const iconBg = isExpired ? '#f1f5f9' : isSuccess ? '#dcfce7' : '#fee2e2';
+  const isExpired = variant === 'expired' || variant === 'conflict';
+  const iconColor = isExpired ? '#e11d48' : isSuccess ? '#16a34a' : '#dc2626';
+  const iconBg = isExpired ? '#ffe4e6' : isSuccess ? '#dcfce7' : '#fee2e2';
   const iconSvg = isExpired
-    ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
+    ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`
     : isSuccess
     ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
     : `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
@@ -92,13 +93,13 @@ function renderHtmlCard({
         ${detailsHtml}
         ${form ? form : '<button class="btn-close" onclick="window.close();">Tutup Jendela Ini</button>'}
         <div class="footer">
-          Sistem Informasi Peminjaman Ruangan &bull; SiRuang SFD
+          Sistem Informasi Peminjaman Ruangan &bull; SiRuang
         </div>
       </div>
     </body>
     </html>`,
     {
-      status: 200,
+      status: httpStatus,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     }
   );
@@ -121,6 +122,7 @@ export async function GET(
         isSuccess: false,
         heading: 'Tautan Tidak Valid',
         message: 'ID permohonan atau token verifikasi tidak ditemukan dalam tautan.',
+        httpStatus: 400,
       });
     }
 
@@ -142,51 +144,60 @@ export async function GET(
         isSuccess: false,
         heading: 'Pengajuan Tidak Ditemukan',
         message: 'Data permohonan peminjaman ruangan tidak ditemukan di sistem SiRuang.',
+        httpStatus: 404,
       });
     }
 
-    // Validasi token hash
+    // Validasi token hash dosen
     if (booking.dosen_token_hash !== tokenHash) {
       return renderHtmlCard({
         title: 'Token Tidak Valid',
         isSuccess: false,
         heading: 'Verifikasi Gagal',
         message: 'Token keamanan dari tautan email ini tidak cocok atau sudah tidak berlaku.',
+        httpStatus: 403,
       });
     }
 
-    // Jika sudah pernah diproses sebelumnya (Tautan sudah kedaluwarsa / aksi sudah selesai)
-    if (booking.status !== 'menunggu_dosen') {
-      const isAcc = booking.status === 'disetujui_dosen' || booking.status === 'dijadwalkan_admin' || booking.status === 'menunggu_checkin' || booking.status === 'berlangsung';
-      const statusLabel = isAcc
-        ? 'TELAH DISETUJUI (ACC)'
-        : booking.status === 'ditolak_dosen'
-        ? 'TELAH DITOLAK'
-        : booking.status.toUpperCase();
+    // 1. Cek jika pengajuan sudah berstatus final / ditolak (409 Conflict)
+    const isRejected = ['ditolak', 'ditolak_dosen', 'ditolak_admin', 'dibatalkan', 'dibatalkan_prioritas', 'hangus', 'kedaluwarsa'].includes(booking.status);
+    if (isRejected) {
+      const penolak = booking.ditolak_oleh === 'admin_gedung' ? 'Admin Gedung' : 'Dosen Pengampu';
+      const alasan = booking.alasan_tolak_dosen || booking.alasan_tolak_admin_gedung || booking.alasan_tolak || 'Tidak disebutkan';
+      return renderHtmlCard({
+        title: 'Pengajuan Sudah Ditolak',
+        isSuccess: false,
+        variant: 'conflict',
+        badgeText: `STATUS: ${booking.status.toUpperCase()}`,
+        heading: 'Pengajuan Telah Ditolak / Tidak Aktif',
+        message: `Pengajuan peminjaman ruangan <strong>${escapeHtml(booking.rooms?.kode || '')}</strong> telah dibatalkan atau ditolak sebelumnya oleh <strong>${escapeHtml(penolak)}</strong>.<br /><br /><strong>Alasan:</strong> <em>"${escapeHtml(alasan)}"</em>`,
+        httpStatus: 409,
+      });
+    }
 
-      const respondedTime = booking.dosen_responded_at
-        ? new Date(booking.dosen_responded_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }) + ' WIB'
+    // 2. Cek jika dosen sudah pernah merespons
+    if (booking.approval_dosen === 'disetujui' || booking.status === 'disetujui_dosen' || booking.status === 'dijadwalkan' || booking.status === 'dijadwalkan_admin' || booking.status === 'menunggu_checkin' || booking.status === 'berlangsung' || booking.status === 'selesai') {
+      const respondedTime = booking.dosen_responded_at_v2 || booking.dosen_responded_at
+        ? new Date(booking.dosen_responded_at_v2 || booking.dosen_responded_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }) + ' WIB'
         : 'Sebelumnya';
 
       return renderHtmlCard({
-        title: 'Tautan Tidak Aktif Lagi',
-        isSuccess: false,
-        variant: 'expired',
-        badgeText: `STATUS: ${statusLabel}`,
-        heading: 'Tindakan Sudah Selesai Dilakukan',
-        message: `Pengajuan peminjaman untuk ruangan <strong>${escapeHtml(booking.rooms?.kode || '')}</strong> sudah pernah Anda tanggapi pada <strong>${respondedTime}</strong>.<br /><br />
-        <span style="color: #64748b; font-size: 13px;">Tombol pada email ini sudah <strong>kedaluwarsa (tidak dapat digunakan kembali)</strong> untuk mencegah tanggapan ganda. Status pada denah web SiRuang sudah diperbarui secara permanen.</span>`,
+        title: 'Sudah Anda Setujui',
+        isSuccess: true,
+        variant: 'success',
+        badgeText: 'TELAH DI-ACC DOSEN',
+        heading: 'Tindakan Sudah Pernah Dilakukan',
+        message: `Pengajuan ini telah Anda setujui sebelumnya pada <strong>${respondedTime}</strong>.<br /><br />Status saat ini: <strong>${escapeHtml(booking.status)}</strong>.`,
         details: [
           { label: 'Ruangan', value: `${booking.rooms?.kode || ''} - ${booking.rooms?.nama || ''}` },
           { label: 'Mata Kuliah', value: `${booking.mata_kuliah} (${booking.sks} SKS)` },
-          { label: 'PJ Pemohon', value: `${booking.nama_pemohon} (${booking.kelas})` },
-          { label: 'Keputusan', value: isAcc ? '✓ Disetujui Dosen (Kuning)' : '✕ Ditolak' },
-          { label: 'Waktu Tanggapan', value: respondedTime },
+          { label: 'Approval Dosen', value: 'Disetujui' },
+          { label: 'Approval Admin', value: booking.approval_admin_gedung || 'Pending' },
         ],
       });
     }
 
-    // Cek kadaluwarsa token (7 hari)
+    // 3. Cek kedaluwarsa token (7 hari)
     if (booking.dosen_token_expires && new Date(booking.dosen_token_expires) < new Date()) {
       return renderHtmlCard({
         title: 'Tautan Kedaluwarsa',
@@ -195,24 +206,25 @@ export async function GET(
         badgeText: 'KEDALUWARSA (LEWAT 7 HARI)',
         heading: 'Masa Berlaku Tautan Habis',
         message: 'Tautan verifikasi ini telah melewati masa berlaku (7 hari). Silakan minta PJ Kelas mengajukan permohonan baru jika ruangan masih dibutuhkan.',
+        httpStatus: 410,
       });
     }
 
-    // JIKA AKSI = TOLAK: Tampilkan formulir penolakan langsung (tanpa perlu masuk web)
+    // JIKA AKSI = TOLAK: Buka form penolakan (TIDAK menolak langsung)
     if (action === 'tolak') {
       const rejectForm = `
         <form method="POST" action="/api/bookings/${booking.id}/quick-action" style="margin-top: 16px; text-align: left;">
           <input type="hidden" name="token" value="${escapeHtml(rawToken)}" />
           <input type="hidden" name="action" value="tolak" />
           <label style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
-            Alasan Penolakan (Wajib diisi):
+            Alasan Penolakan (Wajib diisi, min. 10 karakter):
           </label>
           <textarea 
             name="alasan" 
             rows="3" 
             required 
             minlength="10" 
-            placeholder="Tulis alasan penolakan (contoh: Ruangan bentrok dengan jadwal praktikum lain)..." 
+            placeholder="Tulis alasan penolakan (contoh: Ruangan bentrok dengan kegiatan lain)..." 
             style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 13px; outline: none; margin-bottom: 16px; resize: vertical;"
           ></textarea>
           <div style="display: flex; gap: 10px;">
@@ -241,207 +253,145 @@ export async function GET(
       });
     }
 
-    // JIKA AKSI = SETUJU: PROSES LANGSUNG DI SERVER (1-KLIK SELESAI!)
+    // JIKA AKSI = SETUJU: Update atomik persetujuan dosen
     const now = new Date().toISOString();
-    const { error: uErr } = await supabaseServer
+
+    const { data: updatedRows, error: uErr } = await supabaseServer
       .from('bookings')
       .update({
-        status: 'disetujui_dosen',
+        approval_dosen: 'disetujui',
+        dosen_responded_at_v2: now,
         dosen_responded_at: now,
-        admin_responded_at: now,
-        dosen_token_expires: now, // Langsung invalidasi token
+        dosen_token_expires: now, // Invalidate hanya token dosen
         updated_at: now,
       })
-      .eq('id', booking.id);
+      .eq('id', booking.id)
+      .in('status', ['menunggu_approval', 'menunggu_dosen'])
+      .eq('approval_dosen', 'pending')
+      .select('*, rooms:room_id(id, kode, nama)');
 
-    if (uErr) {
+    if (uErr || !updatedRows || updatedRows.length === 0) {
+      // 0 baris terupdate: baca ulang status terbaru untuk pesan yang tepat
+      const { data: latest } = await supabaseServer
+        .from('bookings')
+        .select('*, rooms:room_id(id, kode, nama)')
+        .eq('id', booking.id)
+        .maybeSingle();
+
+      const penolak = latest?.ditolak_oleh === 'admin_gedung' ? 'Admin Gedung' : 'Dosen Pengampu';
+      const alasan = latest?.alasan_tolak_dosen || latest?.alasan_tolak_admin_gedung || latest?.alasan_tolak || '-';
+
+      if (['ditolak', 'ditolak_dosen', 'ditolak_admin', 'dibatalkan', 'dibatalkan_prioritas', 'hangus', 'kedaluwarsa'].includes(latest?.status || '')) {
+        return renderHtmlCard({
+          title: 'Pengajuan Sudah Ditolak',
+          isSuccess: false,
+          variant: 'conflict',
+          heading: 'Pengajuan Telah Ditolak / Dibatalkan',
+          message: `Pengajuan ini sudah ditolak atau dibatalkan sebelumnya oleh <strong>${escapeHtml(penolak)}</strong> (Alasan: "${escapeHtml(alasan)}").`,
+          httpStatus: 409,
+        });
+      }
+
+      if (latest?.approval_dosen === 'disetujui') {
+        return renderHtmlCard({
+          title: 'Sudah Anda Tanggapi',
+          isSuccess: true,
+          variant: 'success',
+          heading: 'Persetujuan Sudah Pernah Dicatat',
+          message: 'Persetujuan Anda sudah berhasil disimpan sebelumnya.',
+          httpStatus: 409,
+        });
+      }
+
       return renderHtmlCard({
-        title: 'Gagal Memproses',
+        title: 'Konflik Permohonan',
         isSuccess: false,
-        heading: 'Gagal Memperbarui Database',
-        message: 'Terjadi kesalahan sistem saat menyimpan persetujuan: ' + uErr.message,
+        heading: 'Gagal Memproses',
+        message: 'Pengajuan ini tidak lagi dalam status menunggu persetujuan.',
+        httpStatus: 409,
       });
     }
 
-    // Ambil email pemohon (PJ Kelas) dengan multiple fallback
-    let pjEmail = '';
-    let pjFullName = booking.nama_pemohon;
-
-    // 1. Coba dari v_user_profiles via pemohon_id
-    if (booking.pemohon_id) {
-      const { data: p1 } = await supabaseServer
-        .from('v_user_profiles')
-        .select('email, full_name')
-        .eq('user_id', booking.pemohon_id)
-        .maybeSingle();
-      if (p1?.email) {
-        pjEmail = p1.email.trim();
-        if (p1.full_name) pjFullName = p1.full_name;
-      }
-    }
-
-    // 2. Coba dari v_user_profiles via nim_pemohon (identifier)
-    if (!pjEmail && booking.nim_pemohon) {
-      const { data: p2 } = await supabaseServer
-        .from('v_user_profiles')
-        .select('email, full_name')
-        .eq('identifier', booking.nim_pemohon)
-        .maybeSingle();
-      if (p2?.email) {
-        pjEmail = p2.email.trim();
-        if (p2.full_name) pjFullName = p2.full_name;
-      }
-    }
-
-    // 3. Coba dari tabel profiles langsung
-    if (!pjEmail && booking.pemohon_id) {
-      const { data: p3 } = await supabaseServer
-        .from('profiles')
-        .select('email, full_name')
-        .eq('user_id', booking.pemohon_id)
-        .maybeSingle();
-      if (p3?.email) {
-        pjEmail = p3.email.trim();
-        if (p3.full_name) pjFullName = p3.full_name;
-      }
-    }
-
-    // 4. Coba dari registration_requests
-    if (!pjEmail && booking.nim_pemohon) {
-      const { data: p4 } = await supabaseServer
-        .from('registration_requests')
-        .select('email')
-        .eq('identifier', booking.nim_pemohon)
-        .maybeSingle();
-      if (p4?.email) {
-        pjEmail = p4.email.trim();
-      }
-    }
-
-    const roomKode = booking.rooms?.kode || 'Ruangan';
-    const roomNama = booking.rooms?.nama || '';
+    const currentBooking = updatedRows[0];
+    const isLegacy = currentBooking.status === 'menunggu_dosen';
     const appUrl = getPublicAppUrl(request);
-    const checkinUrl = `${appUrl}/user?tab=checkin`;
-    const checkinToken = generateCheckinToken(booking.id, booking.pemohon_id);
-    const quickCheckinUrl = `${appUrl}/api/bookings/${booking.id}/quick-checkin?token=${checkinToken}`;
 
-    // Kirim Email E2 ke PJ Kelas jika email PJ terdaftar di profilnya
-    if (!pjEmail) {
-      console.warn(`[quick-action] Email PJ Kelas tidak ditemukan di profil (pemohon_id: ${booking.pemohon_id}, nim: ${booking.nim_pemohon}). Email check-in E2 tidak dikirim.`);
-    } else {
-      console.log(`[quick-action] Mengirim email check-in E2 ke PJ Kelas: ${pjEmail}`);
-      try {
-        const mailRes = await sendEmail({
-          to: pjEmail,
-          subject: `[SiRuang] Pengajuan Ruangan ${roomKode} Disetujui — Konfirmasi Check-in`,
-          template: 'E2',
-          relatedId: booking.id,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-              
-              <!-- Header Brand & Logo -->
-              <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
-                <img src="${appUrl}/icon-512.png" alt="SiRuang Logo" width="68" height="68" style="border-radius: 16px; box-shadow: 0 6px 14px rgba(24, 52, 73, 0.12); margin-bottom: 10px; display: inline-block;" />
-                <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">SiRuang &bull; Gedung SFD</h1>
-                <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0; font-weight: 500;">Pemberitahuan Persetujuan &amp; Presensi Ruangan</p>
-              </div>
+    // Baca ulang booking terkini untuk mengecek status kedua pihak
+    const { data: freshBooking } = await supabaseServer
+      .from('bookings')
+      .select('*, rooms:room_id(id, kode, nama)')
+      .eq('id', booking.id)
+      .single();
 
-              <div style="display: inline-block; background-color: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;">
-                &#10003; Telah Di-ACC Dosen
-              </div>
+    let isFullyApproved = false;
 
-              <h2 style="color: #166534; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Booking Ruangan Berhasil Disetujui! 🎉</h2>
-              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(pjFullName)}</strong>,</p>
-              
-              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
-                Kabar baik! Dosen pengampu <strong>${escapeHtml(booking.nama_dosen)}</strong> telah <strong>menyetujui (ACC)</strong> permohonan ruangan perkuliahan Anda:
-              </p>
+    if (freshBooking?.approval_dosen === 'disetujui' && freshBooking?.approval_admin_gedung === 'disetujui') {
+      // Update status ke 'dijadwalkan' dengan guard atomik status
+      const { data: schedRows, error: sErr } = await supabaseServer
+        .from('bookings')
+        .update({ status: 'dijadwalkan', updated_at: now })
+        .eq('id', booking.id)
+        .in('status', ['menunggu_approval', 'menunggu_dosen'])
+        .select();
 
-              <!-- Card Detail Pengajuan -->
-              <div style="background-color: #fefce8; border: 1px solid #fef08a; border-left: 4px solid #eab308; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                  <tr>
-                    <td style="padding: 5px 0; color: #713f12; width: 140px;">Ruangan:</td>
-                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomKode)} - ${escapeHtml(roomNama)}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 5px 0; color: #713f12;">Mata Kuliah:</td>
-                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(booking.mata_kuliah)} (${booking.sks} SKS)</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 5px 0; color: #713f12;">Waktu Kuliah:</td>
-                    <td style="padding: 5px 0; color: #1e293b; font-weight: 700;">${escapeHtml(booking.tanggal)} &bull; ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 5px 0; color: #854d0e;">Status Denah:</td>
-                    <td style="padding: 5px 0; color: #854d0e; font-weight: 800;">Ditandai KUNING (Disetujui Dosen &bull; Siap Check-in)</td>
-                  </tr>
-                </table>
-              </div>
-
-              <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 8px; text-align: center;">
-                Anda dapat langsung melakukan presensi kehadiran melalui tombol di bawah saat jam perkuliahan dimulai:
-              </p>
-
-              <!-- Tombol 1-Klik Check-In Langsung dari Email -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 20px auto; width: 100%; max-width: 440px;">
-                <tr>
-                  <td align="center" style="padding: 0;">
-                    <a href="${quickCheckinUrl}" style="background-color: #16a34a; background-image: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; padding: 15px 28px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 14px; display: block; text-align: center; box-shadow: 0 4px 16px rgba(22, 163, 74, 0.35); letter-spacing: 0.2px;">
-                      <span style="font-size: 16px; vertical-align: middle; margin-right: 6px;">&#10004;&#65039;</span><span style="vertical-align: middle;">Konfirmasi Check-in Sekarang</span>
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="text-align: center; margin: 12px 0 0 0;">
-                <a href="${checkinUrl}" style="color: #588CBC; font-size: 12px; text-decoration: underline; font-weight: 600;">
-                  atau buka menu Jadwal &amp; Check-in di dashboard web SiRuang
-                </a>
-              </p>
-
-              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 26px 0 16px 0;" />
-              <div style="background-color: #f8fafc; border-radius: 10px; padding: 12px 16px; border: 1px dashed #cbd5e1;">
-                <p style="color: #64748b; font-size: 11px; margin: 0; line-height: 1.5;">
-                  &bull; <strong>1-Klik Otomatis Aktif:</strong> Menekan tombol konfirmasi check-in langsung mengubah warna denah menjadi <strong>MERAH (Sedang Berlangsung)</strong> tanpa perlu login.<br />
-                  &bull; Dosen pengampu akan otomatis menerima email konfirmasi bahwa kelas telah dimulai.
-                </p>
-              </div>
-            </div>
-          `,
+      // Kirim email check-in ke PJ HANYA jika update itu mengubah tepat 1 baris
+      if (!sErr && schedRows && schedRows.length === 1) {
+        isFullyApproved = true;
+        await notifyPjCheckin({
+          bookingId: freshBooking.id,
+          pemohonId: freshBooking.pemohon_id,
+          nimPemohon: freshBooking.nim_pemohon,
+          roomKode: freshBooking.rooms?.kode || 'Ruangan',
+          roomNama: freshBooking.rooms?.nama || '',
+          mataKuliah: freshBooking.mata_kuliah,
+          tanggal: freshBooking.tanggal,
+          jamMulai: freshBooking.jam_mulai,
+          jamSelesai: freshBooking.jam_selesai,
+          appUrl,
         });
-        if (!mailRes.success) {
-          console.error(`[quick-action] Gagal kirim email E2 ke ${pjEmail}:`, mailRes.error);
-        }
-      } catch (mailErr) {
-        console.warn('Gagal kirim email E2 ke PJ:', mailErr);
+      } else if (schedRows && schedRows.length === 0) {
+        // Baris sudah diubah oleh pihak admin gedung yang klik bersamaan
+        isFullyApproved = true;
+      }
+    } else if (isLegacy) {
+      // Legacy booking -> update ke disetujui_dosen dengan guard atomik
+      const { data: legRows, error: lErr } = await supabaseServer
+        .from('bookings')
+        .update({ status: 'disetujui_dosen', updated_at: now })
+        .eq('id', booking.id)
+        .eq('status', 'menunggu_dosen')
+        .select();
+
+      if (!lErr && legRows && legRows.length === 1) {
+        isFullyApproved = true;
+        await notifyPjCheckin({
+          bookingId: freshBooking.id,
+          pemohonId: freshBooking.pemohon_id,
+          nimPemohon: freshBooking.nim_pemohon,
+          roomKode: freshBooking.rooms?.kode || 'Ruangan',
+          roomNama: freshBooking.rooms?.nama || '',
+          mataKuliah: freshBooking.mata_kuliah,
+          tanggal: freshBooking.tanggal,
+          jamMulai: freshBooking.jam_mulai,
+          jamSelesai: freshBooking.jam_selesai,
+          appUrl,
+        });
       }
     }
 
-    // Kirim push notification
-    try {
-      await notifyBookingPush(
-        booking.nim_pemohon || String(booking.pemohon_id),
-        'Booking Disetujui Dosen!',
-        `Ruangan ${roomKode} (${booking.mata_kuliah}) telah disetujui. Silakan lakukan check-in pada jam perkuliahan.`,
-        '/user?tab=checkin'
-      );
-    } catch {
-      // Abaikan jika push gagal
-    }
-
-    // TAMPILKAN HALAMAN KONFIRMASI BERHASIL SEPERTI KARTU NOTIFIKASI
     return renderHtmlCard({
       title: 'Persetujuan Berhasil',
       isSuccess: true,
-      badgeText: 'STATUS DENAH: KUNING (DISETUJUI)',
-      heading: 'Permohonan Berhasil Di-ACC!',
-      message: `Peminjaman ruangan <strong>${escapeHtml(roomKode)}</strong> telah berhasil Anda setujui. Sistem telah otomatis memperbarui status denah web menjadi warna <strong>Kuning</strong> dan mengirimkan email check-in kepada PJ Kelas.`,
+      badgeText: isFullyApproved ? 'STATUS: RESMI DIJADWALKAN' : 'MENUNGGU APPROVAL ADMIN GEDUNG',
+      heading: isFullyApproved ? 'Permohonan Berhasil Di-ACC Penuh! 🎉' : 'ACC Dosen Berhasil Disimpan',
+      message: isFullyApproved
+        ? `Peminjaman ruangan <strong>${escapeHtml(currentBooking.rooms?.kode || '')}</strong> telah disetujui penuh oleh Dosen dan Admin Gedung. Notifikasi check-in telah otomatis dikirimkan ke PJ Kelas.`
+        : `Persetujuan Anda untuk ruangan <strong>${escapeHtml(currentBooking.rooms?.kode || '')}</strong> berhasil dicatat. Jadwal akan resmi aktif setelah Admin Gedung menyetujui.`,
       details: [
-        { label: 'Ruangan', value: `${roomKode} - ${roomNama}` },
-        { label: 'Mata Kuliah', value: `${booking.mata_kuliah} (${booking.sks} SKS)` },
-        { label: 'PJ Pemohon', value: `${booking.nama_pemohon} (${booking.kelas})` },
-        { label: 'Waktu Kuliah', value: `${booking.tanggal}, ${booking.jam_mulai.slice(0, 5)} - ${booking.jam_selesai.slice(0, 5)} WIB` },
+        { label: 'Ruangan', value: `${currentBooking.rooms?.kode || ''} - ${currentBooking.rooms?.nama || ''}` },
+        { label: 'Mata Kuliah', value: `${currentBooking.mata_kuliah} (${currentBooking.sks} SKS)` },
+        { label: 'Persetujuan Dosen', value: '✓ Disetujui' },
+        { label: 'Persetujuan Admin', value: freshBooking?.approval_admin_gedung === 'disetujui' ? '✓ Disetujui' : 'Menunggu' },
       ],
     });
   } catch (err: any) {
@@ -450,6 +400,7 @@ export async function GET(
       isSuccess: false,
       heading: 'Kesalahan Sistem',
       message: 'Terjadi kesalahan pada server: ' + err.message,
+      httpStatus: 500,
     });
   }
 }
@@ -462,7 +413,6 @@ export async function POST(
     const rawParams = await Promise.resolve(context?.params);
     const bookingId = rawParams?.id;
 
-    // Bisa dari FormData form HTML atau JSON
     let rawToken = '';
     let action = '';
     let alasan = '';
@@ -474,7 +424,7 @@ export async function POST(
       action = (formData.get('action') as string) || '';
       alasan = (formData.get('alasan') as string) || '';
     } else {
-      const body = await request.json();
+      const body = await request.json().catch(() => ({}));
       rawToken = body.token || '';
       action = body.action || '';
       alasan = body.alasan || '';
@@ -486,6 +436,7 @@ export async function POST(
         isSuccess: false,
         heading: 'Gagal Memproses',
         message: 'ID booking dan token verifikasi wajib disertakan.',
+        httpStatus: 400,
       });
     }
 
@@ -495,6 +446,7 @@ export async function POST(
         isSuccess: false,
         heading: 'Aksi Tidak Dikenal',
         message: 'Aksi POST hanya mendukung penolakan pengajuan.',
+        httpStatus: 400,
       });
     }
 
@@ -502,8 +454,9 @@ export async function POST(
       return renderHtmlCard({
         title: 'Alasan Kurang Lengkap',
         isSuccess: false,
-        heading: 'Alasan Wajib Diisi',
+        heading: 'Alasan Wajib Minimal 10 Karakter',
         message: 'Alasan penolakan wajib diisi minimal 10 karakter agar PJ Kelas mendapatkan penjelasan yang jelas.',
+        httpStatus: 400,
       });
     }
 
@@ -521,6 +474,7 @@ export async function POST(
         isSuccess: false,
         heading: 'Data Tidak Ditemukan',
         message: 'Pengajuan booking tidak ditemukan di sistem.',
+        httpStatus: 404,
       });
     }
 
@@ -530,73 +484,69 @@ export async function POST(
         isSuccess: false,
         heading: 'Akses Ditolak',
         message: 'Token verifikasi tidak valid.',
-      });
-    }
-
-    if (booking.status !== 'menunggu_dosen') {
-      return renderHtmlCard({
-        title: 'Sudah Ditinjau',
-        isSuccess: true,
-        heading: 'Sudah Pernah Ditinjau',
-        message: `Pengajuan ini sudah ditinjau sebelumnya (Status saat ini: ${booking.status}).`,
+        httpStatus: 403,
       });
     }
 
     const now = new Date().toISOString();
-    await supabaseServer
+
+    // Update tolak secara atomik: status IN ('menunggu_approval', 'menunggu_dosen') AND approval_dosen = 'pending'
+    const { data: rejectRows, error: rErr } = await supabaseServer
       .from('bookings')
       .update({
-        status: 'ditolak_dosen',
+        status: 'ditolak',
+        approval_dosen: 'ditolak',
+        alasan_tolak_dosen: alasan.trim(),
         alasan_tolak: alasan.trim(),
+        ditolak_oleh: 'dosen',
+        ditolak_at: now,
+        dosen_responded_at_v2: now,
         dosen_responded_at: now,
-        dosen_token_expires: now,
+        dosen_token_expires: now, // Invalidate token dosen
         updated_at: now,
       })
-      .eq('id', booking.id);
+      .eq('id', booking.id)
+      .in('status', ['menunggu_approval', 'menunggu_dosen'])
+      .eq('approval_dosen', 'pending')
+      .select('*, rooms:room_id(id, kode, nama)');
 
-    // Ambil email PJ untuk notifikasi penolakan (E3) dengan fallback
-    let rejectEmail = '';
-    if (booking.pemohon_id) {
-      const { data: p1 } = await supabaseServer.from('v_user_profiles').select('email').eq('user_id', booking.pemohon_id).maybeSingle();
-      if (p1?.email) rejectEmail = p1.email.trim();
-    }
-    if (!rejectEmail && booking.nim_pemohon) {
-      const { data: p2 } = await supabaseServer.from('v_user_profiles').select('email').eq('identifier', booking.nim_pemohon).maybeSingle();
-      if (p2?.email) rejectEmail = p2.email.trim();
-    }
-    if (!rejectEmail && booking.pemohon_id) {
-      const { data: p3 } = await supabaseServer.from('profiles').select('email').eq('user_id', booking.pemohon_id).maybeSingle();
-      if (p3?.email) rejectEmail = p3.email.trim();
+    if (rErr || !rejectRows || rejectRows.length === 0) {
+      const { data: latest } = await supabaseServer
+        .from('bookings')
+        .select('*, rooms:room_id(id, kode, nama)')
+        .eq('id', booking.id)
+        .maybeSingle();
+
+      const penolak = latest?.ditolak_oleh === 'admin_gedung' ? 'Admin Gedung' : 'Dosen Pengampu';
+      const alasanLama = latest?.alasan_tolak_dosen || latest?.alasan_tolak_admin_gedung || latest?.alasan_tolak || '-';
+
+      return renderHtmlCard({
+        title: 'Konflik Tindakan',
+        isSuccess: false,
+        variant: 'conflict',
+        heading: 'Sudah Diperbarui Pihak Lain',
+        message: `Pengajuan ini sudah pernah ditinjau sebelumnya (Status saat ini: ${latest?.status || '-'}). Ditolak oleh: ${penolak} (Alasan: "${escapeHtml(alasanLama)}").`,
+        httpStatus: 409,
+      });
     }
 
-    if (rejectEmail) {
-      try {
-        await sendEmail({
-          to: rejectEmail,
-          subject: `[SiRuang] Pengajuan Ruangan ${booking.rooms?.kode || ''} Ditolak Dosen`,
-          template: 'E3',
-          relatedId: booking.id,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <h2 style="color: #dc2626; margin-bottom: 6px; font-size: 20px;">Permohonan Ruangan Ditolak</h2>
-              <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(booking.nama_pemohon)}</strong>,</p>
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Dosen pengampu <strong>${escapeHtml(booking.nama_dosen)}</strong> belum dapat menyetujui permohonan peminjaman ruangan <strong>${escapeHtml(booking.rooms?.kode || '')}</strong> untuk mata kuliah <strong>${escapeHtml(booking.mata_kuliah)}</strong>.
-              </p>
-              <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 18px; margin: 18px 0; border-radius: 8px;">
-                <p style="margin: 0; font-size: 13px; color: #991b1b;"><strong>Alasan Penolakan:</strong></p>
-                <p style="margin: 6px 0 0 0; font-size: 13px; color: #7f1d1d; font-style: italic;">"${escapeHtml(alasan.trim())}"</p>
-              </div>
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Silakan berkoordinasi kembali dengan dosen pengampu atau ajukan permohonan dengan jadwal/ruangan lain melalui web SiRuang.
-              </p>
-            </div>
-          `,
-        });
-      } catch (err) {
-        console.warn('Gagal kirim email E3:', err);
-      }
-    }
+    const updatedReject = rejectRows[0];
+
+    // Notifikasi penolakan ke PJ
+    await notifyPjRejection({
+      bookingId: booking.id,
+      pemohonId: booking.pemohon_id,
+      nimPemohon: booking.nim_pemohon,
+      roomKode: updatedReject.rooms?.kode || 'Ruangan',
+      roomNama: updatedReject.rooms?.nama || '',
+      mataKuliah: booking.mata_kuliah,
+      tanggal: booking.tanggal,
+      jamMulai: booking.jam_mulai,
+      jamSelesai: booking.jam_selesai,
+      rejectedBy: 'dosen',
+      approverName: booking.nama_dosen,
+      reason: alasan.trim(),
+    });
 
     return renderHtmlCard({
       title: 'Penolakan Berhasil',
@@ -610,7 +560,7 @@ export async function POST(
       isSuccess: false,
       heading: 'Terjadi Kesalahan',
       message: err.message,
+      httpStatus: 500,
     });
   }
 }
-
