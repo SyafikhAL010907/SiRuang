@@ -9,16 +9,24 @@ export const revalidate = 0;
  * Mengembalikan profil resmi Admin UNJ (avatar_url, nama lengkap, role)
  * agar sisi user dapat menampilkan foto profil asli admin yang sedang bertugas.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const adminIdentifier = searchParams.get('admin_identifier') || searchParams.get('identifier');
+
     // 1. Ambil data profil admin dari view v_user_profiles
-    const { data: adminProfile, error } = await supabaseServer
+    let query = supabaseServer
       .from('v_user_profiles')
       .select('user_id, username, identifier, role, full_name, email, avatar_url, is_default_avatar')
-      .eq('role', 'admin')
+      .in('role', ['admin', 'admin_dev', 'admin_sfd', 'admin_le', 'admin_ls'])
       .order('user_id', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (adminIdentifier) {
+      query = query.eq('identifier', adminIdentifier);
+    }
+
+    const { data: adminProfile, error } = await query.maybeSingle();
 
     if (error) {
       console.warn('[GET /api/chat/admin-info] Peringatan query Supabase:', error.message);
@@ -36,7 +44,8 @@ export async function GET() {
         avatarUrl: avatarUrl,
         name: fullName,
         full_name: fullName,
-        role: 'admin',
+        role: adminProfile?.role || 'admin',
+        identifier: adminProfile?.identifier || '',
         is_default_avatar: adminProfile?.is_default_avatar ?? (avatarUrl === '/LogoSiRuangPolos.png'),
       },
       // Flat properties untuk kompatibilitas parsing di useAdminInfo
@@ -44,7 +53,8 @@ export async function GET() {
       avatarUrl: avatarUrl,
       name: fullName,
       full_name: fullName,
-      role: 'admin',
+      role: adminProfile?.role || 'admin',
+      identifier: adminProfile?.identifier || '',
     });
   } catch (err: any) {
     console.error('[GET /api/chat/admin-info] Error:', err);

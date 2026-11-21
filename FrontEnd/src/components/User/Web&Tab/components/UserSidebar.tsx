@@ -13,6 +13,8 @@ import {
   Image as ImageIcon,
   Bell,
   BellOff,
+  Search,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '@/components/Shared/Avatar';
@@ -31,6 +33,8 @@ export interface UserSidebarProps {
   onLogout: () => void;
   /** Foto profil Admin UNJ. Kosong = logo SiRuang. */
   adminAvatarSrc?: string;
+  activeAdmin?: any;
+  onSelectAdminTarget?: (admin: any) => void;
 }
 
 const USER_SIDEBAR_STORAGE_KEY = 'userSidebarOpen';
@@ -46,11 +50,54 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   onOpenTemplate,
   onLogout,
   adminAvatarSrc,
+  activeAdmin,
+  onSelectAdminTarget,
 }) => {
-  const adminAvatar = adminAvatarSrc || '/LogoSiRuangPolos.png';
+  const adminAvatar = activeAdmin?.avatar_url || adminAvatarSrc || '/LogoSiRuangPolos.png';
   const { status, isLoading, subscribe, unsubscribe } = usePushNotifications();
   // State room chat yang dipilih (admin atau dosen)
   const [selectedRoom, setSelectedRoom] = useState<'admin' | 'dosen'>(activeRoom);
+
+  // Search Admin state
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminSearchResults, setAdminSearchResults] = useState<any[]>([]);
+  const [isSearchingAdmin, setIsSearchingAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!adminSearchQuery.trim()) {
+      setAdminSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearchingAdmin(true);
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = storedUser ? JSON.parse(storedUser).token : '';
+        const res = await fetch(`/api/chat/search-admin?q=${encodeURIComponent(adminSearchQuery.trim())}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setAdminSearchResults(data);
+        }
+      } catch (err) {
+        console.error('Gagal mencari admin:', err);
+      } finally {
+        setIsSearchingAdmin(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [adminSearchQuery]);
+
+  const handleSelectSearchedAdmin = (adm: any) => {
+    setAdminSearchQuery('');
+    setAdminSearchResults([]);
+    setSelectedRoom('admin');
+    if (onSelectAdminTarget) {
+      onSelectAdminTarget(adm);
+    }
+    onOpenChat();
+  };
 
   useEffect(() => {
     if (activeRoom) setSelectedRoom(activeRoom);
@@ -291,7 +338,51 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                 Pesan Bantuan
               </h4>
 
-              {/* Room 1: Admin UNJ (Official Helpdesk) */}
+              {/* Search Box Akun Admin */}
+              <div className="relative mb-1">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={adminSearchQuery}
+                  onChange={(e) => setAdminSearchQuery(e.target.value)}
+                  placeholder="Cari admin (SFD, LE, LS)..."
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#588CBC] focus:bg-white transition-all"
+                />
+                {adminSearchQuery && (
+                  <button
+                    onClick={() => { setAdminSearchQuery(''); setAdminSearchResults([]); }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Hasil Search Admin Dropdown */}
+              {adminSearchResults.length > 0 && (
+                <div className="mb-2 bg-white rounded-2xl border border-slate-200 shadow-lg p-1.5 flex flex-col gap-1 max-h-48 overflow-y-auto z-30">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-2 py-0.5">
+                    Hasil Pencarian ({adminSearchResults.length})
+                  </span>
+                  {adminSearchResults.map((adm) => (
+                    <div
+                      key={adm.identifier || adm.id}
+                      onClick={() => handleSelectSearchedAdmin(adm)}
+                      className="p-2 hover:bg-[#588CBC]/10 rounded-xl cursor-pointer flex items-center gap-2.5 transition-colors group/item"
+                    >
+                      <Avatar size="sm" src={adm.avatar_url || '/LogoSiRuangPolos.png'} alt={adm.full_name} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 group-hover/item:text-[#183449] truncate">{adm.full_name}</p>
+                        <span className="text-[9px] font-black text-[#588CBC] uppercase tracking-wider">
+                          {adm.role === 'admin' ? 'Admin UNJ' : adm.role?.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Room 1: Admin UNJ / Target Admin yang dipilih */}
               <motion.div
                 initial={false}
                 onClick={handleSelectAdmin}
@@ -316,7 +407,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                   <Avatar
                     size="md"
                     src={adminAvatar}
-                    alt="Admin UNJ"
+                    alt={activeAdmin?.full_name || "Admin UNJ"}
                     className="transition-transform duration-300 group-hover:scale-105"
                   />
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#588CBC] border-2 border-white rounded-full shadow-sm animate-pulse" />
@@ -329,9 +420,9 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                       "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
                       isChatOpen && selectedRoom === 'admin' ? "text-[#183449]" : "text-slate-700"
                     )}>
-                      <span>Admin UNJ</span>
+                      <span>{activeAdmin?.full_name || 'Admin UNJ'}</span>
                       <span className="px-1.5 py-0.2 bg-[#183449] text-[8px] font-black text-white rounded uppercase tracking-wider">
-                        Official
+                        {activeAdmin?.role ? activeAdmin.role.replace('_', ' ') : 'Official'}
                       </span>
                     </h3>
                     {lastTimeText && (

@@ -80,6 +80,7 @@ func main() {
 
 		// Chat Routes (Shared)
 		protected.GET("/chat/admin-info", handlers.GetAdminInfo)
+		protected.GET("/chat/search-admin", handlers.SearchAdmin)
 		protected.GET("/chat/user-room", handlers.GetOrCreateRoom)
 		protected.GET("/chat/messages/:room_id", handlers.GetMessages)
 		protected.POST("/chat/send", handlers.SendMessage)

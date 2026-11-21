@@ -3,16 +3,19 @@ package models
 import "time"
 
 type ChatRoom struct {
-	ID             int       `json:"id"`
-	UserIdentifier string    `json:"user_identifier"`
-	LastMessage    string    `json:"last_message"`
-	UnreadCount    int       `json:"unread_count"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	UserName       string    `json:"user_name,omitempty"` // Buat nampilin nama user di sidebar admin
-	AvatarURL      string    `json:"avatar_url,omitempty"` // Foto avatar realtime dari Supabase
-	Role           string    `json:"role,omitempty"`       // Role: user, dosen, pj_kelas
-	IsOnline       bool      `json:"is_online"`           // Status online user
-	IsMarkedUnread bool      `json:"is_marked_unread"`    // Status ditandai belum dibaca oleh admin
+	ID                     int       `json:"id"`
+	UserIdentifier         string    `json:"user_identifier"`
+	RoomType               string    `json:"room_type,omitempty"`
+	ParticipantBIdentifier string    `json:"participant_b_identifier,omitempty"`
+	ParticipantBRole       string    `json:"participant_b_role,omitempty"`
+	LastMessage            string    `json:"last_message"`
+	UnreadCount            int       `json:"unread_count"`
+	UpdatedAt              time.Time `json:"updated_at"`
+	UserName               string    `json:"user_name,omitempty"` // Buat nampilin nama user di sidebar admin
+	AvatarURL              string    `json:"avatar_url,omitempty"` // Foto avatar realtime dari Supabase
+	Role                   string    `json:"role,omitempty"`       // Role: user, dosen, pj_kelas
+	IsOnline               bool      `json:"is_online"`           // Status online user
+	IsMarkedUnread         bool      `json:"is_marked_unread"`    // Status ditandai belum dibaca oleh admin
 }
 
 type ChatMessage struct {

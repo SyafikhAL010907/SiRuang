@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { requireAdminDev } from '@/lib/authHelper';
+import { checkNewChatColumns } from '@/lib/chatColumns';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,7 +161,7 @@ export async function POST(request: Request) {
     // Validasi dosen role
     const { data: dosenUser, error: dosenErr } = await supabaseServer
       .from('authentication')
-      .select('id, role, username')
+      .select('id, role, username, identifier')
       .eq('id', dosenId)
       .maybeSingle();
 
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
     // Validasi PJ role
     const { data: pjUser, error: pjErr } = await supabaseServer
       .from('authentication')
-      .select('id, role, username')
+      .select('id, role, username, identifier')
       .eq('id', pjId)
       .maybeSingle();
 
@@ -232,6 +233,38 @@ export async function POST(request: Request) {
         { error: 'Gagal menambahkan relasi mata kuliah: ' + insertErr.message },
         { status: 500 }
       );
+    }
+
+    // Auto-create room PJ-dosen jika kolom baru chat_rooms tersedia di database (idempotent)
+    try {
+      const hasCols = await checkNewChatColumns();
+      if (hasCols && pjUser.identifier && dosenUser.identifier) {
+        const { data: existingRoom } = await supabaseServer
+          .from('chat_rooms')
+          .select('id')
+          .eq('user_identifier', pjUser.identifier)
+          .eq('participant_b_identifier', dosenUser.identifier)
+          .eq('room_type', 'pj_to_dosen')
+          .maybeSingle();
+
+        if (!existingRoom) {
+          await supabaseServer
+            .from('chat_rooms')
+            .insert({
+              user_identifier: pjUser.identifier,
+              room_type: 'pj_to_dosen',
+              participant_b_identifier: dosenUser.identifier,
+              participant_b_role: 'dosen',
+              last_message: '',
+              is_marked_unread: false,
+            });
+          console.log(`[Relations POST] Berhasil auto-create room pj_to_dosen: ${pjUser.identifier} -> ${dosenUser.identifier}`);
+        }
+      } else {
+        console.log('[Relations POST] Kolom baru chat_rooms belum tersedia (SQL-2 belum dijalankan), melewati auto-create room');
+      }
+    } catch (err: any) {
+      console.warn('[Relations POST] Error saat auto-create room pj_to_dosen (diabaikan agar relasi tetap sukses):', err.message);
     }
 
     return NextResponse.json({

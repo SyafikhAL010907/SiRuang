@@ -139,6 +139,30 @@ export const WebTabLayout = () => {
 
   const lastMessage = chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
 
+  const [activeAdminTarget, setActiveAdminTarget] = useState<any | null>(null);
+
+  const handleSelectAdminTarget = async (adm: any) => {
+    setActiveAdminTarget(adm);
+    setIsChatOpen(true);
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) return;
+    const { token, identifier, gmail } = JSON.parse(storedUser);
+    const userKey = identifier || gmail;
+    try {
+      const res = await fetch(`/api/chat/user-room?identifier=${userKey}&admin_identifier=${adm.identifier}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        chat.setRoomId(data.id);
+        chat.setUnreadCount(data.unread_count || 0);
+        chat.fetchMessages(data.id, token, userKey);
+      }
+    } catch (err) {
+      console.error('Gagal membuka room admin:', err);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
       {/* Sidebar (bisa dibuka / ditutup, sama seperti Admin) */}
@@ -151,6 +175,8 @@ export const WebTabLayout = () => {
         onOpenTemplate={() => setIsTemplatePopupOpen(true)}
         onLogout={handleLogout}
         adminAvatarSrc={adminAvatarSrc}
+        activeAdmin={activeAdminTarget}
+        onSelectAdminTarget={handleSelectAdminTarget}
       />
 
       {isChatOpen ? (
@@ -174,7 +200,9 @@ export const WebTabLayout = () => {
             searchMatches={search.searchMatches}
             scrollToMatch={search.scrollToMatch}
             onClose={() => setIsChatOpen(false)}
-            adminAvatarSrc={adminAvatarSrc}
+            adminAvatarSrc={activeAdminTarget?.avatar_url || adminAvatarSrc}
+            adminName={activeAdminTarget?.full_name || 'Admin UNJ'}
+            adminRole={activeAdminTarget?.role === 'admin' ? 'OFFICIAL' : activeAdminTarget?.role?.replace('_', ' ').toUpperCase()}
           />
 
           <UserChatMessages

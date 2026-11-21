@@ -18,6 +18,8 @@ export interface UserChatHeaderProps {
   onClose: () => void;
   /** Foto profil Admin UNJ. Kosong = logo SiRuang. */
   adminAvatarSrc?: string;
+  adminName?: string;
+  adminRole?: string;
 }
 
 export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
@@ -31,6 +33,8 @@ export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
   scrollToMatch,
   onClose,
   adminAvatarSrc,
+  adminName,
+  adminRole,
 }) => {
   return (
     <header className="px-8 py-5 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between z-10 shadow-sm">
@@ -38,8 +42,8 @@ export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
         <Avatar src={adminAvatarSrc || '/LogoSiRuangPolos.png'} size="md" />
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-black text-slate-800 tracking-tight">Admin  UNJ</h2>
-            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter uppercase">OFFICIAL</span>
+            <h2 className="font-black text-slate-800 tracking-tight">{adminName || 'Admin UNJ'}</h2>
+            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter uppercase">{adminRole || 'OFFICIAL'}</span>
           </div>
         </div>
       </div>

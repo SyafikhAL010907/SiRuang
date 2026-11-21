@@ -9,12 +9,177 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
+var (
+	hasChatColumnsChecked bool
+	hasChatColumns        bool
+	hasChatColumnsMu      sync.RWMutex
+)
+
+// HasChatColumns mendeteksi ketersediaan kolom SQL-2 Blok D di chat_rooms
+func HasChatColumns() bool {
+	hasChatColumnsMu.RLock()
+	if hasChatColumnsChecked && hasChatColumns {
+		hasChatColumnsMu.RUnlock()
+		return true
+	}
+	hasChatColumnsMu.RUnlock()
+
+	hasChatColumnsMu.Lock()
+	defer hasChatColumnsMu.Unlock()
+	if hasChatColumnsChecked && hasChatColumns {
+		return true
+	}
+
+	if database.DB == nil {
+		return false
+	}
+
+	var exists bool
+	err := database.DB.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1 
+			FROM information_schema.columns 
+			WHERE table_name = 'chat_rooms' 
+			  AND column_name = 'participant_b_identifier'
+		)
+	`).Scan(&exists)
+	if err == nil {
+		hasChatColumns = exists
+		hasChatColumnsChecked = true
+	}
+	return hasChatColumns
+}
+
+func isAdminDev(role string) bool {
+	return role == "admin" || role == "admin_dev"
+}
+
+func isBuildingAdmin(role string) bool {
+	return role == "admin_sfd" || role == "admin_le" || role == "admin_ls"
+}
+
+func isAnyAdmin(role string) bool {
+	return isAdminDev(role) || isBuildingAdmin(role)
+}
+
 // GetRooms - Admin fetches all chat rooms
 func GetRooms(c *gin.Context) {
+	roleRaw, _ := c.Get("role")
+	callerRole, _ := roleRaw.(string)
+	identifierRaw, _ := c.Get("identifier")
+	callerID, _ := identifierRaw.(string)
+
+	hasNewCols := HasChatColumns()
+
+	if isBuildingAdmin(callerRole) {
+		// Admin gedung (sfd/le/ls): hanya melihat room yang ditujukan ke dirinya
+		// Room lama (participant_b NULL) TIDAK terlihat olehnya
+		if !hasNewCols {
+			c.JSON(http.StatusOK, []models.ChatRoom{})
+			return
+		}
+
+		rows, err := database.DB.Query(`
+			SELECT 
+				cr.id, 
+				cr.user_identifier, 
+				COALESCE(cr.room_type, 'user_to_admin'),
+				COALESCE(cr.participant_b_identifier, ''),
+				COALESCE(cr.participant_b_role, ''),
+				COALESCE(cr.last_message, ''), 
+				COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) as updated_at, 
+				COALESCE(NULLIF(p.full_name, ''), a.username, cr.user_identifier),
+				(SELECT COUNT(*) FROM chat_messages WHERE room_id = cr.id AND is_read = 0 AND sender_identifier != $1) as unread_count,
+				EXISTS(SELECT 1 FROM active_sessions WHERE identifier = cr.user_identifier) as is_online,
+				cr.is_marked_unread,
+				COALESCE(p.avatar_url, '') as avatar_url,
+				COALESCE(a.role::text, 'user') as role
+			FROM chat_rooms cr
+			LEFT JOIN authentication a ON cr.user_identifier = a.identifier
+			LEFT JOIN profiles p ON a.id = p.user_id
+			WHERE cr.participant_b_identifier = $1
+			ORDER BY COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) DESC, cr.id DESC`,
+			callerID,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal ambil daftar room: " + err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var rooms []models.ChatRoom
+		for rows.Next() {
+			var room models.ChatRoom
+			if err := rows.Scan(
+				&room.ID, &room.UserIdentifier, &room.RoomType, &room.ParticipantBIdentifier, &room.ParticipantBRole,
+				&room.LastMessage, &room.UpdatedAt, &room.UserName, &room.UnreadCount, &room.IsOnline, &room.IsMarkedUnread,
+				&room.AvatarURL, &room.Role,
+			); err != nil {
+				log.Println("[ERROR] Scan room admin gedung:", err)
+				continue
+			}
+			rooms = append(rooms, room)
+		}
+		if rooms == nil {
+			rooms = []models.ChatRoom{}
+		}
+		c.JSON(http.StatusOK, rooms)
+		return
+	}
+
+	// AdminDev / Admin lama: melihat semua room (termasuk room lama yang participant_b NULL)
+	if hasNewCols {
+		rows, err := database.DB.Query(`
+			SELECT 
+				cr.id, 
+				cr.user_identifier, 
+				COALESCE(cr.room_type, 'user_to_admin'),
+				COALESCE(cr.participant_b_identifier, ''),
+				COALESCE(cr.participant_b_role, ''),
+				COALESCE(cr.last_message, ''), 
+				COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) as updated_at, 
+				COALESCE(NULLIF(p.full_name, ''), a.username, cr.user_identifier),
+				(SELECT COUNT(*) FROM chat_messages WHERE room_id = cr.id AND is_read = 0 AND sender_identifier = cr.user_identifier) as unread_count,
+				EXISTS(SELECT 1 FROM active_sessions WHERE identifier = cr.user_identifier) as is_online,
+				cr.is_marked_unread,
+				COALESCE(p.avatar_url, '') as avatar_url,
+				COALESCE(a.role::text, 'user') as role
+			FROM chat_rooms cr
+			LEFT JOIN authentication a ON cr.user_identifier = a.identifier
+			LEFT JOIN profiles p ON a.id = p.user_id
+			ORDER BY COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) DESC, cr.id DESC`)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal ambil daftar room: " + err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var rooms []models.ChatRoom
+		for rows.Next() {
+			var room models.ChatRoom
+			if err := rows.Scan(
+				&room.ID, &room.UserIdentifier, &room.RoomType, &room.ParticipantBIdentifier, &room.ParticipantBRole,
+				&room.LastMessage, &room.UpdatedAt, &room.UserName, &room.UnreadCount, &room.IsOnline, &room.IsMarkedUnread,
+				&room.AvatarURL, &room.Role,
+			); err != nil {
+				log.Println("[ERROR] Scan room admin dev:", err)
+				continue
+			}
+			rooms = append(rooms, room)
+		}
+		if rooms == nil {
+			rooms = []models.ChatRoom{}
+		}
+		c.JSON(http.StatusOK, rooms)
+		return
+	}
+
+	// Fallback lama (kolom baru belum ada di database)
 	rows, err := database.DB.Query(`
 		SELECT 
 			cr.id, 
@@ -46,22 +211,83 @@ func GetRooms(c *gin.Context) {
 		}
 		rooms = append(rooms, room)
 	}
+	if rooms == nil {
+		rooms = []models.ChatRoom{}
+	}
 
 	c.JSON(http.StatusOK, rooms)
 }
 
-// GetOrCreateRoom - User fetches their personal room
+// GetOrCreateRoom - User fetches their personal room (mendukung target admin bila kolom tersedia)
 func GetOrCreateRoom(c *gin.Context) {
 	userIdentifier := c.Query("identifier")
 	if userIdentifier == "" {
-		// Fallback cek "gmail" untuk backward compatibility jika frontend belum ter-refresh
+		// Fallback cek "gmail" untuk backward compatibility
 		userIdentifier = c.Query("gmail")
+	}
+	if userIdentifier == "" {
+		identifierRaw, exists := c.Get("identifier")
+		if exists {
+			userIdentifier = fmt.Sprintf("%v", identifierRaw)
+		}
 	}
 	if userIdentifier == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Identifier (NIM/NIP) tidak boleh kosong"})
 		return
 	}
 
+	targetAdmin := c.Query("admin_identifier")
+	if targetAdmin == "" {
+		targetAdmin = c.Query("participant_b_identifier")
+	}
+	roomType := c.Query("room_type")
+	if roomType == "" {
+		roomType = "user_to_admin"
+	}
+
+	hasNewCols := HasChatColumns()
+
+	if hasNewCols && targetAdmin != "" {
+		var room models.ChatRoom
+		err := database.DB.QueryRow(`
+			SELECT id, user_identifier, COALESCE(room_type, 'user_to_admin'), COALESCE(participant_b_identifier, ''), COALESCE(participant_b_role, ''), COALESCE(last_message, ''), updated_at,
+			(SELECT COUNT(*) FROM chat_messages WHERE room_id = chat_rooms.id AND sender_identifier != $1 AND is_read = 0) as unread_count,
+			is_marked_unread
+			FROM chat_rooms 
+			WHERE user_identifier = $1 AND participant_b_identifier = $2`, userIdentifier, targetAdmin).
+			Scan(&room.ID, &room.UserIdentifier, &room.RoomType, &room.ParticipantBIdentifier, &room.ParticipantBRole, &room.LastMessage, &room.UpdatedAt, &room.UnreadCount, &room.IsMarkedUnread)
+
+		if err == sql.ErrNoRows {
+			var adminRole string
+			_ = database.DB.QueryRow("SELECT role::text FROM authentication WHERE identifier = $1", targetAdmin).Scan(&adminRole)
+			if adminRole == "" {
+				adminRole = "admin"
+			}
+
+			errInsert := database.DB.QueryRow(`
+				INSERT INTO chat_rooms (user_identifier, room_type, participant_b_identifier, participant_b_role)
+				VALUES ($1, $2, $3, $4)
+				RETURNING id`,
+				userIdentifier, roomType, targetAdmin, adminRole,
+			).Scan(&room.ID)
+			if errInsert != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat room chat: " + errInsert.Error()})
+				return
+			}
+			room.UserIdentifier = userIdentifier
+			room.RoomType = roomType
+			room.ParticipantBIdentifier = targetAdmin
+			room.ParticipantBRole = adminRole
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencari room: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, room)
+		return
+	}
+
+	// Fallback lama jika targetAdmin kosong ATAU kolom baru belum ada (1 user = 1 room)
 	var room models.ChatRoom
 	err := database.DB.QueryRow(`
 		SELECT id, user_identifier, COALESCE(last_message, ''), updated_at,
@@ -72,7 +298,6 @@ func GetOrCreateRoom(c *gin.Context) {
 
 	if err == sql.ErrNoRows {
 		fmt.Printf("[INFO] Creating new room for: %s\n", userIdentifier)
-		// PostgreSQL: gunakan RETURNING id
 		errInsert := database.DB.QueryRow(
 			"INSERT INTO chat_rooms (user_identifier) VALUES ($1) RETURNING id",
 			userIdentifier,
@@ -117,12 +342,62 @@ func GetMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, messages)
 }
 
-// SendMessage - Post a new message
+// SendMessage - Post a new message with permission validation
 func SendMessage(c *gin.Context) {
 	var msg models.ChatMessage
 	if err := c.ShouldBindJSON(&msg); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Data pesan tidak valid"})
 		return
+	}
+
+	roleRaw, _ := c.Get("role")
+	callerRole, _ := roleRaw.(string)
+	identifierRaw, _ := c.Get("identifier")
+	callerID, _ := identifierRaw.(string)
+
+	if msg.SenderIdentifier == "" {
+		msg.SenderIdentifier = callerID
+	} else if msg.SenderIdentifier != callerID && !isAdminDev(callerRole) {
+		msg.SenderIdentifier = callerID
+	}
+
+	hasNewCols := HasChatColumns()
+	if hasNewCols {
+		var roomUserIdentifier, roomParticipantB sql.NullString
+		errRoom := database.DB.QueryRow(
+			"SELECT user_identifier, participant_b_identifier FROM chat_rooms WHERE id = $1",
+			msg.RoomID,
+		).Scan(&roomUserIdentifier, &roomParticipantB)
+		if errRoom != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Room chat tidak ditemukan"})
+			return
+		}
+
+		userA := roomUserIdentifier.String
+		userB := roomParticipantB.String
+
+		if isBuildingAdmin(callerRole) {
+			if userB != callerID && userA != callerID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: Anda tidak memiliki akses ke room ini"})
+				return
+			}
+		} else if !isAdminDev(callerRole) {
+			if userA != callerID && userB != callerID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: Anda bukan partisipan dalam room ini"})
+				return
+			}
+		}
+	} else {
+		var roomUserIdentifier string
+		errRoom := database.DB.QueryRow("SELECT user_identifier FROM chat_rooms WHERE id = $1", msg.RoomID).Scan(&roomUserIdentifier)
+		if errRoom != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Room chat tidak ditemukan"})
+			return
+		}
+		if !isAnyAdmin(callerRole) && roomUserIdentifier != callerID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: Anda bukan partisipan dalam room ini"})
+			return
+		}
 	}
 
 	trimmedMsg := strings.TrimSpace(msg.Message)
@@ -239,7 +514,7 @@ func MarkAsUnread(c *gin.Context) {
 
 // GetAllUsers - Admin fetches all registered users
 func GetAllUsers(c *gin.Context) {
-	rows, err := database.DB.Query("SELECT username, identifier FROM authentication WHERE role != 'admin' ORDER BY username ASC")
+	rows, err := database.DB.Query("SELECT username, identifier FROM authentication WHERE role::text NOT IN ('admin', 'admin_dev', 'admin_sfd', 'admin_le', 'admin_ls') ORDER BY username ASC")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar user"})
 		return
@@ -264,6 +539,13 @@ func GetAllUsers(c *gin.Context) {
 
 // BroadcastMessage - Send a message to users based on target type
 func BroadcastMessage(c *gin.Context) {
+	roleRaw, _ := c.Get("role")
+	callerRole, _ := roleRaw.(string)
+	if !isAdminDev(callerRole) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Broadcast hanya dapat dilakukan oleh Admin Utama / AdminDev"})
+		return
+	}
+
 	var req struct {
 		Message           string   `json:"message"`
 		AdminIdentifier   string   `json:"admin_identifier"`
@@ -308,7 +590,7 @@ func BroadcastMessage(c *gin.Context) {
 			targetIdentifiers = append(targetIdentifiers, id)
 		}
 	case "all_users":
-		rows, err := database.DB.Query("SELECT identifier FROM authentication WHERE role != 'admin'")
+		rows, err := database.DB.Query("SELECT identifier FROM authentication WHERE role::text NOT IN ('admin', 'admin_dev', 'admin_sfd', 'admin_le', 'admin_ls')")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar user"})
 			return
@@ -423,13 +705,40 @@ func BulkDeleteRooms(c *gin.Context) {
 		return
 	}
 
+	roleRaw, _ := c.Get("role")
+	callerRole, _ := roleRaw.(string)
+	identifierRaw, _ := c.Get("identifier")
+	callerID, _ := identifierRaw.(string)
+
 	tx, err := database.DB.Begin()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memulai transaksi"})
 		return
 	}
 
+	hasNewCols := HasChatColumns()
+
 	for _, rid := range req.RoomIDs {
+		// Validasi jika admin gedung: hanya boleh hapus room miliknya
+		if isBuildingAdmin(callerRole) {
+			if hasNewCols {
+				var allowed bool
+				_ = tx.QueryRow(
+					"SELECT EXISTS(SELECT 1 FROM chat_rooms WHERE id = $1 AND participant_b_identifier = $2)",
+					rid, callerID,
+				).Scan(&allowed)
+				if !allowed {
+					tx.Rollback()
+					c.JSON(http.StatusForbidden, gin.H{"error": "Anda tidak memiliki izin menghapus room ini"})
+					return
+				}
+			} else {
+				tx.Rollback()
+				c.JSON(http.StatusForbidden, gin.H{"error": "Admin gedung tidak memiliki izin menghapus room sebelum migrasi schema"})
+				return
+			}
+		}
+
 		_, err = tx.Exec("DELETE FROM chat_messages WHERE room_id = $1", rid)
 		if err != nil {
 			tx.Rollback()
@@ -455,22 +764,30 @@ func BulkDeleteRooms(c *gin.Context) {
 
 // GetAdminInfo - Mengambil info profil Admin UNJ (avatar_url, nama) untuk sisi user
 func GetAdminInfo(c *gin.Context) {
+	adminID := c.Query("admin_identifier")
+	if adminID == "" {
+		adminID = c.Query("identifier")
+	}
+
 	var avatarURL sql.NullString
 	var fullName sql.NullString
 	var username sql.NullString
+	var role sql.NullString
 
 	query := `
 		SELECT 
 			COALESCE(p.avatar_url, ''),
 			COALESCE(p.full_name, ''),
-			COALESCE(a.username, 'Admin UNJ')
+			COALESCE(a.username, 'Admin UNJ'),
+			COALESCE(a.role::text, 'admin')
 		FROM authentication a
 		LEFT JOIN profiles p ON a.id = p.user_id
-		WHERE a.role = 'admin'
+		WHERE a.role::text IN ('admin', 'admin_dev', 'admin_sfd', 'admin_le', 'admin_ls')
+		  AND ($1 = '' OR a.identifier = $1)
 		ORDER BY a.id ASC
 		LIMIT 1`
 
-	err := database.DB.QueryRow(query).Scan(&avatarURL, &fullName, &username)
+	err := database.DB.QueryRow(query, adminID).Scan(&avatarURL, &fullName, &username, &role)
 	if err != nil && err != sql.ErrNoRows {
 		log.Println("[WARN] GetAdminInfo error:", err)
 	}
@@ -488,12 +805,76 @@ func GetAdminInfo(c *gin.Context) {
 		fn = "Admin UNJ"
 	}
 
+	r := role.String
+	if r == "" {
+		r = "admin"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"avatar_url": av,
 		"avatarUrl":  av,
 		"name":       fn,
 		"full_name":  fn,
-		"role":       "admin",
+		"role":       r,
 	})
+}
+
+// SearchAdmin - Mencari akun admin berdasarkan nama/username (hanya untuk user yang login)
+func SearchAdmin(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+
+	query := `
+		SELECT 
+			a.id,
+			a.identifier,
+			a.username,
+			COALESCE(NULLIF(p.full_name, ''), a.username) as full_name,
+			a.role::text,
+			COALESCE(p.avatar_url, '/LogoSiRuangPolos.png') as avatar_url
+		FROM authentication a
+		LEFT JOIN profiles p ON a.id = p.user_id
+		WHERE a.role::text IN ('admin', 'admin_dev', 'admin_sfd', 'admin_le', 'admin_ls')
+		  AND (
+		      $1 = '' 
+		      OR a.username ILIKE '%' || $1 || '%' 
+		      OR p.full_name ILIKE '%' || $1 || '%'
+		      OR a.identifier ILIKE '%' || $1 || '%'
+		  )
+		ORDER BY a.id ASC
+		LIMIT 20`
+
+	rows, err := database.DB.Query(query, q)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mencari admin: " + err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	type AdminResult struct {
+		ID         int    `json:"id"`
+		Identifier string `json:"identifier"`
+		Username   string `json:"username"`
+		FullName   string `json:"full_name"`
+		Role       string `json:"role"`
+		AvatarURL  string `json:"avatar_url"`
+	}
+
+	var results []AdminResult
+	for rows.Next() {
+		var adm AdminResult
+		if err := rows.Scan(&adm.ID, &adm.Identifier, &adm.Username, &adm.FullName, &adm.Role, &adm.AvatarURL); err != nil {
+			continue
+		}
+		if adm.AvatarURL == "" {
+			adm.AvatarURL = "/LogoSiRuangPolos.png"
+		}
+		results = append(results, adm)
+	}
+
+	if results == nil {
+		results = []AdminResult{}
+	}
+
+	c.JSON(http.StatusOK, results)
 }
 

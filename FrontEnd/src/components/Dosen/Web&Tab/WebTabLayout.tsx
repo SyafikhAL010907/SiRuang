@@ -98,13 +98,46 @@ export const WebTabLayout = () => {
   }, [chat.roomId, adminRoomId]);
 
   // Handle select Admin room
+  const [activeAdminTarget, setActiveAdminTarget] = useState<any | null>(null);
+
   const handleSelectAdminRoom = () => {
+    setActiveAdminTarget(null);
     setActiveRoomType('admin');
     setSelectedPjRoomId(null);
     chat.setMessages([]);
     setChatPartner({ name: 'Admin UNJ', role: 'OFFICIAL' });
     if (adminRoomId) chat.setRoomId(adminRoomId);
     setIsChatOpen(true);
+  };
+
+  const handleSelectAdminTarget = async (adm: any) => {
+    setActiveAdminTarget(adm);
+    setActiveRoomType('admin');
+    setSelectedPjRoomId(null);
+    chat.setMessages([]);
+    setChatPartner({
+      name: adm.full_name || adm.username || 'Admin UNJ',
+      role: adm.role === 'admin' ? 'OFFICIAL' : adm.role?.replace('_', ' ').toUpperCase(),
+      avatar: adm.avatar_url,
+    });
+    setIsChatOpen(true);
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) return;
+    const { token, identifier, gmail } = JSON.parse(storedUser);
+    const userKey = identifier || gmail;
+    try {
+      const res = await fetch(`/api/chat/user-room?identifier=${userKey}&admin_identifier=${adm.identifier}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        chat.setRoomId(data.id);
+        chat.setUnreadCount(data.unread_count || 0);
+        chat.fetchMessages(data.id, token, userKey);
+      }
+    } catch (err) {
+      console.error('Gagal membuka room admin:', err);
+    }
   };
 
   // Handle select PJ room
@@ -237,6 +270,8 @@ export const WebTabLayout = () => {
         pjRooms={pjRooms}
         selectedRoomId={selectedPjRoomId}
         onSelectPjRoom={handleSelectPjRoom}
+        activeAdmin={activeAdminTarget}
+        onSelectAdminTarget={handleSelectAdminTarget}
       />
 
       {isChatOpen ? (

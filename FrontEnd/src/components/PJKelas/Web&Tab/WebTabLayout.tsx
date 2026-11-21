@@ -113,13 +113,46 @@ export const WebTabLayout = () => {
     }
   }, [chat.roomId, adminRoomId, activeRoomType]);
 
+  const [activeAdminTarget, setActiveAdminTarget] = useState<any | null>(null);
+
   const handleSelectAdminRoom = () => {
+    setActiveAdminTarget(null);
     setActiveRoomType('admin');
     setSelectedDosenRoomId(null);
     chat.setMessages([]);
     if (adminRoomId) chat.setRoomId(adminRoomId);
     setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
     setIsChatOpen(true);
+  };
+
+  const handleSelectAdminTarget = async (adm: any) => {
+    setActiveAdminTarget(adm);
+    setActiveRoomType('admin');
+    setSelectedDosenRoomId(null);
+    chat.setMessages([]);
+    setChatPartner({
+      name: adm.full_name || adm.username || 'Admin UNJ',
+      role: adm.role === 'admin' ? 'OFFICIAL' : adm.role?.replace('_', ' ').toUpperCase(),
+      avatar: adm.avatar_url || '/LogoSiRuangPolos.png',
+    });
+    setIsChatOpen(true);
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) return;
+    const { token, identifier, gmail } = JSON.parse(storedUser);
+    const userKey = identifier || gmail;
+    try {
+      const res = await fetch(`/api/chat/user-room?identifier=${userKey}&admin_identifier=${adm.identifier}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        chat.setRoomId(data.id);
+        chat.setUnreadCount(data.unread_count || 0);
+        chat.fetchMessages(data.id, token, userKey);
+      }
+    } catch (err) {
+      console.error('Gagal membuka room admin:', err);
+    }
   };
 
   const handleSelectDosenRoom = (room: any) => {
@@ -256,6 +289,8 @@ export const WebTabLayout = () => {
         onOpenTemplate={() => setIsTemplatePopupOpen(true)}
         onLogout={handleLogout}
         adminAvatarSrc={adminAvatarSrc}
+        activeAdmin={activeAdminTarget}
+        onSelectAdminTarget={handleSelectAdminTarget}
       />
 
       {isChatOpen ? (
