@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
 import { isAnyAdmin, isAdminDev, isBuildingAdmin } from '@/lib/roles';
 import { getPublicAppUrl } from '@/lib/appUrl';
-import { getGedungForAdmin, notifyPjCheckin, notifyPjRejection } from '@/lib/bookingApprovalHelper';
+import { getGedungForAdmin, notifyPjCheckin, notifyPjRejection, notifyPjAdminApproved } from '@/lib/bookingApprovalHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -256,6 +256,24 @@ export async function PUT(
         });
       } else if (schedRows && schedRows.length === 0) {
         isFullyApproved = true;
+      }
+    } else if (freshBooking?.approval_admin_gedung === 'disetujui' && freshBooking?.approval_dosen !== 'disetujui') {
+      // Admin Gedung baru ACC, Dosen belum ACC: kirim email & notifikasi info ke PJ
+      try {
+        await notifyPjAdminApproved({
+          bookingId: freshBooking.id,
+          pemohonId: freshBooking.pemohon_id,
+          nimPemohon: freshBooking.nim_pemohon,
+          roomKode: (freshBooking.rooms as any)?.kode || 'Ruangan',
+          roomNama: (freshBooking.rooms as any)?.nama || '',
+          mataKuliah: freshBooking.mata_kuliah,
+          tanggal: freshBooking.tanggal,
+          jamMulai: freshBooking.jam_mulai,
+          jamSelesai: freshBooking.jam_selesai,
+          adminName: approverName,
+        });
+      } catch (adminNotifErr) {
+        console.warn('[AdminApproval] Gagal kirim notifikasi partial admin ke PJ:', adminNotifErr);
       }
     }
 

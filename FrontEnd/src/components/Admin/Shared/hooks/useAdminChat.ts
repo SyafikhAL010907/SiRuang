@@ -188,9 +188,12 @@ export function useAdminChat(options: UseAdminChatOptions) {
         try {
           sessionStorage.setItem('admin_cached_rooms', JSON.stringify(mapped));
         } catch {}
+        return mapped;
       }
+      return [];
     } catch (err) {
       console.error("Gagal ambil room:", err);
+      return [];
     } finally {
       isFetchingRoomsRef.current = false;
     }
@@ -236,15 +239,12 @@ export function useAdminChat(options: UseAdminChatOptions) {
       // Backend (Go) bisa balas `null` kalau room belum punya pesan: anggap daftar kosong
       const data: any[] | null = res.ok ? (Array.isArray(raw) ? raw : raw == null ? [] : null) : null;
       if (data) {
-        const currentAdminId = (adminGmailRef.current || adminGmail || '').toLowerCase();
+        const currentAdminId = (adminGmailRef.current || adminGmail || '').toLowerCase().trim();
         const serverMessages: Message[] = data.map((m: any) => {
-          const sId = (m.sender_gmail || m.sender_identifier || '').toLowerCase();
+          const sId = (m.sender_gmail || m.sender_identifier || '').toLowerCase().trim();
           const isAI = sId === 'admin_ai';
-          const isAdmin =
-            isAI ||
-            sId === currentAdminId ||
-            sId.startsWith('admin') ||
-            (selectedChatRef.current?.user_identifier && sId !== selectedChatRef.current.user_identifier.toLowerCase());
+          // Pesan adalah milik "admin" (sisi kanan / diri sendiri) jika dari akun yang sedang login atau dari AI
+          const isAdmin = isAI || (currentAdminId !== '' && sId === currentAdminId);
           return {
             id: m.id.toString(),
             sender: (isAdmin ? 'admin' : 'user') as 'admin' | 'user',
@@ -539,6 +539,7 @@ export function useAdminChat(options: UseAdminChatOptions) {
         },
         body: JSON.stringify({
           room_id: selectedChat.id,
+          sender_identifier: adminIdentifier,
           sender_gmail: adminIdentifier,
           message: messageText,
           message_type: messageType

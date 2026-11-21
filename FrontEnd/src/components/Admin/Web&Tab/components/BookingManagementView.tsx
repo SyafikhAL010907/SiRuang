@@ -265,15 +265,15 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack, u
       {/* TOP BAR */}
       <header className="px-8 py-3 bg-white/80 backdrop-blur-md border-b border-slate-100 z-10 shrink-0">
         <div className={`${CONTENT_LANE} flex items-center justify-between gap-4`}>
-          {!isBuilding ? (
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 text-slate-500 hover:text-[#588CBC] transition-colors cursor-pointer group"
-            >
-              <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-              <span className="text-xs font-bold">Kembali ke Dashboard</span>
-            </button>
-          ) : (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-500 hover:text-[#588CBC] transition-colors cursor-pointer group"
+          >
+            <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span className="text-xs font-bold">Kembali ke Dashboard</span>
+          </button>
+
+          {isBuilding && (
             <div className="flex items-center gap-2 text-[#183449]">
               <Building size={16} className="text-[#588CBC]" />
               <span className="text-xs font-bold uppercase tracking-wider">

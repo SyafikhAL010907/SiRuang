@@ -102,10 +102,20 @@ export async function GET(request: NextRequest) {
         jam_selesai,
         sks,
         status,
+        approval_dosen,
+        approval_admin_gedung,
         is_conditional
       `)
       .in('room_id', roomIds)
-      .in('status', ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung']);
+      .in('status', [
+        'menunggu_approval',
+        'menunggu_dosen',
+        'disetujui_dosen',
+        'dijadwalkan',
+        'dijadwalkan_admin',
+        'menunggu_checkin',
+        'berlangsung'
+      ]);
 
     // Helper cek overlap waktu jika jam filter aktif
     const overlapsTime = (itemStart: string, itemEnd: string, filterJam: string): boolean => {
@@ -132,19 +142,15 @@ export async function GET(request: NextRequest) {
         (b) =>
           b.room_id === room.id &&
           (
-            b.tanggal === tanggal ||
-            b.status === 'menunggu_dosen' ||
             b.status === 'berlangsung' ||
-            b.status === 'disetujui_dosen' ||
-            b.status === 'dijadwalkan_admin' ||
-            b.status === 'menunggu_checkin'
+            b.tanggal === tanggal
           )
       );
       let roomSchedules = (enrichedSchedules || []).filter((s) => s.room_id === room.id);
 
-      // Terapkan filter jam jika dipilih
+      // Terapkan filter jam jika dipilih (booking berstatus 'berlangsung' selalu aktif real-time)
       if (jam && jam !== 'all') {
-        roomBookings = roomBookings.filter((b) => overlapsTime(b.jam_mulai, b.jam_selesai, jam));
+        roomBookings = roomBookings.filter((b) => b.status === 'berlangsung' || overlapsTime(b.jam_mulai, b.jam_selesai, jam));
         roomSchedules = roomSchedules.filter((s) => overlapsTime(s.jam_mulai, s.jam_selesai, jam));
       }
 
@@ -165,12 +171,20 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // MERAH: HANYA jika sudah check-in dan sedang berlangsung
-      const hasCheckedIn = roomBookings.some((b) => b.status === 'berlangsung');
+      // MERAH: Jika sudah check-in ('berlangsung') ATAU jika sudah di-ACC kedua pihak (Dosen & Admin Gedung)
+      const hasActiveCheckin = roomBookings.some((b) => b.status === 'berlangsung');
+      const isApprovedBoth = roomBookings.some(
+        (b) =>
+          b.status === 'dijadwalkan' ||
+          (b.approval_dosen === 'disetujui' && b.approval_admin_gedung === 'disetujui')
+      );
+      const isRedOccupied = hasActiveCheckin || isApprovedBoth;
 
-      // KUNING: Dalam pengajuan dosen atau sudah disetujui dosen/terjadwal tapi BELUM check-in
-      const hasPendingOrWaitingCheckin = roomBookings.some((b) =>
-        ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+      // KUNING: Masih dalam pengajuan (menunggu dosen / menunggu admin gedung)
+      const hasPendingApproval = roomBookings.some(
+        (b) =>
+          ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status) &&
+          !isRedOccupied
       );
 
       // Cek apakah ada jadwal resmi
@@ -183,20 +197,22 @@ export async function GET(request: NextRequest) {
       let textColor = '#183449';
       let label = 'Kelas Kosong';
 
-      if (hasCheckedIn) {
+      if (isRedOccupied) {
         status = 'dipakai';
         color = '#E53935'; // Merah
         fillColor = 'rgba(229, 57, 53, 0.90)';
         strokeColor = '#E53935';
         textColor = '#FFFFFF';
-        label = 'Kelas Dipakai (Check-in Aktif)';
-      } else if (hasPendingOrWaitingCheckin) {
+        label = hasActiveCheckin
+          ? 'Kelas Dipakai (Check-in Aktif)'
+          : 'Resmi Terjadwal (ACC Dosen & Admin)';
+      } else if (hasPendingApproval) {
         status = 'dalam_pengajuan';
         color = '#FFEB3B'; // Kuning
         fillColor = 'rgba(255, 235, 59, 0.92)';
         strokeColor = '#FBC02D';
         textColor = '#183449';
-        label = 'Kelas dalam Pengajuan / Menunggu Check-in';
+        label = 'Kelas dalam Pengajuan (Menunggu Persetujuan)';
       } else if (hasOfficial) {
         status = 'jadwal_resmi';
         color = '#3B82F6'; // Biru

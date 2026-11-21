@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUserChat } from '../Shared/hooks/useUserChat';
 import { useUserMessageSearch } from '../Shared/hooks/useUserMessageSearch';
@@ -15,6 +15,7 @@ import UserChatInput from './components/UserChatInput';
 import UserTemplatePopupModal from '../Shared/Modals/UserTemplatePopupModal';
 import CustomAlert from '@/components/Shared/CustomAlert';
 import FilePreviewModal from '@/components/Shared/FilePreviewModal';
+import SearchAdminGedungModal from '@/components/Shared/SearchAdminGedungModal';
 
 export const WebTabLayout = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -41,6 +42,120 @@ export const WebTabLayout = () => {
     showAlert,
     fileInputRef: chat.fileInputRef,
   });
+
+  const [buildingAdminRooms, setBuildingAdminRooms] = useState<any[]>([]);
+  const [isSearchBuildingAdminOpen, setIsSearchBuildingAdminOpen] = useState(false);
+  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'building_admin'>('admin');
+  const [selectedBuildingAdminRoomId, setSelectedBuildingAdminRoomId] = useState<number | null>(null);
+  const [chatPartner, setChatPartner] = useState<{
+    name: string;
+    role: string;
+    avatar?: string;
+  }>({ name: 'Admin UNJ', role: 'Official Helpdesk', avatar: '/LogoSiRuangPolos.png' });
+  const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
+
+  const loadBuildingAdminRooms = useCallback(async () => {
+    try {
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!storedUser) return;
+      const { token } = JSON.parse(storedUser);
+      const res = await fetch('/api/chat/my-rooms', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.rooms && Array.isArray(json.rooms)) {
+          const bgRooms = json.rooms.filter((r: any) => r.room_type === 'user_to_building_admin');
+          setBuildingAdminRooms(bgRooms);
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat room admin gedung:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBuildingAdminRooms();
+  }, [loadBuildingAdminRooms]);
+
+  useEffect(() => {
+    if (chat.roomId && !adminRoomId && activeRoomType === 'admin') {
+      setAdminRoomId(chat.roomId);
+    }
+  }, [chat.roomId, adminRoomId, activeRoomType]);
+
+  const handleSelectAdminRoom = () => {
+    setActiveRoomType('admin');
+    setSelectedBuildingAdminRoomId(null);
+    chat.setMessages([]);
+    if (adminRoomId) {
+      chat.setRoomId(adminRoomId);
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (stored) {
+        try {
+          const { token } = JSON.parse(stored);
+          chat.fetchMessages(adminRoomId, token, chat.userGmail);
+        } catch {}
+      }
+    }
+    setChatPartner({ name: 'Admin UNJ', role: 'Official Helpdesk', avatar: '/LogoSiRuangPolos.png' });
+    setIsChatOpen(true);
+  };
+
+  const handleSelectBuildingAdminRoom = (room: any) => {
+    setActiveRoomType('building_admin');
+    setSelectedBuildingAdminRoomId(room.room_id);
+    chat.setMessages([]);
+    chat.setRoomId(room.room_id);
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (stored) {
+      try {
+        const { token } = JSON.parse(stored);
+        chat.fetchMessages(room.room_id, token, chat.userGmail);
+      } catch {}
+    }
+    setChatPartner({
+      name: room.partner_name,
+      role: `Admin Gedung ${room.partner_role ? room.partner_role.replace('admin_', '').toUpperCase() : ''}`,
+      avatar: room.partner_avatar,
+    });
+    setIsChatOpen(true);
+  };
+
+  const handleStartChatWithBuildingAdmin = async (admin: any) => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      const token = storedUser ? JSON.parse(storedUser).token : '';
+      const res = await fetch('/api/chat/open-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          target_identifier: admin.identifier,
+          room_type: 'user_to_building_admin',
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.room_id) {
+          await loadBuildingAdminRooms();
+          handleSelectBuildingAdminRoom({
+            room_id: json.room_id,
+            partner_name: admin.full_name,
+            partner_role: admin.role,
+            partner_avatar: admin.avatar_url,
+          });
+        }
+      } else {
+        showAlert('Gagal membuka room chat dengan admin gedung');
+      }
+    } catch {
+      showAlert('Terjadi kesalahan saat membuka room');
+    }
+  };
 
   // Deep link support: buka chat jika URL param openChat=1
   useEffect(() => {
@@ -147,7 +262,13 @@ export const WebTabLayout = () => {
         unreadCount={chat.unreadCount}
         isChatOpen={isChatOpen}
         lastMessage={lastMessage}
-        onOpenChat={() => setIsChatOpen(true)}
+        activeRoom={activeRoomType}
+        onSelectRoom={handleSelectAdminRoom}
+        buildingAdminRooms={buildingAdminRooms}
+        onSelectBuildingAdminRoom={handleSelectBuildingAdminRoom}
+        selectedRoomId={selectedBuildingAdminRoomId}
+        onOpenSearchBuildingAdmin={() => setIsSearchBuildingAdminOpen(true)}
+        onOpenChat={handleSelectAdminRoom}
         onOpenTemplate={() => setIsTemplatePopupOpen(true)}
         onLogout={handleLogout}
         adminAvatarSrc={adminAvatarSrc}
@@ -165,6 +286,9 @@ export const WebTabLayout = () => {
           }}
         >
           <UserChatHeader
+            partnerName={chatPartner.name}
+            partnerRole={chatPartner.role}
+            partnerAvatar={chatPartner.avatar}
             localSearchQuery={search.localSearchQuery}
             isLocalSearchOpen={search.isLocalSearchOpen}
             setIsLocalSearchOpen={search.setIsLocalSearchOpen}
@@ -263,6 +387,11 @@ export const WebTabLayout = () => {
         onClose={() => setSelectedExcelFile(null)}
         fileData={selectedExcelFile?.data || ''}
         fileName={selectedExcelFile?.name || ''}
+      />
+      <SearchAdminGedungModal
+        isOpen={isSearchBuildingAdminOpen}
+        onClose={() => setIsSearchBuildingAdminOpen(false)}
+        onSelectAdmin={handleStartChatWithBuildingAdmin}
       />
     </div>
   );

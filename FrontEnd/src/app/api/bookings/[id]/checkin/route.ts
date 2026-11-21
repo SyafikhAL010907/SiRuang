@@ -51,14 +51,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    if (
-      booking.status !== 'disetujui_dosen' &&
-      booking.status !== 'dijadwalkan_admin' &&
-      booking.status !== 'menunggu_checkin' &&
-      booking.status !== 'menunggu_dosen'
-    ) {
+    const isApproved =
+      booking.status === 'dijadwalkan' ||
+      booking.status === 'disetujui_dosen' ||
+      booking.status === 'dijadwalkan_admin' ||
+      booking.status === 'menunggu_checkin' ||
+      booking.status === 'menunggu_dosen' ||
+      (booking.approval_dosen === 'disetujui' && booking.approval_admin_gedung === 'disetujui');
+
+    if (!isApproved) {
       return NextResponse.json(
-        { error: `Check-in tidak dapat dilakukan pada booking dengan status '${booking.status}'. Pastikan pengajuan telah disetujui dosen.` },
+        { error: `Check-in tidak dapat dilakukan pada booking dengan status '${booking.status}'. Pastikan pengajuan telah disetujui oleh Dosen dan Admin Gedung.` },
         { status: 400 }
       );
     }

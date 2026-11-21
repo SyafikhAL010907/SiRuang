@@ -8,7 +8,7 @@ export interface UseAdminToolsOptions {
   showAlert: (message: string, title?: string) => void;
   alertConfig?: { show: boolean, type: 'alert' | 'confirm', message: string, title?: string, onConfirm?: () => void };
   setAlertConfig?: React.Dispatch<React.SetStateAction<{ show: boolean, type: 'alert' | 'confirm', message: string, title?: string, onConfirm?: () => void }>>;
-  fetchRooms: (token: string) => Promise<void>;
+  fetchRooms: (token: string) => Promise<any>;
   rooms: any[];
   setRooms?: React.Dispatch<React.SetStateAction<any[]>>;
   selectedChat: any | null;

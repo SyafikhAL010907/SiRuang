@@ -13,6 +13,8 @@ import {
   Image as ImageIcon,
   Bell,
   BellOff,
+  Building2,
+  Search,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '@/components/Shared/Avatar';
@@ -24,8 +26,12 @@ export interface UserSidebarProps {
   unreadCount: number;
   isChatOpen?: boolean;
   lastMessage?: any;
-  activeRoom?: 'admin' | 'dosen';
-  onSelectRoom?: (room: 'admin' | 'dosen') => void;
+  activeRoom?: 'admin' | 'building_admin';
+  onSelectRoom?: (room: 'admin') => void;
+  buildingAdminRooms?: any[];
+  onSelectBuildingAdminRoom?: (room: any) => void;
+  selectedRoomId?: number | null;
+  onOpenSearchBuildingAdmin?: () => void;
   onOpenChat: () => void;
   onOpenTemplate: () => void;
   onLogout: () => void;
@@ -42,6 +48,10 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
   lastMessage,
   activeRoom = 'admin',
   onSelectRoom,
+  buildingAdminRooms = [],
+  onSelectBuildingAdminRoom,
+  selectedRoomId = null,
+  onOpenSearchBuildingAdmin,
   onOpenChat,
   onOpenTemplate,
   onLogout,
@@ -49,8 +59,8 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 }) => {
   const adminAvatar = adminAvatarSrc || '/LogoSiRuangPolos.png';
   const { status, isLoading, subscribe, unsubscribe } = usePushNotifications();
-  // State room chat yang dipilih (admin atau dosen)
-  const [selectedRoom, setSelectedRoom] = useState<'admin' | 'dosen'>(activeRoom);
+  // State room chat yang dipilih (admin atau building_admin)
+  const [selectedRoom, setSelectedRoom] = useState<'admin' | 'building_admin'>(activeRoom);
 
   useEffect(() => {
     if (activeRoom) setSelectedRoom(activeRoom);
@@ -60,15 +70,6 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
     setSelectedRoom('admin');
     if (onSelectRoom) {
       onSelectRoom('admin');
-    } else {
-      onOpenChat();
-    }
-  };
-
-  const handleSelectDosen = () => {
-    setSelectedRoom('dosen');
-    if (onSelectRoom) {
-      onSelectRoom('dosen');
     } else {
       onOpenChat();
     }
@@ -283,6 +284,93 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                 </div>
                 <HelpCircle size={14} className="text-slate-300 group-hover:text-[#588CBC]" />
               </button>
+
+              {/* Tombol Search Admin Gedung */}
+              {onOpenSearchBuildingAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenSearchBuildingAdmin}
+                  className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-[#588CBC]/5 hover:border-[#588CBC]/30 transition-all select-none w-full shadow-2xs mt-1"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#183449]/10 flex items-center justify-center text-[#183449] group-hover:bg-[#183449] group-hover:text-white transition-all">
+                      <Building2 size={13} />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700 group-hover:text-[#183449] tracking-tight">
+                      Cari Admin Gedung...
+                    </span>
+                  </div>
+                  <Search size={13} className="text-slate-400 group-hover:text-[#588CBC]" />
+                </button>
+              )}
+
+              {/* Room Admin Gedung yang sudah ada */}
+              {buildingAdminRooms && buildingAdminRooms.length > 0 && (
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+                    Admin Gedung
+                  </h4>
+                  {buildingAdminRooms.map((bRoom) => {
+                    const isBSelected = isChatOpen && selectedRoom === 'building_admin' && selectedRoomId === bRoom.room_id;
+                    return (
+                      <motion.div
+                        key={bRoom.room_id}
+                        initial={false}
+                        onClick={() => {
+                          setSelectedRoom('building_admin');
+                          if (onSelectBuildingAdminRoom) onSelectBuildingAdminRoom(bRoom);
+                        }}
+                        className={cn(
+                          "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
+                          isBSelected
+                            ? "bg-white shadow-md border border-[#588CBC]/20"
+                            : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
+                        )}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
+                            isBSelected ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
+                          )}
+                        />
+                        <div className="relative shrink-0 ml-1">
+                          <Avatar
+                            src={bRoom.partner_avatar}
+                            size="md"
+                            alt={bRoom.partner_name}
+                            className="transition-transform duration-300 group-hover:scale-105"
+                          />
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-0.5">
+                            <h3 className={cn(
+                              "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
+                              isBSelected ? "text-[#183449]" : "text-slate-700"
+                            )}>
+                              <span className="truncate">{bRoom.partner_name}</span>
+                              <span className="px-1.5 py-0.2 bg-[#183449] text-[8px] font-black text-white rounded uppercase tracking-wider shrink-0">
+                                {bRoom.partner_role ? bRoom.partner_role.replace('admin_', '').toUpperCase() : 'GEDUNG'}
+                              </span>
+                            </h3>
+                          </div>
+                          <div className="flex justify-between items-center mt-0.5">
+                            <p className="text-xs truncate pr-2 flex-1 text-slate-400 font-medium">
+                              {bRoom.last_message || 'Mulai percakapan...'}
+                            </p>
+                            {bRoom.unread_count > 0 && (
+                              <span className="px-1.5 py-0.2 bg-emerald-500 text-white text-[9px] font-black rounded-full shrink-0">
+                                {bRoom.unread_count}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* CHAT ROOM LIST (DI BAWAH TEMPLATE PERTANYAAN, RAPI PERSIS SEPERTI DI ADMIN) */}
@@ -353,61 +441,6 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
                         {unreadCount}
                       </div>
                     )}
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Room 2: Dosen (Dummy Chat Room dengan PP Botak seperti di Admin) */}
-              <motion.div
-                initial={false}
-                onClick={handleSelectDosen}
-                className={cn(
-                  "relative p-3 flex items-center gap-3 rounded-3xl cursor-pointer transition-all duration-300 group",
-                  isChatOpen && selectedRoom === 'dosen'
-                    ? "bg-white shadow-md border border-[#588CBC]/20"
-                    : "hover:bg-slate-50/80 border border-transparent bg-slate-50/60"
-                )}
-              >
-                {/* Garis vertikal di samping profil */}
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full transition-all duration-300",
-                    isChatOpen && selectedRoom === 'dosen' ? "bg-[#183449]" : "bg-[#183449]/30 group-hover:bg-[#183449]"
-                  )}
-                />
-
-                {/* Avatar PP Botak (tanpa src, memakai icon default botak UserCircle bawaan) */}
-                <div className="relative shrink-0 ml-1">
-                  <Avatar
-                    size="md"
-                    alt="Dosen"
-                    className="transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
-                </div>
-
-                {/* Info & Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <h3 className={cn(
-                      "font-bold truncate text-sm tracking-tight transition-colors flex items-center gap-1.5",
-                      isChatOpen && selectedRoom === 'dosen' ? "text-[#183449]" : "text-slate-700"
-                    )}>
-                      <span>Dosen</span>
-                      <span className="px-1.5 py-0.2 bg-slate-200 text-[8px] font-black text-slate-600 rounded uppercase tracking-wider">
-                        Dosen
-                      </span>
-                    </h3>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0 ml-1">
-                      10:30
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs truncate pr-2 mt-0.5 flex-1 text-slate-400 font-medium">
-                      Halo, ada yang bisa saya bantu terkait perkuliahan?
-                    </p>
                   </div>
                 </div>
               </motion.div>
@@ -570,47 +603,93 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
               </div>
             </button>
 
-            {/* Tombol Room 2: Dosen (PP Botak) */}
-            <button
-              type="button"
-              onClick={handleSelectDosen}
-              onMouseEnter={(e) =>
-                showRailTip(e, {
-                  title: 'Dosen',
-                  subtitle: 'Konsultasi perkuliahan & bimbingan',
-                })
-              }
-              onMouseLeave={hideRailTip}
-              onFocus={(e) =>
-                showRailTip(e, {
-                  title: 'Dosen',
-                  subtitle: 'Konsultasi perkuliahan & bimbingan',
-                })
-              }
-              onBlur={hideRailTip}
-              aria-label="Buka Chat Dosen"
-              tabIndex={isOpen ? -1 : 0}
-              className="relative w-full flex justify-center py-1 group outline-none"
-            >
-              {isChatOpen && selectedRoom === 'dosen' && (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
-                />
-              )}
-              <div
-                className={cn(
-                  "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
-                  isChatOpen && selectedRoom === 'dosen' && "ring-2 ring-[#588CBC]/70 ring-offset-2"
-                )}
+            {/* Tombol Rail: Cari Admin Gedung */}
+            {onOpenSearchBuildingAdmin && (
+              <button
+                type="button"
+                onClick={onOpenSearchBuildingAdmin}
+                onMouseEnter={(e) =>
+                  showRailTip(e, {
+                    title: 'Cari Admin Gedung',
+                    subtitle: 'Chat admin gedung SFD, LE, LS',
+                  })
+                }
+                onMouseLeave={hideRailTip}
+                onFocus={(e) =>
+                  showRailTip(e, {
+                    title: 'Cari Admin Gedung',
+                    subtitle: 'Chat admin gedung SFD, LE, LS',
+                  })
+                }
+                onBlur={hideRailTip}
+                aria-label="Cari Admin Gedung"
+                tabIndex={isOpen ? -1 : 0}
+                className="relative w-full flex justify-center py-1 group outline-none"
               >
-                <Avatar
-                  size="md"
-                  alt="Dosen"
-                />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
-              </div>
-            </button>
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 text-[#183449] flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#183449] group-hover:text-white">
+                  <Building2 size={16} />
+                </div>
+              </button>
+            )}
+
+            {/* List Rail: Admin Gedung Rooms */}
+            {buildingAdminRooms && buildingAdminRooms.length > 0 && (
+              buildingAdminRooms.slice(0, 3).map((bRoom) => {
+                const isBSelected = isChatOpen && selectedRoom === 'building_admin' && selectedRoomId === bRoom.room_id;
+                return (
+                  <button
+                    key={bRoom.room_id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRoom('building_admin');
+                      if (onSelectBuildingAdminRoom) onSelectBuildingAdminRoom(bRoom);
+                    }}
+                    onMouseEnter={(e) =>
+                      showRailTip(e, {
+                        title: bRoom.partner_name || 'Admin Gedung',
+                        subtitle: bRoom.last_message || 'Mulai percakapan...',
+                      })
+                    }
+                    onMouseLeave={hideRailTip}
+                    onFocus={(e) =>
+                      showRailTip(e, {
+                        title: bRoom.partner_name || 'Admin Gedung',
+                        subtitle: bRoom.last_message || 'Mulai percakapan...',
+                      })
+                    }
+                    onBlur={hideRailTip}
+                    aria-label={bRoom.partner_name || 'Admin Gedung'}
+                    tabIndex={isOpen ? -1 : 0}
+                    className="relative w-full flex justify-center py-1 group outline-none"
+                  >
+                    {isBSelected && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#183449] rounded-r-full"
+                      />
+                    )}
+                    <div
+                      className={cn(
+                        "relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-focus-visible:scale-110 group-active:scale-95",
+                        isBSelected && "ring-2 ring-[#588CBC]/70 ring-offset-2"
+                      )}
+                    >
+                      <Avatar
+                        size="md"
+                        src={bRoom.partner_avatar}
+                        alt={bRoom.partner_name}
+                      />
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-sm" />
+                      {bRoom.unread_count > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-white shadow-sm animate-bounce">
+                          {bRoom.unread_count}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
 
           {/* Tombol Push Notif & Logout di Rail */}

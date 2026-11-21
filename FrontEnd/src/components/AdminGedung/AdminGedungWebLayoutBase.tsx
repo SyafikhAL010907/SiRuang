@@ -15,6 +15,7 @@ import ChatMessagesArea from '../Admin/Web&Tab/components/ChatMessagesArea';
 import ChatInputArea from '../Admin/Web&Tab/components/ChatInputArea';
 import AdminGedungSidebarBase from './AdminGedungSidebarBase';
 import AdminGedungLandingBase from './AdminGedungLandingBase';
+import SearchChatUserModal from '@/components/Shared/SearchChatUserModal';
 import { AdminGedungConfig } from './types';
 
 export interface AdminGedungWebLayoutBaseProps {
@@ -26,6 +27,7 @@ export const AdminGedungWebLayoutBase: React.FC<AdminGedungWebLayoutBaseProps> =
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [isTemplatePopupOpen, setIsTemplatePopupOpen] = useState(false);
+  const [isSearchUserOpen, setIsSearchUserOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     show: boolean;
     type: 'alert' | 'confirm';
@@ -139,6 +141,43 @@ export const AdminGedungWebLayoutBase: React.FC<AdminGedungWebLayoutBaseProps> =
     baseHandleSendMessage(e, pendingFiles, setPendingFiles);
   };
 
+  const handleStartChatWithUser = async (targetUser: any) => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      const token = storedUser ? JSON.parse(storedUser).token : '';
+      const res = await fetch('/api/chat/open-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          target_identifier: targetUser.identifier,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.room_id) {
+          await fetchRooms(token);
+          setSelectedChat({
+            id: data.room_id,
+            user_identifier: targetUser.identifier,
+            user_name: targetUser.full_name || targetUser.username,
+            avatar_url: targetUser.avatar_url,
+            role: targetUser.role,
+            room_type: 'user_to_building_admin',
+          });
+        }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        showAlert(errJson.error || 'Gagal membuka room chat');
+      }
+    } catch {
+      showAlert('Terjadi kesalahan saat membuka room chat');
+    }
+  };
+
   const filteredRooms = rooms.filter((r) => {
     const q = roomSearchQuery.toLowerCase();
     const matchesQuery =
@@ -171,6 +210,7 @@ export const AdminGedungWebLayoutBase: React.FC<AdminGedungWebLayoutBaseProps> =
         setRoomSearchQuery={setRoomSearchQuery}
         handleSelectRoom={(room) => setSelectedChat(room)}
         showAlert={showAlert}
+        onOpenSearchUser={() => setIsSearchUserOpen(true)}
       />
 
       {/* MAIN VIEW AREA */}
@@ -260,6 +300,13 @@ export const AdminGedungWebLayoutBase: React.FC<AdminGedungWebLayoutBaseProps> =
         onClose={() => setSelectedExcelFile(null)}
         fileData={selectedExcelFile?.data || ''}
         fileName={selectedExcelFile?.name || ''}
+      />
+      <SearchChatUserModal
+        isOpen={isSearchUserOpen}
+        onClose={() => setIsSearchUserOpen(false)}
+        onSelectUser={handleStartChatWithUser}
+        title="Mulai Chat Baru"
+        subtitle="Cari PJ Kelas, Mahasiswa, Dosen, atau Admin Dev"
       />
     </div>
   );

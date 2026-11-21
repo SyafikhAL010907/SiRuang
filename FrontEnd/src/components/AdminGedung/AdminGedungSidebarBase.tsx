@@ -13,6 +13,7 @@ import {
   User,
   Clock,
   Trash2,
+  UserPlus,
 } from 'lucide-react';
 import Avatar from '@/components/Shared/Avatar';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ export interface AdminGedungSidebarBaseProps {
   setRoomSearchQuery: (query: string) => void;
   handleSelectRoom: (room: any) => void;
   showAlert: (message: string, title?: string) => void;
+  onOpenSearchUser?: () => void;
 }
 
 const SIDEBAR_STORAGE_KEY = 'adminGedungSidebarOpen';
@@ -53,6 +55,7 @@ export const AdminGedungSidebarBase: React.FC<AdminGedungSidebarBaseProps> = ({
   setRoomSearchQuery,
   handleSelectRoom,
   showAlert,
+  onOpenSearchUser,
 }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -125,7 +128,14 @@ export const AdminGedungSidebarBase: React.FC<AdminGedungSidebarBaseProps> = ({
         >
           {/* TOP BANNER */}
           <div className="px-5 pt-4 pb-2">
-            <div className="bg-gradient-to-br from-[#07111E] via-[#0B1B30] to-[#123252] rounded-[28px] p-4 text-white shadow-xl shadow-[#0B192C]/30 ring-1 ring-white/10 relative overflow-hidden group">
+            <div
+              onClick={() => {
+                if (onDeselectChat) onDeselectChat();
+                if (onSelectView) onSelectView('dashboard');
+              }}
+              title="Klik untuk kembali ke Beranda Dashboard"
+              className="bg-gradient-to-br from-[#07111E] via-[#0B1B30] to-[#123252] rounded-[28px] p-4 text-white shadow-xl shadow-[#0B192C]/30 ring-1 ring-white/10 relative overflow-hidden group cursor-pointer"
+            >
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700" />
               <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-[#38BDF8]/25 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700" />
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
@@ -170,68 +180,6 @@ export const AdminGedungSidebarBase: React.FC<AdminGedungSidebarBaseProps> = ({
             </div>
           </div>
 
-          {/* NAVIGASI UTAMA: DASHBOARD & ACC PENGAJUAN */}
-          <div className="px-4 py-2 flex flex-col gap-1.5">
-            {/* Tombol Beranda / Dashboard */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onDeselectChat) onDeselectChat();
-                if (onSelectView) onSelectView('dashboard');
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all shadow-xs text-left cursor-pointer",
-                !selectedChat && currentView === 'dashboard'
-                  ? "bg-[#183449] text-white shadow-md shadow-[#183449]/20"
-                  : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100"
-              )}
-            >
-              <div
-                className={cn(
-                  "w-7 h-7 rounded-xl flex items-center justify-center shrink-0",
-                  !selectedChat && currentView === 'dashboard'
-                    ? "bg-[#38BDF8] text-[#0B192C]"
-                    : "bg-[#183449]/10 text-[#183449]"
-                )}
-              >
-                <LayoutDashboard size={14} />
-              </div>
-              <span className="flex-1 tracking-tight">Beranda Dashboard</span>
-            </button>
-
-            {/* Tombol ACC Pengajuan */}
-            <button
-              type="button"
-              onClick={() => {
-                if (onDeselectChat) onDeselectChat();
-                if (onSelectView) onSelectView('booking-management');
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all shadow-xs text-left cursor-pointer",
-                !selectedChat && currentView === 'booking-management'
-                  ? "bg-[#183449] text-white shadow-md shadow-[#183449]/20"
-                  : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100"
-              )}
-            >
-              <div
-                className={cn(
-                  "w-7 h-7 rounded-xl flex items-center justify-center shrink-0",
-                  !selectedChat && currentView === 'booking-management'
-                    ? "bg-[#38BDF8] text-[#0B192C]"
-                    : "bg-[#183449]/10 text-[#183449]"
-                )}
-              >
-                <CalendarCheck size={14} />
-              </div>
-              <span className="flex-1 tracking-tight">ACC Pengajuan Ruangan</span>
-              {pendingCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-900 shrink-0 animate-pulse">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          </div>
-
           {/* CHAT SECTION HEADER & SEARCH */}
           <div className="px-4 pt-2 pb-1">
             <div className="px-1 pb-1.5 flex items-center justify-between text-slate-400">
@@ -244,17 +192,29 @@ export const AdminGedungSidebarBase: React.FC<AdminGedungSidebarBaseProps> = ({
               </span>
             </div>
 
-            <div className="relative group">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors">
-                <Search size={14} />
+            <div className="flex items-center gap-2">
+              <div className="relative group flex-1">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#588CBC] transition-colors">
+                  <Search size={14} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Cari user atau pesan..."
+                  value={roomSearchQuery}
+                  onChange={(e) => setRoomSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#588CBC] transition-all"
+                />
               </div>
-              <input
-                type="text"
-                placeholder="Cari user atau pesan..."
-                value={roomSearchQuery}
-                onChange={(e) => setRoomSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#588CBC] transition-all"
-              />
+              {onOpenSearchUser && (
+                <button
+                  type="button"
+                  onClick={onOpenSearchUser}
+                  title="Mulai Chat Baru"
+                  className="p-2 bg-[#183449] hover:bg-[#588CBC] text-white rounded-xl shadow-xs transition-colors shrink-0 flex items-center justify-center cursor-pointer"
+                >
+                  <UserPlus size={15} />
+                </button>
+              )}
             </div>
 
             {/* Filter Tabs */}

@@ -52,7 +52,15 @@ export const PJCheckinView: React.FC<PJCheckinViewProps> = ({ onBack }) => {
   const fetchTodayBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token && typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
       // 1. Ambil dari /api/bookings
@@ -138,10 +146,10 @@ export const PJCheckinView: React.FC<PJCheckinViewProps> = ({ onBack }) => {
         }
       }
 
-      // Filter peminjaman yang aktif (termasuk menunggu_dosen, disetujui dosen, siap checkin, berlangsung)
+      // Filter peminjaman yang aktif (termasuk menunggu approval, disetujui, siap checkin, berlangsung)
       const filtered = list.filter(
         (b: BookingItem) =>
-          ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'].includes(b.status)
+          ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'].includes(b.status)
       );
 
       // Urutkan berdasarkan tanggal lalu jam mulai
@@ -183,6 +191,9 @@ export const PJCheckinView: React.FC<PJCheckinViewProps> = ({ onBack }) => {
         alert(json.error || 'Gagal melakukan check-in.');
       } else {
         alert(`Check-in berhasil! Ruangan ${kodeRuang} kini berstatus sedang digunakan (Warna denah menjadi Merah).`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('siruang:booking-updated'));
+        }
         fetchTodayBookings();
       }
     } catch (err: any) {
@@ -203,9 +214,14 @@ export const PJCheckinView: React.FC<PJCheckinViewProps> = ({ onBack }) => {
       };
     }
 
-    // Peminjaman yang telah di-ACC dosen / siap checkin: SELALU DIBUKA
+    // Peminjaman yang telah di-ACC dosen & admin gedung / siap checkin: SELALU DIBUKA
     // (Bisa dilakukan sejak disetujui termasuk H-1/hari sebelumnya hingga toleransi 30 menit setelah kuliah dimulai)
-    if (b.status === 'disetujui_dosen' || b.status === 'dijadwalkan_admin' || b.status === 'menunggu_checkin') {
+    if (
+      b.status === 'dijadwalkan' ||
+      b.status === 'dijadwalkan_admin' ||
+      b.status === 'disetujui_dosen' ||
+      b.status === 'menunggu_checkin'
+    ) {
       return {
         isOpen: true,
         isCompleted: false,
@@ -214,12 +230,12 @@ export const PJCheckinView: React.FC<PJCheckinViewProps> = ({ onBack }) => {
       };
     }
 
-    if (b.status === 'menunggu_dosen') {
+    if (b.status === 'menunggu_approval' || b.status === 'menunggu_dosen') {
       return {
-        isOpen: true,
+        isOpen: false,
         isCompleted: false,
-        text: 'Menunggu ACC Dosen (Siap Check-in Langsung)',
-        cls: 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse',
+        text: 'Menunggu Persetujuan (Dosen & Admin Gedung)',
+        cls: 'bg-amber-50 text-amber-700 border-amber-200',
       };
     }
 

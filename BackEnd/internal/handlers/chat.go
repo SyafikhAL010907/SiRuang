@@ -30,6 +30,7 @@ func GetRooms(c *gin.Context) {
 		FROM chat_rooms cr
 		LEFT JOIN authentication a ON cr.user_identifier = a.identifier
 		LEFT JOIN profiles p ON a.id = p.user_id
+		WHERE cr.room_type IS NULL OR cr.room_type != 'pj_to_dosen'
 		ORDER BY COALESCE(cr.updated_at, (SELECT MAX(created_at) FROM chat_messages WHERE room_id = cr.id), '1970-01-01'::timestamp) DESC, cr.id DESC`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal ambil daftar room: " + err.Error()})
@@ -37,17 +38,21 @@ func GetRooms(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var rooms []models.ChatRoom
+	seen := make(map[string]bool)
+	var uniqueRooms []models.ChatRoom
 	for rows.Next() {
 		var room models.ChatRoom
 		if err := rows.Scan(&room.ID, &room.UserIdentifier, &room.LastMessage, &room.UpdatedAt, &room.UserName, &room.UnreadCount, &room.IsOnline, &room.IsMarkedUnread, &room.AvatarURL, &room.Role); err != nil {
 			log.Println("[ERROR] Scan room:", err)
 			continue
 		}
-		rooms = append(rooms, room)
+		if !seen[room.UserIdentifier] {
+			seen[room.UserIdentifier] = true
+			uniqueRooms = append(uniqueRooms, room)
+		}
 	}
 
-	c.JSON(http.StatusOK, rooms)
+	c.JSON(http.StatusOK, uniqueRooms)
 }
 
 // GetOrCreateRoom - User fetches their personal room
@@ -63,19 +68,52 @@ func GetOrCreateRoom(c *gin.Context) {
 	}
 
 	var room models.ChatRoom
+
+	// Ambil AdminDev identifier dinamis
+	var adminDevIdentifier string
+	_ = database.DB.QueryRow("SELECT identifier FROM authentication WHERE role::text IN ('admin', 'admin_dev') ORDER BY id ASC LIMIT 1").Scan(&adminDevIdentifier)
+	if adminDevIdentifier == "" {
+		adminDevIdentifier = "198501012010121001"
+	}
+
+	// Gunakan fungsi atomik get_or_create_room jika tersedia
+	var roomID int64
+	var isNew bool
+	errFunc := database.DB.QueryRow(
+		"SELECT room_id, is_new FROM get_or_create_room($1, $2, 'user_to_admin', 'admin', $1, NULL)",
+		userIdentifier, adminDevIdentifier,
+	).Scan(&roomID, &isNew)
+
+	if errFunc == nil && roomID > 0 {
+		err := database.DB.QueryRow(`
+			SELECT id, user_identifier, COALESCE(last_message, ''), updated_at,
+			(SELECT COUNT(*) FROM chat_messages WHERE room_id = chat_rooms.id AND sender_identifier != $1 AND is_read = 0) as unread_count,
+			is_marked_unread
+			FROM chat_rooms WHERE id = $2`, userIdentifier, roomID).
+			Scan(&room.ID, &room.UserIdentifier, &room.LastMessage, &room.UpdatedAt, &room.UnreadCount, &room.IsMarkedUnread)
+		if err == nil {
+			c.JSON(http.StatusOK, room)
+			return
+		}
+	}
+
+	// Fallback query lama
 	err := database.DB.QueryRow(`
 		SELECT id, user_identifier, COALESCE(last_message, ''), updated_at,
 		(SELECT COUNT(*) FROM chat_messages WHERE room_id = chat_rooms.id AND sender_identifier != chat_rooms.user_identifier AND is_read = 0) as unread_count,
 		is_marked_unread
-		FROM chat_rooms WHERE user_identifier = $1`, userIdentifier).
+		FROM chat_rooms 
+		WHERE (user_identifier = $1 OR participant_b_identifier = $1)
+		  AND (room_type = 'user_to_admin' OR room_type IS NULL)
+		ORDER BY id ASC LIMIT 1`, userIdentifier).
 		Scan(&room.ID, &room.UserIdentifier, &room.LastMessage, &room.UpdatedAt, &room.UnreadCount, &room.IsMarkedUnread)
 
 	if err == sql.ErrNoRows {
 		fmt.Printf("[INFO] Creating new room for: %s\n", userIdentifier)
-		// PostgreSQL: gunakan RETURNING id
+		// PostgreSQL: gunakan RETURNING id dengan kolom baru
 		errInsert := database.DB.QueryRow(
-			"INSERT INTO chat_rooms (user_identifier) VALUES ($1) RETURNING id",
-			userIdentifier,
+			"INSERT INTO chat_rooms (user_identifier, participant_b_identifier, room_type, created_by) VALUES ($1, $2, 'user_to_admin', $1) RETURNING id",
+			userIdentifier, adminDevIdentifier,
 		).Scan(&room.ID)
 		if errInsert != nil {
 			fmt.Printf("[ERROR] CreateRoom: %v\n", errInsert)
@@ -123,6 +161,10 @@ func SendMessage(c *gin.Context) {
 	if err := c.ShouldBindJSON(&msg); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Data pesan tidak valid"})
 		return
+	}
+
+	if msg.SenderIdentifier == "" && msg.SenderGmail != "" {
+		msg.SenderIdentifier = msg.SenderGmail
 	}
 
 	trimmedMsg := strings.TrimSpace(msg.Message)
@@ -296,7 +338,7 @@ func BroadcastMessage(c *gin.Context) {
 
 	switch req.TargetType {
 	case "waiting_room":
-		rows, err := database.DB.Query("SELECT user_identifier FROM chat_rooms")
+		rows, err := database.DB.Query("SELECT user_identifier FROM chat_rooms WHERE user_identifier NOT LIKE 'dosen:%' AND COALESCE(room_type, 'user_to_admin') != 'pj_to_dosen'")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil daftar room"})
 			return

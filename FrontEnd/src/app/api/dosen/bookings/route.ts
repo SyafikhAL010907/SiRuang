@@ -22,6 +22,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Akun dosen tidak ditemukan' }, { status: 404 });
     }
 
+    const { data: dbDosenProfile } = await supabaseServer
+      .from('v_user_profiles')
+      .select('user_id, identifier, full_name, username')
+      .eq('identifier', user.identifier)
+      .maybeSingle();
+
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status');
 
@@ -31,11 +37,24 @@ export async function GET(request: Request) {
         *,
         rooms:room_id (id, kode, nama, gedung, lantai, bookable)
       `)
-      .eq('dosen_id', dbDosen.id)
       .order('created_at', { ascending: false });
 
+    // Filter milik dosen yang login: bisa via dosen_id atau nama_dosen
+    let dosenFilter = `dosen_id.eq.${dbDosen.id}`;
+    if (dbDosenProfile?.full_name) {
+      dosenFilter += `,nama_dosen.ilike.%${dbDosenProfile.full_name}%`;
+    }
+    if (dbDosenProfile?.username) {
+      dosenFilter += `,nama_dosen.ilike.%${dbDosenProfile.username}%`;
+    }
+    query = query.or(dosenFilter);
+
     if (statusFilter && statusFilter !== 'ALL') {
-      query = query.eq('status', statusFilter);
+      if (statusFilter === 'pending') {
+        query = query.or('status.eq.menunggu_dosen,and(status.eq.menunggu_approval,approval_dosen.eq.pending)');
+      } else {
+        query = query.eq('status', statusFilter);
+      }
     }
 
     const { data: bookings, error } = await query;

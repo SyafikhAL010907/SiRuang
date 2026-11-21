@@ -226,7 +226,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="flex-1 min-w-0 flex flex-col leading-tight">
                 <span className="text-sm font-black text-slate-800">Pengajuan Booking Ruangan</span>
                 <span className="text-[11px] text-slate-400 font-medium leading-relaxed mt-1 line-clamp-2">
-                  Pantau pengajuan ruangan, persetujuan dosen, jadwal aktif, dan riwayat presensi di Gedung SFD.
+                  Pantau pengajuan ruangan, persetujuan dosen, jadwal aktif, dan riwayat presensi di seluruh gedung perkuliahan.
                 </span>
               </div>
               <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 text-[#588CBC] flex items-center justify-center shrink-0 group-hover:bg-[#183449] group-hover:border-[#183449] group-hover:text-white transition-all">

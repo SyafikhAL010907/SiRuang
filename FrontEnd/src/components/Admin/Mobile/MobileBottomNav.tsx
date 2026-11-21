@@ -23,7 +23,6 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { isBuildingAdmin } from '@/lib/roles';
 
 /* ───────────────────────── GEOMETRI NAVBAR ─────────────────────────
    Semua angka dalam px. Ubah di sini kalau mau fine-tuning.
@@ -127,19 +126,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const [isManagementMenuOpen, setIsManagementMenuOpen] = useState(false);
 
-  const [storedRole] = useState<string>(() => {
-    if (userRole) return userRole;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('user');
-        if (stored) return JSON.parse(stored).role || '';
-      } catch {}
-    }
-    return '';
-  });
-
-  const buildingAdmin = isBuildingAdmin(userRole || storedRole);
-  const itemCount = buildingAdmin ? 3 : 5;
+  const itemCount = 5;
 
   const isManagemenActive =
     activeTab === 'managemen' ||
@@ -152,46 +139,29 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     activeTab === 'message' || activeTab === 'unreading' || activeTab === 'reading';
   const isDenahActive = activeTab === 'denah';
 
-  const navItems = buildingAdmin
-    ? [
-        {
-          id: 'booking-management',
-          label: 'Pengajuan',
-          icon: CalendarCheck,
-          active: (activeTab === 'managemen' && subView === 'booking-management') || subView === 'booking-management',
-        },
-        {
-          id: 'message',
-          label: 'Chat',
-          icon: MessageSquare,
-          active: isMessageActive,
-          badge: unreadCount,
-        },
-        { id: 'profile', label: 'Profile', icon: User, active: isProfileActive },
-      ]
-    : [
-        { id: 'home', label: 'Home', icon: LayoutGrid, active: isHomeActive },
-        {
-          id: 'message',
-          label: 'Message',
-          icon: MessageSquare,
-          active: isMessageActive,
-          badge: unreadCount,
-        },
-        {
-          id: 'managemen',
-          label: 'Managemen',
-          icon: SlidersHorizontal,
-          active: isManagemenActive,
-        },
-        { id: 'denah', label: 'Denah', icon: Map, active: isDenahActive },
-        { id: 'profile', label: 'Profile', icon: User, active: isProfileActive },
-      ];
+  const navItems = [
+    { id: 'home', label: 'Home', icon: LayoutGrid, active: isHomeActive },
+    {
+      id: 'message',
+      label: 'Message',
+      icon: MessageSquare,
+      active: isMessageActive,
+      badge: unreadCount,
+    },
+    {
+      id: 'managemen',
+      label: 'Managemen',
+      icon: SlidersHorizontal,
+      active: isManagemenActive,
+    },
+    { id: 'denah', label: 'Denah', icon: Map, active: isDenahActive },
+    { id: 'profile', label: 'Profile', icon: User, active: isProfileActive },
+  ];
 
   // Tab yang sedang "dipegang" mangkuk. Saat popup manajemen terbuka, mangkuk pindah ke Managemen.
   const activeId = isManagementMenuOpen
     ? 'managemen'
-    : navItems.find((i) => i.active)?.id ?? (buildingAdmin ? 'booking-management' : 'home');
+    : navItems.find((i) => i.active)?.id ?? 'home';
   const activeIndex = Math.max(0, navItems.findIndex((i) => i.id === activeId));
   const activeItem = navItems[activeIndex] || navItems[0];
   const ActiveIcon = activeItem.icon;

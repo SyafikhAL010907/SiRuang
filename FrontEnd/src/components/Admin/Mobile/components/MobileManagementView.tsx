@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, KeyRound, Network, CalendarCheck, FileSpreadsheet, ChevronRight, SlidersHorizontal } from 'lucide-react';
-import { isBuildingAdmin } from '@/lib/roles';
 
 export interface MobileManagementViewProps {
   userRole?: string;
@@ -70,22 +69,7 @@ export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
   onSelectBookingManagement,
   onSelectImportJadwal,
 }) => {
-  const [storedRole] = useState<string>(() => {
-    if (userRole) return userRole;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('user');
-        if (stored) return JSON.parse(stored).role || '';
-      } catch {}
-    }
-    return '';
-  });
-
-  const buildingAdmin = isBuildingAdmin(userRole || storedRole);
-
-  const visibleItems = buildingAdmin
-    ? MANAGEMENT_ITEMS.filter((item) => item.key === 'booking-management')
-    : MANAGEMENT_ITEMS;
+  const visibleItems = MANAGEMENT_ITEMS;
 
   const handlers: Record<string, (() => void) | undefined> = {
     'role-access': onSelectRoleAccess,
@@ -112,12 +96,10 @@ export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
           </span>
         </div>
         <h3 className="text-lg font-black tracking-tight leading-tight">
-          {buildingAdmin ? 'Pengajuan Booking Gedung' : 'Manajemen Sistem Admin'}
+          Manajemen Sistem Admin
         </h3>
         <p className="text-[11px] text-white/70 font-medium mt-1 leading-relaxed">
-          {buildingAdmin
-            ? 'Tinjau dan verifikasi pengajuan ruangan perkuliahan oleh dosen dan mahasiswa.'
-            : 'Pilih salah satu menu manajemen di bawah untuk mengelola role hak akses, akun pengguna, atau relasi mata kuliah.'}
+          Pilih salah satu menu manajemen di bawah untuk mengelola role hak akses, akun pengguna, atau relasi mata kuliah.
         </p>
       </div>
 

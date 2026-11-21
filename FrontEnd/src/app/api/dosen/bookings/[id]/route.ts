@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
 import { getPublicAppUrl } from '@/lib/appUrl';
-import { notifyPjCheckin, notifyPjRejection } from '@/lib/bookingApprovalHelper';
+import { notifyPjCheckin, notifyPjRejection, notifyPjDosenApproved } from '@/lib/bookingApprovalHelper';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -59,7 +59,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Pengajuan booking tidak ditemukan' }, { status: 404 });
     }
 
-    if (booking.dosen_id !== dbDosen.id) {
+    const { data: dbDosenProfile } = await supabaseServer
+      .from('v_user_profiles')
+      .select('user_id, identifier, full_name, username')
+      .eq('identifier', user.identifier)
+      .maybeSingle();
+
+    const isOwner =
+      booking.dosen_id === dbDosen.id ||
+      (dbDosenProfile?.full_name && booking.nama_dosen?.toLowerCase().includes(dbDosenProfile.full_name.toLowerCase())) ||
+      (dbDosenProfile?.username && booking.nama_dosen?.toLowerCase().includes(dbDosenProfile.username.toLowerCase()));
+
+    if (!isOwner) {
       return NextResponse.json(
         { error: 'Anda tidak memiliki hak untuk merespon pengajuan booking ini.' },
         { status: 403 }
@@ -236,6 +247,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
           jamSelesai: freshBooking.jam_selesai,
           appUrl,
         });
+      }
+    } else if (freshBooking?.approval_dosen === 'disetujui' && freshBooking?.approval_admin_gedung !== 'disetujui') {
+      // Dosen baru ACC, admin gedung belum ACC: kirim email & notifikasi info ke PJ
+      try {
+        await notifyPjDosenApproved({
+          bookingId: freshBooking.id,
+          pemohonId: freshBooking.pemohon_id,
+          nimPemohon: freshBooking.nim_pemohon,
+          roomKode: freshBooking.rooms?.kode || 'Ruangan',
+          roomNama: freshBooking.rooms?.nama || '',
+          mataKuliah: freshBooking.mata_kuliah,
+          tanggal: freshBooking.tanggal,
+          jamMulai: freshBooking.jam_mulai,
+          jamSelesai: freshBooking.jam_selesai,
+          dosenName: booking.nama_dosen,
+        });
+      } catch (dosenNotifErr) {
+        console.warn('[DosenApproval] Gagal kirim notifikasi partial dosen ke PJ:', dosenNotifErr);
       }
     }
 

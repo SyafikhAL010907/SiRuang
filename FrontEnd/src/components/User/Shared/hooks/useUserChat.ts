@@ -125,13 +125,18 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
       // Backend (Go) bisa balas `null` kalau room belum punya pesan: anggap daftar kosong
       const data: any[] | null = res.ok ? (Array.isArray(raw) ? raw : raw == null ? [] : null) : null;
       if (data) {
-        const serverMessages: Message[] = data.map((m: any) => ({
-          id: m.id.toString(),
-          sender: (m.sender_gmail || m.sender_identifier || '').toLowerCase() === currentGmail.toLowerCase() ? 'user' : 'admin',
-          text: m.message,
-          timestamp: toLocalTime(m.created_at),
-          type: m.message_type
-        }));
+        const curId = currentGmail.toLowerCase().trim();
+        const serverMessages: Message[] = data.map((m: any) => {
+          const sId = (m.sender_gmail || m.sender_identifier || '').toLowerCase().trim();
+          const isUser = sId === curId;
+          return {
+            id: m.id.toString(),
+            sender: isUser ? 'user' : 'admin',
+            text: m.message,
+            timestamp: toLocalTime(m.created_at),
+            type: m.message_type
+          };
+        });
 
         setMessages((prevMessages) => {
           // Server = sumber kebenaran. Satu-satunya pesan lokal yang dipertahankan adalah
@@ -399,6 +404,7 @@ export const useUserChat = ({ platform, isChatVisible, showAlert }: UseUserChatO
         },
         body: JSON.stringify({
           room_id: roomId,
+          sender_identifier: gmail,
           sender_gmail: gmail,
           message: messageText,
           message_type: messageType

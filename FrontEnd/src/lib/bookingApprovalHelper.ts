@@ -356,3 +356,200 @@ export async function notifyPjCheckin({
   }
 }
 
+/**
+ * Mengirimkan email & push notifikasi ke PJ saat Dosen menyetujui tapi masih menunggu persetujuan Admin Gedung.
+ */
+export async function notifyPjDosenApproved({
+  bookingId,
+  pemohonId,
+  nimPemohon,
+  roomKode,
+  roomNama,
+  mataKuliah,
+  tanggal,
+  jamMulai,
+  jamSelesai,
+  dosenName,
+}: {
+  bookingId: string;
+  pemohonId?: number | null;
+  nimPemohon?: string | null;
+  roomKode: string;
+  roomNama?: string;
+  mataKuliah: string;
+  tanggal: string;
+  jamMulai: string;
+  jamSelesai: string;
+  dosenName?: string;
+}) {
+  const { email, fullName } = await getPjContact(pemohonId, nimPemohon);
+
+  if (email) {
+    await sendEmail({
+      to: email,
+      subject: `[SiRuang] Pengajuan Ruangan ${roomKode} Disetujui Dosen Pengampu — Menunggu Admin Gedung`,
+      template: 'E2_DOSEN_ACC',
+      relatedId: bookingId,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+          
+          <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+            <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0;">SiRuang &bull; Status Pengajuan Ruangan</h1>
+            <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0;">Pembaruan Persetujuan Dosen Pengampu</p>
+          </div>
+
+          <div style="display: inline-block; background-color: #eff6ff; color: #1e40af; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 14px;">
+            ✓ Disetujui Dosen &bull; Menunggu Admin Gedung
+          </div>
+
+          <h2 style="color: #1e3a8a; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Dosen Pengampu Telah Menyetujui Pengajuan Anda! 👍</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(fullName)}</strong>,</p>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            Dosen Pengampu <strong>${escapeHtml(dosenName || 'Dosen Pengampu')}</strong> telah menyetujui peminjaman ruangan Anda untuk mata kuliah <strong>${escapeHtml(mataKuliah)}</strong>.
+          </p>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            Saat ini pengajuan Anda sedang <strong>menunggu persetujuan dari Admin Gedung</strong> sebelum ruangan resmi dijadwalkan dan siap presensi / check-in. Mohon pantau halaman peminjaman secara berkala (tidak perlu mengajukan ulang).
+          </p>
+
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="padding: 4px 0; color: #64748b; width: 130px;">Ruangan:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomKode)}${roomNama ? ' - ' + escapeHtml(roomNama) : ''}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Mata Kuliah:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: 700;">${escapeHtml(mataKuliah)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Jadwal:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: 700;">${escapeHtml(tanggal)} &bull; ${escapeHtml(jamMulai.slice(0, 5))}–${escapeHtml(jamSelesai.slice(0, 5))} WIB</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Status Terkini:</td>
+                <td style="padding: 4px 0; color: #1e40af; font-weight: 700;">Disetujui Dosen &bull; Menunggu Verifikasi Admin Gedung</td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 14px;">
+            Anda akan menerima email pemberitahuan dan tombol check-in otomatis segera setelah Admin Gedung menyetujui permohonan ini.
+          </p>
+        </div>
+      `,
+    });
+  }
+
+  if (pemohonId) {
+    try {
+      await notifyBookingPushByUserId(
+        pemohonId,
+        'Pengajuan Disetujui Dosen',
+        `Dosen pengampu telah menyetujui peminjaman ${roomKode}. Pengajuan kini menunggu persetujuan Admin Gedung.`,
+        '/user'
+      );
+    } catch (pushErr) {
+      console.warn('[notifyPjDosenApproved] Gagal kirim push notification:', pushErr);
+    }
+  }
+}
+
+/**
+ * Mengirimkan email & push notifikasi ke PJ saat Admin Gedung menyetujui tapi masih menunggu persetujuan Dosen.
+ */
+export async function notifyPjAdminApproved({
+  bookingId,
+  pemohonId,
+  nimPemohon,
+  roomKode,
+  roomNama,
+  mataKuliah,
+  tanggal,
+  jamMulai,
+  jamSelesai,
+  adminName,
+}: {
+  bookingId: string;
+  pemohonId?: number | null;
+  nimPemohon?: string | null;
+  roomKode: string;
+  roomNama?: string;
+  mataKuliah: string;
+  tanggal: string;
+  jamMulai: string;
+  jamSelesai: string;
+  adminName?: string;
+}) {
+  const { email, fullName } = await getPjContact(pemohonId, nimPemohon);
+
+  if (email) {
+    await sendEmail({
+      to: email,
+      subject: `[SiRuang] Pengajuan Ruangan ${roomKode} Disetujui Admin Gedung — Menunggu Dosen Pengampu`,
+      template: 'E2_ADMIN_ACC',
+      relatedId: bookingId,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 20px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+          
+          <div style="text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #f1f5f9;">
+            <h1 style="color: #183449; font-size: 20px; font-weight: 800; margin: 0;">SiRuang &bull; Status Pengajuan Ruangan</h1>
+            <p style="color: #64748b; font-size: 12px; margin: 3px 0 0 0;">Pembaruan Persetujuan Admin Gedung</p>
+          </div>
+
+          <div style="display: inline-block; background-color: #eff6ff; color: #1e40af; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 14px;">
+            ✓ Disetujui Admin Gedung &bull; Menunggu Dosen Pengampu
+          </div>
+
+          <h2 style="color: #1e3a8a; margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Admin Gedung Telah Menyetujui Pengajuan Anda! 👍</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Halo <strong>${escapeHtml(fullName)}</strong>,</p>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            Admin Gedung <strong>${escapeHtml(adminName || 'Admin Gedung')}</strong> telah menyetujui peminjaman ruangan Anda untuk mata kuliah <strong>${escapeHtml(mataKuliah)}</strong>.
+          </p>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            Saat ini pengajuan Anda sedang <strong>menunggu persetujuan dari Dosen Pengampu</strong> sebelum ruangan resmi dijadwalkan dan siap presensi / check-in.
+          </p>
+
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; padding: 16px 20px; margin: 18px 0; border-radius: 12px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="padding: 4px 0; color: #64748b; width: 130px;">Ruangan:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: 700;">${escapeHtml(roomKode)}${roomNama ? ' - ' + escapeHtml(roomNama) : ''}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Mata Kuliah:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: 700;">${escapeHtml(mataKuliah)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Jadwal:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: 700;">${escapeHtml(tanggal)} &bull; ${escapeHtml(jamMulai.slice(0, 5))}–${escapeHtml(jamSelesai.slice(0, 5))} WIB</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #64748b;">Status Terkini:</td>
+                <td style="padding: 4px 0; color: #1e40af; font-weight: 700;">Disetujui Admin Gedung &bull; Menunggu Verifikasi Dosen Pengampu</td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 14px;">
+            Anda akan menerima email pemberitahuan dan tombol check-in otomatis segera setelah Dosen Pengampu menyetujui permohonan ini.
+          </p>
+        </div>
+      `,
+    });
+  }
+
+  if (pemohonId) {
+    try {
+      await notifyBookingPushByUserId(
+        pemohonId,
+        'Pengajuan Disetujui Admin Gedung',
+        `Admin Gedung telah menyetujui peminjaman ${roomKode}. Pengajuan kini menunggu persetujuan Dosen Pengampu.`,
+        '/user'
+      );
+    } catch (pushErr) {
+      console.warn('[notifyPjAdminApproved] Gagal kirim push notification:', pushErr);
+    }
+  }
+}
+
+

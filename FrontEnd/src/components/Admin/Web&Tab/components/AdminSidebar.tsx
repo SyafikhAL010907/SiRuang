@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronLeft,
   CalendarCheck,
+  UserPlus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '@/components/Shared/Avatar';
@@ -60,6 +61,7 @@ export interface AdminSidebarProps {
   handleBlessChat: () => void;
   viewFile: (dataUrl: string, fileName?: string) => void;
   showAlert: (message: string, title?: string) => void;
+  onOpenSearchUser?: () => void;
 }
 
 const SIDEBAR_STORAGE_KEY = 'adminSidebarOpen';
@@ -105,6 +107,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   handleBlessChat,
   viewFile,
   showAlert,
+  onOpenSearchUser,
 }) => {
   // ── Buka / tutup sidebar (state disimpan di sini supaya WebTabLayout tidak perlu diubah) ──
   const [isOpen, setIsOpen] = useState(true);
@@ -237,17 +240,29 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           </div>
 
           <div className="px-4 pb-2">
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#38BDF8] transition-colors duration-300">
-                <Search size={16} />
+            <div className="flex items-center gap-2">
+              <div className="relative group flex-1">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#38BDF8] transition-colors duration-300">
+                  <Search size={16} />
+                </div>
+                <input
+                  type="text"
+                  value={roomSearchQuery}
+                  onChange={(e) => setRoomSearchQuery(e.target.value)}
+                  placeholder="Cari user atau pesan..."
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:bg-white focus:border-[#38BDF8] focus:ring-4 focus:ring-[#38BDF8]/10 transition-all duration-300"
+                />
               </div>
-              <input
-                type="text"
-                value={roomSearchQuery}
-                onChange={(e) => setRoomSearchQuery(e.target.value)}
-                placeholder="Cari user atau pesan..."
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:bg-white focus:border-[#38BDF8] focus:ring-4 focus:ring-[#38BDF8]/10 transition-all duration-300"
-              />
+              {onOpenSearchUser && (
+                <button
+                  type="button"
+                  onClick={onOpenSearchUser}
+                  title="Mulai Chat Baru"
+                  className="p-2.5 bg-[#183449] hover:bg-[#588CBC] text-white rounded-2xl shadow-xs transition-colors shrink-0 flex items-center justify-center cursor-pointer"
+                >
+                  <UserPlus size={16} />
+                </button>
+              )}
             </div>
           </div>
 

@@ -119,10 +119,10 @@ export async function evaluateBookingStates(): Promise<void> {
       }
     }
 
-    // 3. Hangus lazy untuk pengajuan 'menunggu_approval' atau 'menunggu_dosen' yang lewat waktu (TANPA email)
+    // 3. Hangus lazy untuk pengajuan 'menunggu_approval' atau 'menunggu_dosen' yang telah melewati waktu perkuliahan (TANPA email)
     const { data: pendingApprovals } = await supabaseServer
       .from('bookings')
-      .select('id, tanggal, jam_mulai')
+      .select('id, tanggal, jam_mulai, jam_selesai, approval_dosen, approval_admin_gedung')
       .in('status', ['menunggu_approval', 'menunggu_dosen'])
       .lte('tanggal', todayDate);
 
@@ -134,9 +134,15 @@ export async function evaluateBookingStates(): Promise<void> {
         if (b.tanggal < todayDate) {
           isExpired = true;
         } else {
-          const [hStr, mStr] = b.jam_mulai.split(':');
-          const startMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
-          if (currentMinutesTotal > startMin) {
+          // Jika salah satu pihak sudah menyetujui (misal dosen sudah ACC), jangan hanguskan sebelum jam_selesai!
+          const isPartiallyApproved = b.approval_dosen === 'disetujui' || b.approval_admin_gedung === 'disetujui';
+          const compareTimeStr = isPartiallyApproved
+            ? (b.jam_selesai || b.jam_mulai)
+            : (b.jam_selesai || b.jam_mulai);
+          const [hStr, mStr] = compareTimeStr.split(':');
+          const timeMin = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+          // Berikan batas toleransi 30 menit setelah perkuliahan berakhir sebelum dinyatakan hangus
+          if (currentMinutesTotal > timeMin + 30) {
             isExpired = true;
           }
         }

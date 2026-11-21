@@ -58,7 +58,18 @@ export const PJBookingHistoryView: React.FC<PJBookingHistoryViewProps> = ({
   const fetchUserBookings = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/user/bookings');
+      let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token && typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
+      const res = await fetch('/api/user/bookings', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (res.ok) {
         const json = await res.json();
         setBookings(json.data || []);
