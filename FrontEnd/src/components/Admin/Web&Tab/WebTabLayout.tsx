@@ -395,6 +395,7 @@ const WebTabLayout = () => {
           <RelasiMataKuliahView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
         ) : mainView === 'booking-management' ? (
           <BookingManagementView
+            userRole={userRole}
             onBack={() => {
               if (!isBuildingAdmin(userRole)) {
                 setMainView('dashboard');

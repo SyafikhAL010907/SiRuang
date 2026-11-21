@@ -418,6 +418,7 @@ const MobileLayout = () => {
                   />
                 ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'booking-management' ? (
                   <BookingManagementView
+                    userRole={userRole}
                     onBack={() => {
                       if (!isBuildingAdmin(userRole)) {
                         setActiveTab('home');

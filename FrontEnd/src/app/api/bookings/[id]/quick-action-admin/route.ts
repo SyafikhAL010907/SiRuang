@@ -146,12 +146,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Validasi token hash admin gedung
     if (booking.admin_gedung_token_hash !== tokenHash) {
+      if (searchParams.get('format') === 'json' || request.headers.get('accept')?.includes('application/json')) {
+        return NextResponse.json({ error: 'Token keamanan admin gedung tidak cocok atau sudah tidak berlaku.' }, { status: 403 });
+      }
       return renderHtmlCard({
         title: 'Token Tidak Valid',
         isSuccess: false,
         heading: 'Verifikasi Gagal',
         message: 'Token keamanan admin gedung tidak cocok atau sudah tidak berlaku.',
         httpStatus: 403,
+      });
+    }
+
+    // Jika pemanggil meminta data detail format JSON (misal dari /admin/review/[id])
+    const wantsJson = searchParams.get('format') === 'json' || request.headers.get('accept')?.includes('application/json') || action === 'detail';
+    if (wantsJson && action !== 'setuju' && action !== 'tolak') {
+      return NextResponse.json({
+        success: true,
+        data: booking,
       });
     }
 
@@ -414,11 +426,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'ID booking dan token verifikasi wajib disertakan.' }, { status: 400 });
     }
 
-    if (action !== 'tolak') {
-      return NextResponse.json({ error: "Aksi tidak valid. Pilihan: 'tolak'." }, { status: 400 });
+    if (action !== 'tolak' && action !== 'setuju') {
+      return NextResponse.json({ error: "Aksi tidak valid. Pilihan: 'setuju' atau 'tolak'." }, { status: 400 });
     }
 
-    if (!alasan || alasan.trim().length < 10) {
+    if (action === 'tolak' && (!alasan || alasan.trim().length < 10)) {
       return NextResponse.json({ error: 'Alasan penolakan wajib diisi minimal 10 karakter.' }, { status: 400 });
     }
 
@@ -442,6 +454,100 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const now = new Date().toISOString();
+    const appUrl = getPublicAppUrl(request);
+
+    // JIKA AKSI = SETUJU
+    if (action === 'setuju') {
+      const { data: updatedRows, error: uErr } = await supabaseServer
+        .from('bookings')
+        .update({
+          approval_admin_gedung: 'disetujui',
+          admin_gedung_responded_at: now,
+          admin_responded_at: now,
+          admin_gedung_token_expires: now,
+          updated_at: now,
+        })
+        .eq('id', bookingId)
+        .in('status', ['menunggu_approval', 'menunggu_dosen'])
+        .eq('approval_admin_gedung', 'pending')
+        .select('*, rooms:room_id(id, kode, nama, gedung, lantai)');
+
+      if (uErr || !updatedRows || updatedRows.length === 0) {
+        const { data: latest } = await supabaseServer
+          .from('bookings')
+          .select('*, rooms:room_id(id, kode, nama, gedung)')
+          .eq('id', bookingId)
+          .maybeSingle();
+
+        const penolak = latest?.ditolak_oleh === 'dosen' ? 'Dosen Pengampu' : 'Admin Gedung';
+        const alasanExisting = latest?.alasan_tolak_admin_gedung || latest?.alasan_tolak_dosen || latest?.alasan_tolak || '';
+
+        if (['ditolak', 'ditolak_dosen', 'ditolak_admin', 'dibatalkan', 'dibatalkan_prioritas', 'hangus', 'kedaluwarsa'].includes(latest?.status || '')) {
+          return NextResponse.json(
+            { error: `Pengajuan ini sudah ditolak sebelumnya oleh ${penolak} (Alasan: "${alasanExisting}").` },
+            { status: 409 }
+          );
+        }
+
+        if (latest?.approval_admin_gedung === 'disetujui') {
+          return NextResponse.json(
+            { error: 'Persetujuan Admin Gedung sudah pernah dicatat sebelumnya.' },
+            { status: 409 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: 'Pengajuan ini tidak lagi dalam status menunggu persetujuan.' },
+          { status: 409 }
+        );
+      }
+
+      const currentBooking = updatedRows[0];
+
+      // Baca ulang booking untuk mengecek dual gate
+      const { data: freshBooking } = await supabaseServer
+        .from('bookings')
+        .select('*, rooms:room_id(id, kode, nama, gedung)')
+        .eq('id', bookingId)
+        .single();
+
+      let isFullyApproved = false;
+
+      if (freshBooking?.approval_dosen === 'disetujui' && freshBooking?.approval_admin_gedung === 'disetujui') {
+        const { data: schedRows, error: sErr } = await supabaseServer
+          .from('bookings')
+          .update({ status: 'dijadwalkan', updated_at: now })
+          .eq('id', bookingId)
+          .in('status', ['menunggu_approval', 'menunggu_dosen'])
+          .select();
+
+        if (!sErr && schedRows && schedRows.length === 1) {
+          isFullyApproved = true;
+          await notifyPjCheckin({
+            bookingId: freshBooking.id,
+            pemohonId: freshBooking.pemohon_id,
+            nimPemohon: freshBooking.nim_pemohon,
+            roomKode: freshBooking.rooms?.kode || 'Ruangan',
+            roomNama: freshBooking.rooms?.nama || '',
+            mataKuliah: freshBooking.mata_kuliah,
+            tanggal: freshBooking.tanggal,
+            jamMulai: freshBooking.jam_mulai,
+            jamSelesai: freshBooking.jam_selesai,
+            appUrl,
+          });
+        } else if (schedRows && schedRows.length === 0) {
+          isFullyApproved = true;
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: isFullyApproved
+          ? 'Peminjaman ruangan resmi dijadwalkan dan siap check-in.'
+          : 'Persetujuan Admin Gedung berhasil dicatat. Menunggu persetujuan Dosen Pengampu.',
+        data: currentBooking,
+      });
+    }
 
     // Update penolakan admin gedung secara atomik: status IN ('menunggu_approval', 'menunggu_dosen') AND approval_admin_gedung = 'pending'
     const { data: rejectRows, error: rErr } = await supabaseServer

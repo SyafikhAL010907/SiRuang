@@ -15,15 +15,19 @@ import {
   Building,
   User,
   GraduationCap,
-  FileText,
   CalendarCheck,
   Ban,
   FileSpreadsheet,
+  Check,
+  Eye,
+  ShieldAlert,
 } from 'lucide-react';
 import { exportBookingsToExcel } from '@/lib/excelExport';
+import { isBuildingAdmin, isAdminDev } from '@/lib/roles';
 
 interface BookingManagementViewProps {
   onBack: () => void;
+  userRole?: string;
 }
 
 export interface BookingItem {
@@ -32,6 +36,7 @@ export interface BookingItem {
   pemohon_id: number;
   dosen_id: number;
   admin_id?: number | null;
+  admin_gedung_id?: number | null;
   nama_pemohon: string;
   nim_pemohon: string;
   mata_kuliah: string;
@@ -47,6 +52,12 @@ export interface BookingItem {
   is_conditional: boolean;
   alasan_peminjaman?: string | null;
   alasan_tolak?: string | null;
+  alasan_tolak_dosen?: string | null;
+  alasan_tolak_admin_gedung?: string | null;
+  approval_dosen?: string | null;
+  approval_admin_gedung?: string | null;
+  ditolak_oleh?: string | null;
+  ditolak_at?: string | null;
   status: string;
   created_at: string;
   rooms?: {
@@ -62,18 +73,33 @@ const CONTENT_LANE = 'w-full max-w-[1400px] mx-auto';
 const TH_CLASS = 'px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500';
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  menunggu_dosen: { label: 'Menunggu Dosen', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  disetujui_dosen: { label: 'Disetujui Dosen (Siap Digunakan)', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  menunggu_approval: { label: 'Menunggu Approval', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  menunggu_dosen: { label: 'Menunggu Dosen (Lama)', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  dijadwalkan: { label: 'Resmi Terjadwal (Siap Check-in)', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  disetujui_dosen: { label: 'Disetujui Dosen (Siap Check-in)', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  dijadwalkan_admin: { label: 'Dijadwalkan Admin', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  ditolak: { label: 'Ditolak', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
   ditolak_dosen: { label: 'Ditolak Dosen', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
-  dijadwalkan_admin: { label: 'Disetujui / Terjadwal', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  ditolak_admin: { label: 'Dibatalkan', cls: 'bg-slate-100 text-slate-700 border-slate-300' },
+  ditolak_admin: { label: 'Ditolak Admin', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
   menunggu_checkin: { label: 'Menunggu Presensi / Check-in', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
   berlangsung: { label: 'Sedang Berlangsung (Merah)', cls: 'bg-rose-100 text-rose-800 border-rose-300' },
   selesai: { label: 'Selesai', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
   dibatalkan: { label: 'Dibatalkan', cls: 'bg-rose-50 text-rose-600 border-rose-200' },
+  hangus: { label: 'Hangus (Lewat Waktu)', cls: 'bg-slate-100 text-slate-500 border-slate-300' },
 };
 
-const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack }) => {
+const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack, userRole }) => {
+  const [currentRole] = useState<string>(() => {
+    if (userRole) return userRole;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) return JSON.parse(stored).role || '';
+      } catch {}
+    }
+    return '';
+  });
+
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -82,10 +108,16 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Reject Modal
-  const [rejectModal, setRejectModal] = useState<{ open: boolean; item: BookingItem | null; reason: string }>({
+  const [rejectModal, setRejectModal] = useState<{
+    open: boolean;
+    item: BookingItem | null;
+    reason: string;
+    error: string;
+  }>({
     open: false,
     item: null,
     reason: '',
+    error: '',
   });
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -122,23 +154,33 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
         b.kelas?.toLowerCase().includes(q) ||
         b.rooms?.kode?.toLowerCase().includes(q) ||
         b.rooms?.nama?.toLowerCase().includes(q) ||
+        b.rooms?.gedung?.toLowerCase().includes(q) ||
         b.nama_dosen?.toLowerCase().includes(q)
     );
   }, [bookings, query]);
 
-  const handleJadwalkan = async (item: BookingItem) => {
+  // Aksi Setujui (Hanya untuk Admin Gedung)
+  const handleSetuju = async (item: BookingItem) => {
     if (processingId) return;
     setProcessingId(item.id);
     try {
       const res = await fetch(`/api/admin/bookings/${item.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'jadwalkan' }),
+        body: JSON.stringify({ action: 'setuju' }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal menjadwalkan booking');
 
-      showToast('success', `Peminjaman ${item.rooms?.kode || ''} (${item.mata_kuliah}) berhasil dijadwalkan!`);
+      if (!res.ok) {
+        if (res.status === 409) {
+          showToast('error', data.error || 'Pengajuan sudah ditinjau atau ditolak pihak lain.');
+          fetchBookings();
+          return;
+        }
+        throw new Error(data.error || 'Gagal menyetujui booking');
+      }
+
+      showToast('success', data.message || `Peminjaman ${item.rooms?.kode || ''} berhasil disetujui!`);
       fetchBookings();
     } catch (err: any) {
       showToast('error', err.message);
@@ -147,12 +189,13 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
     }
   };
 
+  // Aksi Konfirmasi Tolak (Hanya untuk Admin Gedung)
   const handleRejectConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectModal.item || processingId) return;
 
-    if (!rejectModal.reason.trim() || rejectModal.reason.trim().length < 5) {
-      showToast('error', 'Alasan penolakan admin wajib diisi minimal 5 karakter');
+    if (rejectModal.reason.trim().length < 10) {
+      setRejectModal((prev) => ({ ...prev, error: 'Alasan penolakan wajib minimal 10 karakter' }));
       return;
     }
 
@@ -167,17 +210,30 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal menolak booking');
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          showToast('error', data.error || 'Pengajuan sudah ditolak atau diproses pihak lain.');
+          setRejectModal({ open: false, item: null, reason: '', error: '' });
+          fetchBookings();
+          return;
+        }
+        setRejectModal((prev) => ({ ...prev, error: data.error || 'Gagal menolak booking' }));
+        return;
+      }
 
       showToast('success', 'Peminjaman ruangan berhasil ditolak.');
-      setRejectModal({ open: false, item: null, reason: '' });
+      setRejectModal({ open: false, item: null, reason: '', error: '' });
       fetchBookings();
     } catch (err: any) {
-      showToast('error', err.message);
+      setRejectModal((prev) => ({ ...prev, error: err.message }));
     } finally {
       setProcessingId(null);
     }
   };
+
+  const isBuilding = isBuildingAdmin(currentRole);
+  const isDev = isAdminDev(currentRole);
 
   return (
     <div
@@ -209,21 +265,39 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
       {/* TOP BAR */}
       <header className="px-8 py-3 bg-white/80 backdrop-blur-md border-b border-slate-100 z-10 shrink-0">
         <div className={`${CONTENT_LANE} flex items-center justify-between gap-4`}>
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-slate-500 hover:text-[#588CBC] transition-colors cursor-pointer group"
-          >
-            <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-            <span className="text-xs font-bold">Kembali ke Dashboard</span>
-          </button>
-          <button
-            onClick={fetchBookings}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <RotateCw size={13} className={loading ? 'animate-spin' : ''} />
-            <span>Segarkan</span>
-          </button>
+          {!isBuilding ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-slate-500 hover:text-[#588CBC] transition-colors cursor-pointer group"
+            >
+              <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-xs font-bold">Kembali ke Dashboard</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 text-[#183449]">
+              <Building size={16} className="text-[#588CBC]" />
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Panel Persetujuan Admin Gedung
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            {isDev && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold border border-slate-200">
+                <Eye size={12} className="text-slate-500" />
+                Mode: View-Only (Admin Dev)
+              </span>
+            )}
+            <button
+              onClick={fetchBookings}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RotateCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span>Segarkan</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -240,14 +314,16 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
               <div className="flex items-center gap-3">
                 <div className="w-10 h-1 bg-[#588CBC] rounded-full" />
                 <span className="text-[10px] font-black text-[#183449] uppercase tracking-[0.3em]">
-                  Monitoring Ruangan
+                  {isBuilding ? 'Persetujuan Gedung' : 'Monitoring Ruangan'}
                 </span>
               </div>
               <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-                Monitoring &amp; Riwayat Peminjaman Ruangan
+                {isBuilding ? 'ACC Pengajuan Ruangan Perkuliahan' : 'Monitoring & Riwayat Peminjaman Ruangan'}
               </h2>
-              <p className="text-sm text-slate-400 font-medium max-w-2xl leading-relaxed">
-                Pantau seluruh riwayat, jadwal aktif, dan status peminjaman ruangan perkuliahan Gedung SFD secara transparan dan real-time.
+              <p className="text-sm text-slate-500 font-medium max-w-2xl leading-relaxed">
+                {isBuilding
+                  ? 'Verifikasi dan berikan persetujuan peminjaman ruangan khusus di gedung Anda secara paralel bersama Dosen Pengampu.'
+                  : 'Pantau seluruh riwayat, jadwal aktif, dan status peminjaman ruangan perkuliahan secara transparan dan real-time.'}
               </p>
             </div>
           </div>
@@ -260,11 +336,13 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
                   { value: 'ALL', label: 'Semua' },
+                  { value: 'menunggu_approval', label: 'Menunggu Approval' },
                   { value: 'menunggu_dosen', label: 'Menunggu Dosen' },
+                  { value: 'dijadwalkan', label: 'Resmi Terjadwal' },
                   { value: 'disetujui_dosen', label: 'Siap Check-in' },
                   { value: 'berlangsung', label: 'Berlangsung' },
+                  { value: 'ditolak', label: 'Ditolak' },
                   { value: 'selesai', label: 'Selesai' },
-                  { value: 'ditolak_dosen', label: 'Ditolak' },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -301,7 +379,7 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
 
                 <button
                   type="button"
-                  onClick={() => exportBookingsToExcel(filtered, 'Riwayat_Peminjaman_Admin_SFD')}
+                  onClick={() => exportBookingsToExcel(filtered, 'Riwayat_Peminjaman_Admin')}
                   className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
                   title="Unduh laporan Excel (.xlsx)"
                 >
@@ -313,15 +391,17 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
 
             {/* TABLE */}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px]">
+              <table className="w-full min-w-[1020px]">
                 <thead className="bg-slate-50/80">
                   <tr>
                     <th className={TH_CLASS}>Ruangan &amp; Waktu</th>
                     <th className={TH_CLASS}>Mata Kuliah &amp; Kelas</th>
                     <th className={TH_CLASS}>Pemohon (PJ Kelas)</th>
-                    <th className={TH_CLASS}>Dosen Pengampu</th>
-                    <th className={TH_CLASS}>Status / Kondisi</th>
-                    <th className={`${TH_CLASS} text-center`}>Status Monitoring</th>
+                    <th className={TH_CLASS}>Status Per Pihak (Dosen &amp; Admin)</th>
+                    <th className={TH_CLASS}>Status Akhir</th>
+                    <th className={`${TH_CLASS} text-center`}>
+                      {isBuilding ? 'Aksi Persetujuan' : 'Monitoring'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -341,9 +421,7 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
                           <CalendarCheck size={32} className="text-slate-300 stroke-[1.5]" />
                           <p className="text-xs font-semibold">Tidak ada pengajuan booking pada status ini.</p>
                           <p className="text-[11px] text-slate-400">
-                            {statusFilter === 'disetujui_dosen'
-                              ? 'Semua pengajuan yang disetujui dosen telah diproses.'
-                              : 'Silakan pilih filter status lain atau ubah kata kunci pencarian.'}
+                            Silakan pilih filter status lain atau ubah kata kunci pencarian.
                           </p>
                         </div>
                       </td>
@@ -354,17 +432,47 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
                         label: b.status,
                         cls: 'bg-slate-100 text-slate-700 border-slate-200',
                       };
+
+                      // Status Approval Dosen
+                      const isDosenAcc =
+                        b.approval_dosen === 'disetujui' ||
+                        ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung', 'selesai'].includes(
+                          b.status
+                        );
+                      const isDosenReject =
+                        b.approval_dosen === 'ditolak' ||
+                        b.status === 'ditolak_dosen' ||
+                        (b.status === 'ditolak' && b.ditolak_oleh === 'dosen');
+
+                      // Status Approval Admin Gedung
+                      const isAdminAcc =
+                        b.approval_admin_gedung === 'disetujui' ||
+                        b.status === 'dijadwalkan';
+                      const isAdminReject =
+                        b.approval_admin_gedung === 'ditolak' ||
+                        b.status === 'ditolak_admin' ||
+                        (b.status === 'ditolak' && b.ditolak_oleh === 'admin_gedung');
+
+                      // Hak Aksi Admin Gedung
+                      const canAct =
+                        isBuilding &&
+                        (b.approval_admin_gedung === 'pending' || !b.approval_admin_gedung) &&
+                        ['menunggu_approval', 'menunggu_dosen'].includes(b.status);
+
                       return (
                         <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
                           {/* RUANGAN & WAKTU */}
                           <td className="px-4 py-4">
                             <div className="flex items-start gap-2.5">
                               <div className="w-8 h-8 rounded-xl bg-slate-100 text-[#588CBC] flex items-center justify-center shrink-0 border border-slate-200 font-black text-xs">
-                                {b.rooms?.kode?.replace('R.', '') || 'SFD'}
+                                {b.rooms?.kode?.replace('R.', '') || 'R'}
                               </div>
                               <div>
                                 <p className="text-xs font-bold text-slate-800">
                                   {b.rooms?.kode || 'Ruangan'} · {b.rooms?.nama || ''}
+                                </p>
+                                <p className="text-[10px] text-slate-500 font-medium">
+                                  Gedung {b.rooms?.gedung || '-'} · Lantai {b.rooms?.lantai || '-'}
                                 </p>
                                 <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                                   <Calendar size={11} />
@@ -384,10 +492,13 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
                             <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
                               Kelas: {b.kelas}
                             </span>
-                            {b.alasan_peminjaman && (
-                              <p className="text-[10px] text-slate-400 mt-1 line-clamp-1 italic">
-                                &ldquo;{b.alasan_peminjaman}&rdquo;
-                              </p>
+                            {b.is_conditional && (
+                              <div className="mt-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                  <AlertTriangle size={10} />
+                                  BERSYARAT
+                                </span>
+                              </div>
                             )}
                           </td>
 
@@ -400,25 +511,49 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
                             )}
                           </td>
 
-                          {/* DOSEN */}
+                          {/* STATUS PER PIHAK */}
                           <td className="px-4 py-4">
-                            <p className="text-xs font-semibold text-slate-800">{b.nama_dosen || 'Dosen Pengampu'}</p>
-                            {['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung', 'selesai'].includes(b.status) ? (
-                              <span className="inline-block mt-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                                Sudah Di-ACC Dosen
-                              </span>
-                            ) : b.status === 'ditolak_dosen' ? (
-                              <span className="inline-block mt-0.5 text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
-                                Ditolak Dosen
-                              </span>
-                            ) : (
-                              <span className="inline-block mt-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                ⏳ Belum Di-ACC Dosen
-                              </span>
-                            )}
+                            <div className="flex flex-col gap-1.5">
+                              {/* Badge Dosen */}
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border ${
+                                    isDosenAcc
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : isDosenReject
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}
+                                >
+                                  {isDosenAcc ? '✓ Dosen: Disetujui' : isDosenReject ? '✕ Dosen: Ditolak' : '⏳ Dosen: Pending'}
+                                </span>
+                                <span className="text-[10px] text-slate-600 truncate max-w-[120px]" title={b.nama_dosen || ''}>
+                                  {b.nama_dosen || 'Dosen'}
+                                </span>
+                              </div>
+
+                              {/* Badge Admin Gedung */}
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border ${
+                                    isAdminAcc
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : isAdminReject
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}
+                                >
+                                  {isAdminAcc
+                                    ? '✓ Admin: Disetujui'
+                                    : isAdminReject
+                                    ? '✕ Admin: Ditolak'
+                                    : '⏳ Admin: Pending'}
+                                </span>
+                              </div>
+                            </div>
                           </td>
 
-                          {/* STATUS & BERSYARAT */}
+                          {/* STATUS AKHIR & KETERANGAN */}
                           <td className="px-4 py-4">
                             <div className="flex flex-col gap-1 items-start">
                               <span
@@ -426,48 +561,59 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
                               >
                                 {stMeta.label}
                               </span>
-                              {b.is_conditional && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-                                  <AlertTriangle size={10} />
-                                  BERSYARAT (Jadwal Resmi)
-                                </span>
-                              )}
-                              {b.alasan_tolak && (
-                                <p className="text-[10px] text-rose-600 mt-0.5">
-                                  Alasan: {b.alasan_tolak}
-                                </p>
+                              {(b.alasan_tolak_admin_gedung || b.alasan_tolak_dosen || b.alasan_tolak) && (
+                                <div className="mt-1 p-1.5 rounded bg-rose-50/80 border border-rose-100 max-w-xs text-[10px] text-rose-700 leading-snug">
+                                  <span className="font-bold">
+                                    Ditolak oleh {b.ditolak_oleh === 'dosen' ? 'Dosen' : b.ditolak_oleh === 'admin_gedung' ? 'Admin Gedung' : 'Penolak'}:
+                                  </span>{' '}
+                                  <span className="italic">
+                                    &ldquo;{b.alasan_tolak_admin_gedung || b.alasan_tolak_dosen || b.alasan_tolak}&rdquo;
+                                  </span>
+                                </div>
                               )}
                             </div>
                           </td>
 
-                          {/* STATUS MONITORING (READ ONLY) */}
+                          {/* AKSI / MONITORING */}
                           <td className="px-4 py-4 text-center">
-                            {b.status === 'berlangsung' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
-                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                                Sedang Digunakan (Merah)
-                              </span>
-                            ) : b.status === 'disetujui_dosen' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300">
-                                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                                Siap Digunakan (Kuning)
-                              </span>
-                            ) : b.status === 'menunggu_dosen' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                                Menunggu Dosen
-                              </span>
-                            ) : b.status === 'selesai' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                                Peminjaman Selesai
-                              </span>
-                            ) : b.status === 'ditolak_dosen' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-rose-50 text-rose-600 border border-rose-200">
-                                Ditolak Dosen
+                            {canAct ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetuju(b)}
+                                  disabled={processingId !== null}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                                  title="Setujui permohonan ruangan ini"
+                                >
+                                  <Check size={12} />
+                                  <span>ACC</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRejectModal({
+                                      open: true,
+                                      item: b,
+                                      reason: '',
+                                      error: '',
+                                    })
+                                  }
+                                  disabled={processingId !== null}
+                                  className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50 transition-colors"
+                                  title="Tolak permohonan dengan alasan"
+                                >
+                                  <Ban size={12} />
+                                  <span>Tolak</span>
+                                </button>
+                              </div>
+                            ) : isBuilding ? (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                Sudah Direspons
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                                {stMeta.label}
+                              <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+                                <Eye size={12} />
+                                View Only
                               </span>
                             )}
                           </td>
@@ -482,15 +628,16 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
             {/* FOOTER */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-[10px] text-slate-400 font-medium">
               <span>Menampilkan {filtered.length} pengajuan booking</span>
+              <span>Hak Akses: {isBuilding ? 'Admin Gedung (Penuh)' : 'Admin Dev (View-Only)'}</span>
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* MODAL TOLAK BOOKING */}
+      {/* MODAL TOLAK BOOKING (Min. 10 Karakter) */}
       <AnimatePresence>
         {rejectModal.open && rejectModal.item && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -503,14 +650,14 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
                     <Ban size={16} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-800">Tolak Pengajuan Booking</h3>
+                    <h3 className="text-sm font-bold text-slate-800">Tolak Pengajuan Ruangan</h3>
                     <p className="text-[10px] text-slate-400">
                       {rejectModal.item.rooms?.kode} · {rejectModal.item.mata_kuliah}
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => setRejectModal({ open: false, item: null, reason: '' })}
+                  onClick={() => setRejectModal({ open: false, item: null, reason: '', error: '' })}
                   className="text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X size={18} />
@@ -520,32 +667,45 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
               <form onSubmit={handleRejectConfirm} className="mt-4 flex flex-col gap-4 text-xs">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Alasan Penolakan Admin *
+                    Alasan Penolakan Admin Gedung *
                   </label>
                   <textarea
                     required
                     rows={3}
-                    placeholder="Contoh: Ruangan dialokasikan untuk kegiatan universitas yang mendesak."
+                    placeholder="Contoh: Ruangan dialokasikan untuk kegiatan universitas yang mendesak..."
                     value={rejectModal.reason}
-                    onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+                    onChange={(e) => {
+                      setRejectModal({ ...rejectModal, reason: e.target.value, error: '' });
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-rose-500 font-medium text-slate-800 text-xs"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Minimal 5 karakter. Alasan ini akan tercatat dalam riwayat booking pemohon.
-                  </p>
+                  <div className="flex justify-between items-center text-[10px] mt-1">
+                    <span
+                      className={
+                        rejectModal.reason.trim().length < 10
+                          ? 'text-rose-500 font-medium'
+                          : 'text-slate-400'
+                      }
+                    >
+                      {rejectModal.reason.trim().length} / 10 karakter minimum
+                    </span>
+                    {rejectModal.error && (
+                      <span className="text-rose-600 font-bold">{rejectModal.error}</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setRejectModal({ open: false, item: null, reason: '' })}
+                    onClick={() => setRejectModal({ open: false, item: null, reason: '', error: '' })}
                     className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    disabled={processingId !== null}
+                    disabled={processingId !== null || rejectModal.reason.trim().length < 10}
                     className="px-5 py-2 text-xs font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700 cursor-pointer disabled:opacity-50"
                   >
                     {processingId ? 'Menolak...' : 'Konfirmasi Tolak'}
@@ -561,4 +721,3 @@ const BookingManagementView: React.FC<BookingManagementViewProps> = ({ onBack })
 };
 
 export default BookingManagementView;
-

@@ -35,6 +35,30 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
+    // Proteksi rute /admin/review/*: hanya untuk admin gedung
+    if (pathname.startsWith('/admin/review/')) {
+      const hasToken = request.nextUrl.searchParams.has('token');
+
+      // Jika user sudah login sebagai AdminDev: tolak dan kembalikan ke /admin (view-only)
+      if (decoded && isAdminDev(decoded.role)) {
+        return NextResponse.redirect(new URL('/admin?viewOnly=true', request.url));
+      }
+
+      // Jika diakses via tautan email dengan token verifikasi: izinkan akses langsung (token divalidasi oleh halaman & API)
+      if (hasToken) {
+        return NextResponse.next();
+      }
+
+      // Jika tanpa token: wajib login sebagai admin gedung
+      if (!decoded || !isBuildingAdmin(decoded.role)) {
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+
+      return NextResponse.next();
+    }
+
     if (!decoded || !isAnyAdmin(decoded.role)) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
