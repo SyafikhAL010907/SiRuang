@@ -18,7 +18,6 @@ import Avatar from '@/components/Shared/Avatar';
 import { cn } from '@/lib/utils';
 import BlessChatModal from '../../Shared/Modals/BlessChatModal';
 import { clearMyProfile } from '@/lib/profileStore';
-import { isBuildingAdmin } from '@/lib/roles';
 
 export interface AdminSidebarProps {
   adminName: string;
@@ -110,19 +109,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   // ── Buka / tutup sidebar (state disimpan di sini supaya WebTabLayout tidak perlu diubah) ──
   const [isOpen, setIsOpen] = useState(true);
 
-  const [storedRole, setStoredRole] = useState<string>(() => {
-    if (userRole) return userRole;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('user');
-        if (stored) return JSON.parse(stored).role || '';
-      } catch {}
-    }
-    return '';
-  });
-
-  const buildingAdmin = isBuildingAdmin(userRole || storedRole);
-
   // Tooltip kotak info saat kursor di atas foto profil (sidebar mini).
   // Pakai posisi "fixed" supaya tidak terpotong oleh sidebar yang sempit.
   const [railTip, setRailTip] = useState<{ chat: any; top: number; left: number } | null>(null);
@@ -212,89 +198,43 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     </span>
                   </div>
 
-                  {/* Mini Toggle - Flex 1 (Hanya untuk AdminDev) */}
-                  {!buildingAdmin ? (
-                    <div className="flex-1 flex items-center justify-between gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 shadow-sm group/mini">
-                      <div className="flex items-center gap-1.5">
-                        <Settings size={12} className="text-[#38BDF8] group-hover/mini:rotate-90 transition-transform duration-500" />
-                        <span className="text-[9px] font-black text-white uppercase tracking-tighter">AI</span>
-                      </div>
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isAILoading) handleAIToggleRequest(!isInfoActive);
-                        }}
-                        className={cn(
-                          "relative w-8 h-4 rounded-full p-0.5 transition-all duration-500 cursor-pointer",
-                          isInfoActive ? "bg-[#38BDF8]" : "bg-white/20",
-                          isAILoading && "opacity-60 cursor-wait"
-                        )}
+                  {/* Mini Toggle - Flex 1 */}
+                  <div className="flex-1 flex items-center justify-between gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 shadow-sm group/mini">
+                    <div className="flex items-center gap-1.5">
+                      <Settings size={12} className="text-[#38BDF8] group-hover/mini:rotate-90 transition-transform duration-500" />
+                      <span className="text-[9px] font-black text-white uppercase tracking-tighter">AI</span>
+                    </div>
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isAILoading) handleAIToggleRequest(!isInfoActive);
+                      }}
+                      className={cn(
+                        "relative w-8 h-4 rounded-full p-0.5 transition-all duration-500 cursor-pointer",
+                        isInfoActive ? "bg-[#38BDF8]" : "bg-white/20",
+                        isAILoading && "opacity-60 cursor-wait"
+                      )}
+                    >
+                      <motion.div
+                        animate={{ x: isInfoActive ? 16 : 0 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className="w-3 h-3 bg-white rounded-full shadow-md flex items-center justify-center"
                       >
-                        <motion.div
-                          animate={{ x: isInfoActive ? 16 : 0 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                          className="w-3 h-3 bg-white rounded-full shadow-md flex items-center justify-center"
-                        >
-                          {isAILoading ? (
-                            <div className="w-2 h-2 border border-[#38BDF8] border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <div className={cn(
-                              "w-1 h-1 rounded-full",
-                              isInfoActive ? "bg-[#0B192C]" : "bg-slate-300"
-                            )} />
-                          )}
-                        </motion.div>
-                      </div>
+                        {isAILoading ? (
+                          <div className="w-2 h-2 border border-[#38BDF8] border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <div className={cn(
+                            "w-1 h-1 rounded-full",
+                            isInfoActive ? "bg-[#0B192C]" : "bg-slate-300"
+                          )} />
+                        )}
+                      </motion.div>
                     </div>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center gap-1.5 bg-white/10 backdrop-blur-md py-1.5 rounded-xl border border-white/10 shadow-sm">
-                      <span className="text-[9px] font-black text-[#38BDF8] whitespace-nowrap uppercase tracking-tighter">
-                        Admin Gedung
-                      </span>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* NAVIGASI MENU KHUSUS ADMIN GEDUNG (ACC Pengajuan & Chat) */}
-          {buildingAdmin && (
-            <div className="px-4 pb-2">
-              <div className="flex flex-col gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onDeselectChat) onDeselectChat();
-                    if (onSelectView) onSelectView('booking-management');
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all shadow-xs text-left cursor-pointer",
-                    !selectedChat && currentView === 'booking-management'
-                      ? "bg-[#183449] text-white shadow-md shadow-[#183449]/20"
-                      : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100"
-                  )}
-                >
-                  <div className={cn(
-                    "w-7 h-7 rounded-xl flex items-center justify-center shrink-0",
-                    !selectedChat && currentView === 'booking-management'
-                      ? "bg-[#38BDF8] text-[#0B192C]"
-                      : "bg-[#183449]/10 text-[#183449]"
-                  )}>
-                    <CalendarCheck size={14} />
-                  </div>
-                  <span className="flex-1 tracking-tight">ACC Pengajuan Ruangan</span>
-                </button>
-
-                <div className="px-2 pt-1.5 pb-0.5 flex items-center justify-between text-slate-400">
-                  <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                    <MessageSquare size={12} className="text-[#588CBC]" />
-                    Pesan Bantuan User
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="px-4 pb-2">
             <div className="relative group">
@@ -396,16 +336,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               >
                 Reading
               </button>
-              {!buildingAdmin && (
-                <button
-                  onClick={() => setShowBlessModal(true)}
-                  className={cn(
-                    "flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all duration-300 text-[#588CBC] hover:text-[#183449] hover:bg-[#588CBC]/10"
-                  )}
-                >
-                  Bless Chat
-                </button>
-              )}
+              <button
+                onClick={() => setShowBlessModal(true)}
+                className={cn(
+                  "flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all duration-300 text-[#588CBC] hover:text-[#183449] hover:bg-[#588CBC]/10"
+                )}
+              >
+                Bless Chat
+              </button>
             </div>
           </div>
 
@@ -566,27 +504,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           />
 
           <div className="w-8 h-px bg-slate-200 my-4 shrink-0" />
-
-          {/* Akses Cepat ACC Pengajuan di Sidebar Mini untuk Admin Gedung */}
-          {buildingAdmin && (
-            <button
-              type="button"
-              onClick={() => {
-                if (onDeselectChat) onDeselectChat();
-                if (onSelectView) onSelectView('booking-management');
-              }}
-              aria-label="ACC Pengajuan Ruangan"
-              title="ACC Pengajuan Ruangan"
-              className={cn(
-                "relative w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 mb-2 cursor-pointer",
-                !selectedChat && currentView === 'booking-management'
-                  ? "bg-[#183449] text-[#38BDF8] shadow-md ring-2 ring-[#38BDF8]/40"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              )}
-            >
-              <CalendarCheck size={18} />
-            </button>
-          )}
 
           <div
             onScroll={hideRailTip}

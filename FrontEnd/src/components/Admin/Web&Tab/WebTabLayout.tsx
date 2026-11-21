@@ -24,7 +24,6 @@ import ImportJadwalResmiView from './components/ImportJadwalResmiView';
 import ChatHeader from './components/ChatHeader';
 import ChatMessagesArea from './components/ChatMessagesArea';
 import ChatInputArea from './components/ChatInputArea';
-import { isBuildingAdmin } from '@/lib/roles';
 
 const WebTabLayout = () => {
   const [userRole, setUserRole] = useState<string>(() => {
@@ -41,29 +40,7 @@ const WebTabLayout = () => {
 
   const [mainView, setMainView] = useState<
     'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
-  >(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          if (isBuildingAdmin(parsed.role)) {
-            return 'booking-management';
-          }
-        }
-      } catch {}
-    }
-    return 'dashboard';
-  });
-
-  // Proteksi rute tab admin: jika role admin gedung memaksa buka tab selain booking-management/profile, kembalikan ke booking-management
-  useEffect(() => {
-    if (isBuildingAdmin(userRole)) {
-      if (mainView !== 'booking-management' && mainView !== 'profile') {
-        setMainView('booking-management');
-      }
-    }
-  }, [mainView, userRole]);
+  >('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -170,19 +147,15 @@ const WebTabLayout = () => {
       fetchRooms(parsed.token);
       fetchAllUsers(parsed.token);
 
-      // Hanya AdminDev yang memanggil stats & AI status (Admin Gedung tidak memiliki akses dan akan 403)
-      if (!isBuildingAdmin(parsed.role)) {
-        fetchStats(parsed.token);
-        fetchAIStatus(parsed.token);
-      }
+      // Ambil stats & AI status untuk AdminDev
+      fetchStats(parsed.token);
+      fetchAIStatus(parsed.token);
 
       // Fallback polling santai sebagai safety net (60 detik) karena Realtime WebSocket sudah aktif 0ms
       const interval = setInterval(() => {
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
         fetchRooms(parsed.token);
-        if (!isBuildingAdmin(parsed.role)) {
-          fetchStats(parsed.token);
-        }
+        fetchStats(parsed.token);
       }, 60000);
 
       // Refetch instan 1x saat tab admin kembali aktif (debounce 5 detik)
@@ -193,9 +166,7 @@ const WebTabLayout = () => {
           if (now - lastTabActiveFetch >= 5000) {
             lastTabActiveFetch = now;
             fetchRooms(parsed.token);
-            if (!isBuildingAdmin(parsed.role)) {
-              fetchStats(parsed.token);
-            }
+            fetchStats(parsed.token);
           }
         }
       };
@@ -385,25 +356,21 @@ const WebTabLayout = () => {
           <AdminProfile
             adminName={adminName}
             adminGmail={adminGmail}
-            onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')}
+            onBack={() => setMainView('dashboard')}
           />
         ) : mainView === 'role-access' ? (
-          <RoleAccessView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
+          <RoleAccessView onBack={() => setMainView('dashboard')} />
         ) : mainView === 'manajemen-akun' ? (
-          <ManajemenAkunView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
+          <ManajemenAkunView onBack={() => setMainView('dashboard')} />
         ) : mainView === 'relasi-mata-kuliah' ? (
-          <RelasiMataKuliahView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
+          <RelasiMataKuliahView onBack={() => setMainView('dashboard')} />
         ) : mainView === 'booking-management' ? (
           <BookingManagementView
             userRole={userRole}
-            onBack={() => {
-              if (!isBuildingAdmin(userRole)) {
-                setMainView('dashboard');
-              }
-            }}
+            onBack={() => setMainView('dashboard')}
           />
         ) : mainView === 'import-jadwal' ? (
-          <ImportJadwalResmiView onBack={() => setMainView(isBuildingAdmin(userRole) ? 'booking-management' : 'dashboard')} />
+          <ImportJadwalResmiView onBack={() => setMainView('dashboard')} />
         ) : (
           <AdminDashboardView
             adminName={adminName}

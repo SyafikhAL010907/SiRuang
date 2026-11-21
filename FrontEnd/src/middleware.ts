@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { isAnyAdmin, isAdminDev, isBuildingAdmin } from '@/lib/roles';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 interface DecodedToken {
   identifier: string;
@@ -27,38 +28,99 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 1. Guard /admin routes
+  // 1. Pengecualian /admin/registration/[id]?token=... (email verification link)
+  if (pathname.startsWith('/admin/registration/')) {
+    return NextResponse.next();
+  }
+
+  // 2. Proteksi rute /admin/review/*: khusus admin gedung (atau email token)
+  if (pathname.startsWith('/admin/review/')) {
+    const hasToken = request.nextUrl.searchParams.has('token');
+
+    // Jika user sudah login sebagai AdminDev: tolak dan kembalikan ke /admin-dev (view-only)
+    if (decoded && isAdminDev(decoded.role)) {
+      return NextResponse.redirect(new URL('/admin-dev?viewOnly=true', request.url));
+    }
+
+    // Jika diakses via tautan email dengan token verifikasi: izinkan akses langsung
+    if (hasToken) {
+      return NextResponse.next();
+    }
+
+    // Jika tanpa token: wajib login sebagai admin gedung
+    if (!decoded || !isBuildingAdmin(decoded.role)) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+  }
+
+  // 3. Guard rute /admin-dev: khusus Admin Developer
+  if (pathname.startsWith('/admin-dev')) {
+    if (!decoded) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (!isAdminDev(decoded.role)) {
+      return NextResponse.redirect(new URL(getRoleDashboardPath(decoded.role), request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 4. Guard rute /admin-sfd: khusus Admin Gedung SFD
+  if (pathname.startsWith('/admin-sfd')) {
+    if (!decoded) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (decoded.role !== 'admin_sfd') {
+      return NextResponse.redirect(new URL(getRoleDashboardPath(decoded.role), request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 5. Guard rute /admin-le: khusus Admin Gedung LE
+  if (pathname.startsWith('/admin-le')) {
+    if (!decoded) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (decoded.role !== 'admin_le') {
+      return NextResponse.redirect(new URL(getRoleDashboardPath(decoded.role), request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 6. Guard rute /admin-ls: khusus Admin Gedung LS
+  if (pathname.startsWith('/admin-ls')) {
+    if (!decoded) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (decoded.role !== 'admin_ls') {
+      return NextResponse.redirect(new URL(getRoleDashboardPath(decoded.role), request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 7. Guard /admin (legacy / entry): redirect ke dashboard spesifik per role
+  if (pathname === '/admin' || pathname === '/admin/') {
+    if (!decoded) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.redirect(new URL(getRoleDashboardPath(decoded.role), request.url));
+  }
+
+  // Guard sub-path /admin/* lainnya jika ada
   if (pathname.startsWith('/admin')) {
-    // Pengecualian: link review email /admin/registration/[id]?token=...
-    // dapat diakses langsung untuk verifikasi token link
-    if (pathname.startsWith('/admin/registration/')) {
-      return NextResponse.next();
-    }
-
-    // Proteksi rute /admin/review/*: hanya untuk admin gedung
-    if (pathname.startsWith('/admin/review/')) {
-      const hasToken = request.nextUrl.searchParams.has('token');
-
-      // Jika user sudah login sebagai AdminDev: tolak dan kembalikan ke /admin (view-only)
-      if (decoded && isAdminDev(decoded.role)) {
-        return NextResponse.redirect(new URL('/admin?viewOnly=true', request.url));
-      }
-
-      // Jika diakses via tautan email dengan token verifikasi: izinkan akses langsung (token divalidasi oleh halaman & API)
-      if (hasToken) {
-        return NextResponse.next();
-      }
-
-      // Jika tanpa token: wajib login sebagai admin gedung
-      if (!decoded || !isBuildingAdmin(decoded.role)) {
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
-      }
-
-      return NextResponse.next();
-    }
-
     if (!decoded || !isAnyAdmin(decoded.role)) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
@@ -67,7 +129,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Guard /dosen routes
+  // 8. Guard /dosen routes
   if (pathname.startsWith('/dosen')) {
     if (!decoded || decoded.role !== 'dosen') {
       const loginUrl = new URL('/login', request.url);
@@ -77,7 +139,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Guard /pj routes
+  // 9. Guard /pj routes
   if (pathname.startsWith('/pj')) {
     if (!decoded || decoded.role !== 'pj_kelas') {
       const loginUrl = new URL('/login', request.url);
@@ -87,7 +149,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 4. Guard /user routes
+  // 10. Guard /user routes
   if (pathname.startsWith('/user')) {
     if (!decoded || decoded.role !== 'user') {
       const loginUrl = new URL('/login', request.url);
@@ -97,11 +159,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 5. Guard /login: jika sudah punya cookie auth valid, arahkan langsung ke dashboard sesuai role
+  // 11. Guard /login: jika sudah punya cookie auth valid, arahkan langsung ke dashboard sesuai role
   if (pathname === '/login' && decoded) {
     const redirectParam = request.nextUrl.searchParams.get('redirect');
     if (redirectParam && redirectParam.startsWith('/')) {
-      // Cek apakah redirect cocok dengan role pengguna
       if (
         (redirectParam.startsWith('/admin') && isAnyAdmin(decoded.role)) ||
         (redirectParam.startsWith('/dosen') && decoded.role === 'dosen') ||
@@ -112,20 +173,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (isAnyAdmin(decoded.role)) {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
-
-    switch (decoded.role) {
-      case 'dosen':
-        return NextResponse.redirect(new URL('/dosen', request.url));
-      case 'pj_kelas':
-        return NextResponse.redirect(new URL('/pj', request.url));
-      case 'user':
-        return NextResponse.redirect(new URL('/user', request.url));
-      default:
-        break;
-    }
+    return NextResponse.redirect(new URL(getRoleDashboardPath(decoded.role), request.url));
   }
 
   return NextResponse.next();
@@ -133,12 +181,22 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/admin',
     '/admin/:path*',
+    '/admin-dev',
+    '/admin-dev/:path*',
+    '/admin-sfd',
+    '/admin-sfd/:path*',
+    '/admin-le',
+    '/admin-le/:path*',
+    '/admin-ls',
+    '/admin-ls/:path*',
+    '/dosen',
     '/dosen/:path*',
+    '/pj',
     '/pj/:path*',
+    '/user',
     '/user/:path*',
     '/login',
   ],
 };
-
-

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import MainAdmin from '@/components/Admin/MainAdmin';
 import { AdminDashboardSkeleton } from '@/components/Skeletons';
 import { isAnyAdmin } from '@/lib/roles';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -21,6 +22,12 @@ export default function AdminPage() {
     try {
       const parsed = JSON.parse(storedUser);
       if (isAnyAdmin(parsed.role)) {
+        // Arahkan ke dashboard spesifik per role
+        const targetPath = getRoleDashboardPath(parsed.role);
+        if (targetPath !== '/admin') {
+          router.replace(targetPath);
+          return;
+        }
         setAuthorized(true);
       } else if (parsed.role === 'dosen') {
         router.replace('/dosen');
