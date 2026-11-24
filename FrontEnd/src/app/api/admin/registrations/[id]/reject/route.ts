@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
 import { sendEmail, escapeHtml } from '@/lib/mailer';
+import { isAdminDev } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,7 @@ export async function POST(
 
     // 1. Verifikasi role admin ATAU token valid dari link email
     const user = await getUserFromRequest(request);
-    let isAuthorized = Boolean(user && user.role === 'admin');
+    let isAuthorized = Boolean(user && isAdminDev(user.role));
 
     if (!isAuthorized && rawToken) {
       const inputHash = crypto.createHash('sha256').update(rawToken).digest('hex');

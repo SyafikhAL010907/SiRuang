@@ -118,7 +118,15 @@ export const DosenApprovalView: React.FC<DosenApprovalViewProps> = ({ onBack }) 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
       const res = await fetch('/api/dosen/bookings', {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -173,7 +181,15 @@ export const DosenApprovalView: React.FC<DosenApprovalViewProps> = ({ onBack }) 
     setSubmittingId(item.id);
     setApproveError('');
     try {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
       const res = await fetch(`/api/dosen/bookings/${item.id}`, {
         method: 'POST',
         headers: {
@@ -215,7 +231,15 @@ export const DosenApprovalView: React.FC<DosenApprovalViewProps> = ({ onBack }) 
 
     setSubmittingId(rejectItem.id);
     try {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
       const res = await fetch(`/api/dosen/bookings/${rejectItem.id}`, {
         method: 'POST',
         headers: {
@@ -244,8 +268,14 @@ export const DosenApprovalView: React.FC<DosenApprovalViewProps> = ({ onBack }) 
 
   /* ───── Data turunan ───── */
 
-  const pendingItems = bookings.filter((b) => b.status === 'menunggu_dosen');
-  const historyItems = bookings.filter((b) => b.status !== 'menunggu_dosen');
+  const isPendingForDosen = (b: any) => {
+    if (b.status === 'menunggu_dosen') return true;
+    if (b.status === 'menunggu_approval' && (b.approval_dosen === 'pending' || !b.approval_dosen)) return true;
+    return false;
+  };
+
+  const pendingItems = bookings.filter(isPendingForDosen);
+  const historyItems = bookings.filter((b) => !isPendingForDosen(b));
 
   const matchesSearch = (item: any) => {
     const q = searchQuery.toLowerCase();
@@ -260,12 +290,19 @@ export const DosenApprovalView: React.FC<DosenApprovalViewProps> = ({ onBack }) 
   const filteredPending = pendingItems.filter(matchesSearch);
   const filteredHistory = historyItems.filter(matchesSearch);
 
-  const getStatusMeta = (status: string) => {
+  const getStatusMeta = (status: string, booking?: any) => {
+    if (booking?.approval_dosen === 'disetujui' && booking?.approval_admin_gedung === 'pending') {
+      return { label: 'Disetujui Anda (Menunggu Admin Gedung)', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Clock className="w-4 h-4" />, iconCls: 'text-blue-600' };
+    }
     switch (status) {
-      case 'disetujui_dosen':
-        return { label: 'Disetujui, siap check-in', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 className="w-4 h-4" />, iconCls: 'text-emerald-600' };
+      case 'dijadwalkan':
       case 'dijadwalkan_admin':
-        return { label: 'Dijadwalkan Admin', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 className="w-4 h-4" />, iconCls: 'text-emerald-600' };
+      case 'disetujui_dosen':
+        return { label: 'Resmi Dijadwalkan (Siap Check-in)', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <CheckCircle2 className="w-4 h-4" />, iconCls: 'text-emerald-600' };
+      case 'menunggu_approval':
+      case 'menunggu_dosen':
+        return { label: 'Menunggu Persetujuan', cls: 'bg-amber-50 text-amber-700 border-amber-200', icon: <Clock className="w-4 h-4" />, iconCls: 'text-amber-600' };
+      case 'ditolak':
       case 'ditolak_dosen':
         return { label: 'Ditolak Dosen', cls: 'bg-rose-50 text-rose-700 border-rose-200', icon: <XCircle className="w-4 h-4" />, iconCls: 'text-rose-500' };
       case 'ditolak_admin':
@@ -523,7 +560,7 @@ export const DosenApprovalView: React.FC<DosenApprovalViewProps> = ({ onBack }) 
           <div className="space-y-3">
             {filteredHistory.length > 0 ? (
               filteredHistory.map((item) => {
-                const st = getStatusMeta(item.status);
+                const st = getStatusMeta(item.status, item);
                 return (
                   <article
                     key={item.id}

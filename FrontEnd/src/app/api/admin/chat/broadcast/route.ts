@@ -1,9 +1,13 @@
 import { NextResponse, after } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { notifyBroadcast } from '@/lib/sendPush';
+import { requireAdminDev } from '@/lib/authHelper';
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
+
     const req = await request.json();
     const adminIdentifier = req.admin_identifier || req.admin_gmail || 'admin';
     const message = req.message?.trim() || '';
@@ -20,7 +24,7 @@ export async function POST(request: Request) {
       const { data: users } = await supabaseServer
         .from('authentication')
         .select('identifier')
-        .neq('role', 'admin');
+        .in('role', ['user', 'pj_kelas', 'dosen']);
       targetIdentifiers = (users || []).map((u) => u.identifier);
     }
 

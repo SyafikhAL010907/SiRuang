@@ -1,0 +1,40 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import AdminSFDMain from '@/components/AdminGedung/AdminSFD/AdminSFDMain';
+import { AdminDashboardSkeleton } from '@/components/Skeletons';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
+
+export default function AdminSFDPage() {
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      router.replace('/login');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (parsed.role === 'admin_sfd') {
+        setAuthorized(true);
+      } else {
+        router.replace(getRoleDashboardPath(parsed.role));
+      }
+    } catch {
+      router.replace('/login');
+    }
+  }, [router]);
+
+  if (!mounted || !authorized) return <AdminDashboardSkeleton />;
+
+  return (
+    <main className="min-h-screen">
+      <AdminSFDMain />
+    </main>
+  );
+}

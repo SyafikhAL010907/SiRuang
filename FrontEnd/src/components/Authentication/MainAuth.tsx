@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
+import { isAnyAdmin } from '@/lib/roles';
 
 // Web Components
 import AuthSlider from './Web&Tab/AuthSlider';
@@ -74,8 +76,8 @@ const MainAuth = ({ initialMode, onLoginSuccess }: MainAuthProps) => {
                 if (onLoginSuccess) {
                     onLoginSuccess(data);
                 } else {
-                    if (data.role === 'admin') {
-                        router.push('/admin');
+                    if (isAnyAdmin(data.role)) {
+                        router.push(getRoleDashboardPath(data.role));
                     } else {
                         router.push('/user');
                     }

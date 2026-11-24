@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         *,
         rooms:room_id (id, kode, nama, gedung, lantai, bookable)
       `)
-      .eq('pemohon_id', dbUser.id)
+      .or(`pemohon_id.eq.${dbUser.id},nim_pemohon.eq.${dbUser.identifier}`)
       .order('created_at', { ascending: false });
 
     if (bErr) {
@@ -39,9 +39,30 @@ export async function GET(request: Request) {
       );
     }
 
+    const list = bookings || [];
+
+    // Jika ada booking yang belum ada nama_dosen tapi memiliki dosen_id, lengkapi dari profil
+    const missingDosenIds = Array.from(new Set(
+      list.filter((b) => !b.nama_dosen && b.dosen_id).map((b) => b.dosen_id)
+    ));
+
+    if (missingDosenIds.length > 0) {
+      const { data: dosenProfiles } = await supabaseServer
+        .from('v_user_profiles')
+        .select('user_id, full_name, username')
+        .in('user_id', missingDosenIds);
+
+      const dosenMap = new Map((dosenProfiles || []).map((d) => [d.user_id, d.full_name || d.username]));
+      list.forEach((b) => {
+        if (!b.nama_dosen && b.dosen_id && dosenMap.has(b.dosen_id)) {
+          b.nama_dosen = dosenMap.get(b.dosen_id);
+        }
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      data: bookings || [],
+      data: list,
     });
   } catch (err: any) {
     return NextResponse.json(

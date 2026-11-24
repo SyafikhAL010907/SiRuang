@@ -85,24 +85,30 @@ func main() {
 		protected.POST("/chat/send", handlers.SendMessage)
 		protected.POST("/chat/mark-read/:room_id", handlers.MarkAsRead)
 
-		// Admin Routes
+		// Admin Routes (Semua role admin: admin, admin_dev, admin_sfd, admin_le, admin_ls)
 		admin := protected.Group("/admin")
-		admin.Use(middleware.RoleMiddleware("admin"))
+		admin.Use(middleware.RoleMiddleware("admin", "admin_dev", "admin_sfd", "admin_le", "admin_ls"))
 		{
 			admin.GET("/dashboard", handlers.AdminDashboard)
-			admin.GET("/stats", handlers.GetStats)
-			admin.GET("/users", handlers.GetAllUsers)
 			admin.GET("/chat/rooms", handlers.GetRooms)
 			admin.POST("/chat/mark-read/:room_id", handlers.MarkAsRead)
 			admin.POST("/chat/mark-unread/:room_id", handlers.MarkAsUnread)
-			admin.POST("/chat/broadcast", handlers.BroadcastMessage)
 			admin.POST("/chat/delete-bulk", handlers.BulkDeleteRooms)
 
-			// ── AI Auto-Response Routes ──────────────────────────────────────
-			// ⚠️  DISABLE: Comment 2 baris di bawah ini untuk matikan endpoint AI
-			admin.POST("/ai/toggle", handlers.ToggleAI)   // Toggle AI ON/OFF
-			admin.GET("/ai/status", handlers.GetAIStatus) // Cek status AI
-			// ─────────────────────────────────────────────────────────────────
+			// AdminDev Routes (Hanya AdminDev / Admin lama)
+			adminDev := admin.Group("")
+			adminDev.Use(middleware.RoleMiddleware("admin", "admin_dev"))
+			{
+				adminDev.GET("/stats", handlers.GetStats)
+				adminDev.GET("/users", handlers.GetAllUsers)
+				adminDev.POST("/chat/broadcast", handlers.BroadcastMessage)
+
+				// ── AI Auto-Response Routes ──────────────────────────────────────
+				// ⚠️  DISABLE: Comment 2 baris di bawah ini untuk matikan endpoint AI
+				adminDev.POST("/ai/toggle", handlers.ToggleAI)   // Toggle AI ON/OFF
+				adminDev.GET("/ai/status", handlers.GetAIStatus) // Cek status AI
+				// ─────────────────────────────────────────────────────────────────
+			}
 		}
 	}
 

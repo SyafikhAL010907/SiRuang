@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { getUserFromRequest } from '@/lib/authHelper';
+import { requireAdminDev } from '@/lib/authHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,20 +8,8 @@ const VALID_DAYS = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu' }, { status: 401 });
-    }
-
-    const { data: dbUser } = await supabaseServer
-      .from('authentication')
-      .select('id, role')
-      .eq('identifier', user.identifier)
-      .maybeSingle();
-
-    if (!dbUser || dbUser.role !== 'admin') {
-      return NextResponse.json({ error: 'Akses ditolak: Hanya Admin yang dapat mengimpor jadwal resmi.' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     const body = await request.json();
     const { schedules, clear_dummy } = body;

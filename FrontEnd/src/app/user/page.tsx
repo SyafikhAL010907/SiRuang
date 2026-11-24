@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import MainUser from '@/components/User/MainUser';
 import { UserDashboardSkeleton } from '@/components/Skeletons';
 
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
+import { isAnyAdmin } from '@/lib/roles';
+
 export default function UserPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
@@ -22,8 +25,8 @@ export default function UserPage() {
       // Langkah 3.7: Hanya izinkan role 'user' (Mahasiswa). Tolak role lain ke dashboard masing-masing.
       if (parsed.role === 'user') {
         setAuthorized(true);
-      } else if (parsed.role === 'admin') {
-        router.replace('/admin');
+      } else if (isAnyAdmin(parsed.role)) {
+        router.replace(getRoleDashboardPath(parsed.role));
       } else if (parsed.role === 'dosen') {
         router.replace('/dosen');
       } else if (parsed.role === 'pj_kelas') {

@@ -28,9 +28,21 @@ import MobileManagementView from './components/MobileManagementView';
 import BuildingDenahGrid from '../Shared/Cards/BuildingDenahGrid';
 
 const MobileLayout = () => {
-  const [activeTab, setActiveTab] = useState('home');
+  const [userRole, setUserRole] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) return JSON.parse(storedUser).role || '';
+      } catch {}
+    }
+    return '';
+  });
+
+  const [activeTab, setActiveTab] = useState<'home' | 'message' | 'managemen' | 'denah' | 'profile' | string>('home');
   const [view, setView] = useState<'LIST' | 'ROOM'>('LIST');
-  const [subView, setSubView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'>('dashboard');
+  const [subView, setSubView] = useState<
+    'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
+  >('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -132,12 +144,14 @@ const MobileLayout = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
+      setUserRole(parsed.role || '');
       setAdminName(parsed.username || parsed.Username || 'Admin');
       setAdminGmail(parsed.identifier || parsed.gmail || '');
       fetchRooms(parsed.token);
-      fetchStats(parsed.token);
       fetchAllUsers(parsed.token);
-      // ⚠️  DISABLE: Comment baris fetchAIStatus di bawah jika tidak pakai AI
+
+      // Ambil stats & AI status untuk AdminDev
+      fetchStats(parsed.token);
       fetchAIStatus(parsed.token);
 
       // Fallback polling santai sebagai safety net (60 detik) karena Realtime WebSocket sudah aktif 0ms
@@ -275,6 +289,7 @@ const MobileLayout = () => {
             {/* FIXED HEADER SECTION */}
             <MobileHeader
               adminName={adminName}
+              userRole={userRole}
               rooms={rooms}
               activeTab={activeTab}
               isInfoActive={isInfoActive}
@@ -361,6 +376,7 @@ const MobileLayout = () => {
                   />
                 ) : (activeTab === 'managemen' || activeTab === 'home') && subView === 'booking-management' ? (
                   <BookingManagementView
+                    userRole={userRole}
                     onBack={() => {
                       setActiveTab('home');
                       setSubView('dashboard');
@@ -375,6 +391,7 @@ const MobileLayout = () => {
                   />
                 ) : activeTab === 'managemen' ? (
                   <MobileManagementView
+                    userRole={userRole}
                     onSelectRoleAccess={() => setSubView('role-access')}
                     onSelectManajemenAkun={() => setSubView('manajemen-akun')}
                     onSelectRelasiMataKuliah={() => setSubView('relasi-mata-kuliah')}
@@ -416,14 +433,20 @@ const MobileLayout = () => {
 
             {/* BOTTOM NAV */}
             <MobileBottomNav
+              userRole={userRole}
               showBlessModal={showBlessModal}
               setShowBlessModal={setShowBlessModal}
               activeTab={activeTab}
               setActiveTab={(tab) => {
-                setActiveTab(tab);
-                if (tab === 'home') setSubView('dashboard');
-                else if (tab === 'profile') setSubView('profile');
-                else setSubView('dashboard');
+                if (tab === 'booking-management') {
+                  setActiveTab('managemen');
+                  setSubView('booking-management');
+                } else {
+                  setActiveTab(tab);
+                  if (tab === 'home') setSubView('dashboard');
+                  else if (tab === 'profile') setSubView('profile');
+                  else setSubView('dashboard');
+                }
               }}
               subView={subView}
               unreadCount={unreadRoomsCount}

@@ -34,7 +34,15 @@ export const MobileBookingView: React.FC<MobileBookingViewProps> = ({ onGoToDena
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
       const res = await fetch('/api/dosen/bookings', {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -120,22 +128,31 @@ export const MobileBookingView: React.FC<MobileBookingViewProps> = ({ onGoToDena
     }
   };
 
+  const isPending = (b: any) =>
+    b.status === 'menunggu_dosen' ||
+    (b.status === 'menunggu_approval' && (b.approval_dosen === 'pending' || !b.approval_dosen));
+
   const filteredBookings = bookings.filter((b) => {
     if (activeFilter === 'all') return true;
-    if (activeFilter === 'pending') return b.status === 'menunggu_dosen';
-    if (activeFilter === 'approved') return b.status === 'disetujui_dosen' || b.status === 'dijadwalkan_admin';
-    if (activeFilter === 'history') return b.status !== 'menunggu_dosen';
+    if (activeFilter === 'pending') return isPending(b);
+    if (activeFilter === 'approved') return b.status === 'disetujui_dosen' || b.status === 'dijadwalkan' || b.status === 'dijadwalkan_admin' || b.approval_dosen === 'disetujui';
+    if (activeFilter === 'history') return !isPending(b);
     return true;
   });
 
-  const getStatusConfig = (status: string) => {
+  const getStatusConfig = (status: string, bk?: any) => {
+    if (bk?.approval_dosen === 'disetujui' && bk?.approval_admin_gedung === 'pending') {
+      return { label: 'Disetujui Anda (Menunggu Admin)', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+    }
     switch (status) {
+      case 'menunggu_approval':
       case 'menunggu_dosen':
         return { label: 'Menunggu Persetujuan', color: 'bg-amber-50 text-amber-700 border-amber-200' };
-      case 'disetujui_dosen':
-        return { label: 'Disetujui Dosen (Siap Check-in)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'dijadwalkan':
       case 'dijadwalkan_admin':
-        return { label: 'Dijadwalkan Admin', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'disetujui_dosen':
+        return { label: 'Resmi Terjadwal (Siap Check-in)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+      case 'ditolak':
       case 'ditolak_dosen':
         return { label: 'Ditolak Dosen', color: 'bg-rose-50 text-rose-700 border-rose-200' };
       case 'ditolak_admin':
@@ -149,7 +166,7 @@ export const MobileBookingView: React.FC<MobileBookingViewProps> = ({ onGoToDena
     }
   };
 
-  const countPending = bookings.filter((b) => b.status === 'menunggu_dosen').length;
+  const countPending = bookings.filter(isPending).length;
 
   return (
     <motion.div
@@ -229,7 +246,7 @@ export const MobileBookingView: React.FC<MobileBookingViewProps> = ({ onGoToDena
           {/* Booking Cards List */}
           {!loading && filteredBookings.length > 0 ? (
             filteredBookings.map((bk) => {
-              const cfg = getStatusConfig(bk.status);
+              const cfg = getStatusConfig(bk.status, bk);
               return (
                 <div
                   key={bk.id}
@@ -286,7 +303,7 @@ export const MobileBookingView: React.FC<MobileBookingViewProps> = ({ onGoToDena
                   )}
 
                   {/* Action Buttons for Pending */}
-                  {bk.status === 'menunggu_dosen' && (
+                  {isPending(bk) && (
                     <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
                       <button
                         type="button"

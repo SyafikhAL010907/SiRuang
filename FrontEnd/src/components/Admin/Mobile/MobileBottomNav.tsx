@@ -105,6 +105,7 @@ export interface MobileBottomNavProps {
   setActiveTab: (tab: string) => void;
   subView?: string;
   unreadCount?: number;
+  userRole?: string;
   onSelectManagement?: (key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal') => void;
   onOpenProfile?: () => void;
   showBlessModal?: boolean;
@@ -117,12 +118,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   setActiveTab,
   subView = 'dashboard',
   unreadCount = 0,
+  userRole,
   onSelectManagement,
   onOpenProfile,
   showBlessModal = false,
   setActiveFilter,
 }) => {
   const [isManagementMenuOpen, setIsManagementMenuOpen] = useState(false);
+
+  const itemCount = 5;
 
   const isManagemenActive =
     activeTab === 'managemen' ||
@@ -159,13 +163,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     ? 'managemen'
     : navItems.find((i) => i.active)?.id ?? 'home';
   const activeIndex = Math.max(0, navItems.findIndex((i) => i.id === activeId));
-  const activeItem = navItems[activeIndex];
+  const activeItem = navItems[activeIndex] || navItems[0];
   const ActiveIcon = activeItem.icon;
 
   // ── Animasi mangkuk (pusat X mengalir pakai spring) ──
   const navRef = useRef<HTMLElement | null>(null);
   const widthMV = useMotionValue(360);
-  const springCx = useSpring((activeIndex + 0.5) * (360 / ITEM_COUNT), {
+  const springCx = useSpring((activeIndex + 0.5) * (360 / itemCount), {
     stiffness: 280,
     damping: 28,
     mass: 0.9,
@@ -183,20 +187,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       const w = el.offsetWidth;
       if (!w) return;
       widthMV.set(w);
-      springCx.jump((activeIndex + 0.5) * (w / ITEM_COUNT));
+      springCx.jump((activeIndex + 0.5) * (w / itemCount));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showBlessModal]);
+  }, [showBlessModal, itemCount]);
 
   // Ganti tab → mangkuk meluncur ke tab baru
   useEffect(() => {
-    springCx.set((activeIndex + 0.5) * (widthMV.get() / ITEM_COUNT));
+    springCx.set((activeIndex + 0.5) * (widthMV.get() / itemCount));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex]);
+  }, [activeIndex, itemCount]);
 
   const handleSelectManagementSubView = (
     key: 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
@@ -210,6 +214,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   };
 
   const handleItemClick = (id: string) => {
+    if (id === 'booking-management') {
+      setIsManagementMenuOpen(false);
+      if (onSelectManagement) {
+        onSelectManagement('booking-management');
+      } else {
+        setActiveTab('managemen');
+      }
+      return;
+    }
+
     if (id === 'managemen') {
       setIsManagementMenuOpen((prev) => !prev);
       return;

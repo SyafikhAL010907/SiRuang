@@ -16,6 +16,7 @@ import UserChatInput from './components/UserChatInput';
 import UserTemplatePopupModal from '../Shared/Modals/UserTemplatePopupModal';
 import CustomAlert from '@/components/Shared/CustomAlert';
 import FilePreviewModal from '@/components/Shared/FilePreviewModal';
+import SearchAdminGedungModal from '@/components/Shared/SearchAdminGedungModal';
 
 export const WebTabLayout = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -30,7 +31,10 @@ export const WebTabLayout = () => {
   // PJ Rooms (dari dosen-room API)
   const [pjRooms, setPjRooms] = useState<any[]>([]);
   const [selectedPjRoomId, setSelectedPjRoomId] = useState<number | null>(null);
-  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'pj'>('admin');
+  const [buildingAdminRooms, setBuildingAdminRooms] = useState<any[]>([]);
+  const [selectedBuildingAdminRoomId, setSelectedBuildingAdminRoomId] = useState<number | null>(null);
+  const [isSearchBuildingAdminOpen, setIsSearchBuildingAdminOpen] = useState(false);
+  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'pj' | 'building_admin'>('admin');
   const [chatPartner, setChatPartner] = useState<{ name: string; role: string; avatar?: string }>({ name: 'Admin UNJ', role: 'OFFICIAL' });
   const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
 
@@ -50,21 +54,58 @@ export const WebTabLayout = () => {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    fetchPjRooms();
-  }, [fetchPjRooms]);
-
-  const fetchPendingApprovals = useCallback(async () => {
+  // Fetch Building Admin rooms
+  const fetchBuildingAdminRooms = useCallback(async () => {
     try {
-      const res = await fetch('/api/dosen/bookings');
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) return;
+      const { token } = JSON.parse(storedUser);
+      const res = await fetch('/api/chat/my-rooms', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          const pending = json.data.filter((b: any) => b.status === 'menunggu_dosen').length;
-          setPendingApprovalCount(pending);
+        if (json.rooms && Array.isArray(json.rooms)) {
+          const bgRooms = json.rooms.filter((r: any) => r.room_type === 'user_to_building_admin');
+          setBuildingAdminRooms(bgRooms);
         }
       }
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchPjRooms();
+    fetchBuildingAdminRooms();
+  }, [fetchPjRooms, fetchBuildingAdminRooms]);
+
+  const fetchPendingApprovals = useCallback(async () => {
+    try {
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
+      const res = await fetch('/api/dosen/bookings', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          const pending = json.data.filter(
+            (b: any) =>
+              b.status === 'menunggu_dosen' ||
+              (b.status === 'menunggu_approval' && (b.approval_dosen === 'pending' || !b.approval_dosen))
+          ).length;
+          setPendingApprovalCount(pending);
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat pending approvals:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -101,9 +142,19 @@ export const WebTabLayout = () => {
   const handleSelectAdminRoom = () => {
     setActiveRoomType('admin');
     setSelectedPjRoomId(null);
+    setSelectedBuildingAdminRoomId(null);
     chat.setMessages([]);
     setChatPartner({ name: 'Admin UNJ', role: 'OFFICIAL' });
-    if (adminRoomId) chat.setRoomId(adminRoomId);
+    if (adminRoomId) {
+      chat.setRoomId(adminRoomId);
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (stored) {
+        try {
+          const { token } = JSON.parse(stored);
+          chat.fetchMessages(adminRoomId, token, chat.userGmail);
+        } catch {}
+      }
+    }
     setIsChatOpen(true);
   };
 
@@ -111,10 +162,75 @@ export const WebTabLayout = () => {
   const handleSelectPjRoom = (room: any) => {
     setActiveRoomType('pj');
     setSelectedPjRoomId(room.room_id);
+    setSelectedBuildingAdminRoomId(null);
     chat.setMessages([]);
     setChatPartner({ name: room.pj_name || 'PJ Kelas', role: 'PJ Kelas', avatar: room.pj_avatar });
     chat.setRoomId(room.room_id);
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (stored) {
+      try {
+        const { token } = JSON.parse(stored);
+        chat.fetchMessages(room.room_id, token, chat.userGmail);
+      } catch {}
+    }
     setIsChatOpen(true);
+  };
+
+  // Handle select Building Admin room
+  const handleSelectBuildingAdminRoom = (room: any) => {
+    setActiveRoomType('building_admin');
+    setSelectedBuildingAdminRoomId(room.room_id);
+    setSelectedPjRoomId(null);
+    chat.setMessages([]);
+    setChatPartner({
+      name: room.partner_name,
+      role: `Admin Gedung ${room.partner_role ? room.partner_role.replace('admin_', '').toUpperCase() : ''}`,
+      avatar: room.partner_avatar,
+    });
+    chat.setRoomId(room.room_id);
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (stored) {
+      try {
+        const { token } = JSON.parse(stored);
+        chat.fetchMessages(room.room_id, token, chat.userGmail);
+      } catch {}
+    }
+    setIsChatOpen(true);
+  };
+
+  const handleStartChatWithBuildingAdmin = async (admin: any) => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      const token = storedUser ? JSON.parse(storedUser).token : '';
+      const res = await fetch('/api/chat/open-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          target_identifier: admin.identifier,
+          room_type: 'user_to_building_admin',
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.room_id) {
+          await fetchBuildingAdminRooms();
+          handleSelectBuildingAdminRoom({
+            room_id: json.room_id,
+            partner_name: admin.full_name,
+            partner_role: admin.role,
+            partner_avatar: admin.avatar_url,
+          });
+        }
+      } else {
+        showAlert('Gagal membuka room chat dengan admin gedung');
+      }
+    } catch {
+      showAlert('Terjadi kesalahan saat membuka room');
+    }
   };
 
   // Deep link support: buka chat jika URL param openChat=1
@@ -235,8 +351,11 @@ export const WebTabLayout = () => {
         activeRoom={activeRoomType}
         onSelectRoom={(room) => { if (room === 'admin') handleSelectAdminRoom(); }}
         pjRooms={pjRooms}
-        selectedRoomId={selectedPjRoomId}
+        selectedRoomId={activeRoomType === 'pj' ? selectedPjRoomId : selectedBuildingAdminRoomId}
         onSelectPjRoom={handleSelectPjRoom}
+        buildingAdminRooms={buildingAdminRooms}
+        onSelectBuildingAdminRoom={handleSelectBuildingAdminRoom}
+        onOpenSearchBuildingAdmin={() => setIsSearchBuildingAdminOpen(true)}
       />
 
       {isChatOpen ? (
@@ -358,6 +477,11 @@ export const WebTabLayout = () => {
         onClose={() => setSelectedExcelFile(null)}
         fileData={selectedExcelFile?.data || ''}
         fileName={selectedExcelFile?.name || ''}
+      />
+      <SearchAdminGedungModal
+        isOpen={isSearchBuildingAdminOpen}
+        onClose={() => setIsSearchBuildingAdminOpen(false)}
+        onSelectAdmin={handleStartChatWithBuildingAdmin}
       />
     </div>
   );

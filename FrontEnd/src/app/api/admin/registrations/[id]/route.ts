@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
+import { isAdminDev } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ export async function GET(
 
     // 1. Cek otentikasi: Apakah admin login ATAU membawa token valid dari link email
     const user = await getUserFromRequest(request);
-    const isAdmin = user && user.role === 'admin';
+    const isAdmin = Boolean(user && isAdminDev(user.role));
 
     // 2. Ambil data pengajuan dari registration_requests
     const { data: reqData, error } = await supabaseServer

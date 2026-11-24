@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, KeyRound, Network, CalendarCheck, FileSpreadsheet, ChevronRight, SlidersHorizontal } from 'lucide-react';
 
 export interface MobileManagementViewProps {
+  userRole?: string;
   onSelectRoleAccess: () => void;
   onSelectManajemenAkun: () => void;
   onSelectRelasiMataKuliah: () => void;
@@ -61,12 +62,15 @@ const MANAGEMENT_ITEMS = [
 ];
 
 export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
+  userRole,
   onSelectRoleAccess,
   onSelectManajemenAkun,
   onSelectRelasiMataKuliah,
   onSelectBookingManagement,
   onSelectImportJadwal,
 }) => {
+  const visibleItems = MANAGEMENT_ITEMS;
+
   const handlers: Record<string, (() => void) | undefined> = {
     'role-access': onSelectRoleAccess,
     'manajemen-akun': onSelectManajemenAkun,
@@ -99,9 +103,9 @@ export const MobileManagementView: React.FC<MobileManagementViewProps> = ({
         </p>
       </div>
 
-      {/* 3 Menu Cards */}
+      {/* Menu Cards */}
       <div className="flex flex-col gap-3">
-        {MANAGEMENT_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
             <button

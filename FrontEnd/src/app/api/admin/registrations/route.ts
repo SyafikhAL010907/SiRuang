@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { getUserFromRequest } from '@/lib/authHelper';
+import { requireAdminDev } from '@/lib/authHelper';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     // 1. Lazy purge: bersihkan otomatis pengajuan yang sudah expired
     try {

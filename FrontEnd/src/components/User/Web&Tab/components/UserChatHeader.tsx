@@ -7,6 +7,9 @@ import { Message } from '@/constants/chatTypes';
 import Avatar from '@/components/Shared/Avatar';
 
 export interface UserChatHeaderProps {
+  partnerName?: string;
+  partnerRole?: string;
+  partnerAvatar?: string;
   localSearchQuery: string;
   isLocalSearchOpen: boolean;
   setIsLocalSearchOpen: (v: boolean) => void;
@@ -21,6 +24,9 @@ export interface UserChatHeaderProps {
 }
 
 export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
+  partnerName,
+  partnerRole,
+  partnerAvatar,
   localSearchQuery,
   isLocalSearchOpen,
   setIsLocalSearchOpen,
@@ -35,11 +41,13 @@ export const UserChatHeader: React.FC<UserChatHeaderProps> = ({
   return (
     <header className="px-8 py-5 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between z-10 shadow-sm">
       <div className="flex items-center gap-4">
-        <Avatar src={adminAvatarSrc || '/LogoSiRuangPolos.png'} size="md" />
+        <Avatar src={partnerAvatar || adminAvatarSrc || '/LogoSiRuangPolos.png'} size="md" />
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-black text-slate-800 tracking-tight">Admin  UNJ</h2>
-            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter uppercase">OFFICIAL</span>
+            <h2 className="font-black text-slate-800 tracking-tight">{partnerName || 'Admin UNJ'}</h2>
+            <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter uppercase">
+              {partnerRole || 'OFFICIAL'}
+            </span>
           </div>
         </div>
       </div>

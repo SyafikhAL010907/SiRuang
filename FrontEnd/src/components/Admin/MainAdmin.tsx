@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import MobileLayout from './Mobile/MobileLayout';
 import WebTabLayout from './Web&Tab/WebTabLayout';
+import { isBuildingAdmin } from '@/lib/roles';
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
 
 const MainAdmin = () => {
     const [isMobile, setIsMobile] = useState(false);
@@ -15,6 +17,13 @@ const MainAdmin = () => {
         if (storedUser) {
             const parsed = JSON.parse(storedUser);
             console.log("[DEBUG] Data Full:", parsed);
+
+            // Jika admin gedung mengakses /admin, arahkan ke route gedung masing-masing
+            if (isBuildingAdmin(parsed.role)) {
+                window.location.href = getRoleDashboardPath(parsed.role);
+                return;
+            }
+
             // Cek semua kemungkinan nama variabel (username atau Username)
             const name = parsed.username || parsed.Username || 'Admin';
             setAdminName(name);

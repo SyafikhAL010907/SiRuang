@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabaseServer';
 import { shouldPush } from '@/lib/pushRules';
 import { sendOneNotification } from '@/lib/webPush';
+import { isAnyAdmin } from '@/lib/roles';
 
 /**
  * Bersihkan nama file dari path/URL, URL-encoding, dan prefix timestamp/random.
@@ -128,10 +129,10 @@ export async function notifyRecipient(
   messageType: 'text' | 'image' | 'file' | 'multi_file' = 'text'
 ): Promise<void> {
   try {
-    // 1. Ambil room
+    // 1. Ambil room (mendukung dual-format)
     const { data: room, error: roomError } = await supabaseServer
       .from('chat_rooms')
-      .select('user_identifier')
+      .select('user_identifier, room_type, participant_b_identifier')
       .eq('id', roomId)
       .maybeSingle();
 
@@ -139,10 +140,15 @@ export async function notifyRecipient(
       return;
     }
 
-    // 2. Tentukan recipient identifier
+    // 2. Tentukan recipient identifier (mendukung format baru 'pj_to_dosen' dan legacy 'dosen:NIP:NIM')
     let recipientIdentifier = room.user_identifier;
 
-    if (room.user_identifier.startsWith('dosen:')) {
+    if (room.room_type === 'pj_to_dosen' && room.participant_b_identifier) {
+      // Format baru: user_identifier = NIM PJ, participant_b_identifier = NIP Dosen
+      recipientIdentifier = (senderIdentifier === room.user_identifier)
+        ? room.participant_b_identifier
+        : room.user_identifier;
+    } else if (room.user_identifier.startsWith('dosen:')) {
       const parts = room.user_identifier.split(':');
       if (parts.length >= 3) {
         const nidnDosen = parts[1];
@@ -176,8 +182,8 @@ export async function notifyRecipient(
       return;
     }
 
-    // 4. Jika role penerima adalah 'admin', return (admin tidak pernah di-push)
-    if (recipientAuth.role === 'admin') {
+    // 4. Jika role penerima adalah admin, return (admin tidak pernah di-push)
+    if (isAnyAdmin(recipientAuth.role)) {
       return;
     }
 

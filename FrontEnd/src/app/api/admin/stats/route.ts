@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
+import { requireAdminDev } from '@/lib/authHelper';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
   try {
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
+
     const { count, error } = await supabaseServer
       .from('authentication')
       .select('id', { count: 'exact', head: true })
-      .neq('role', 'admin');
+      .in('role', ['user', 'pj_kelas', 'dosen']);
 
     if (error) {
-      return NextResponse.json({ error: 'Gagal mengambil data statistik' }, { status: 500 });
+      return NextResponse.json({ error: 'Gagal mengambil data statistik: ' + error.message }, { status: 500 });
     }
 
     return NextResponse.json({

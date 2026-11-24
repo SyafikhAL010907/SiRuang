@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MainAuth from '@/components/Authentication/MainAuth';
 import { getRoleDashboardPath } from '@/lib/roleNavigation';
+import { isAnyAdmin } from '@/lib/roles';
 
 function LoginContent() {
   const router = useRouter();
@@ -25,7 +26,7 @@ function LoginContent() {
           // Cek apakah ada redirect param yang cocok dengan role user
           if (redirectParam && redirectParam.startsWith('/')) {
             if (
-              (redirectParam.startsWith('/admin') && parsed.role === 'admin') ||
+              (redirectParam.startsWith('/admin') && isAnyAdmin(parsed.role)) ||
               (redirectParam.startsWith('/dosen') && parsed.role === 'dosen') ||
               (redirectParam.startsWith('/pj') && parsed.role === 'pj_kelas') ||
               (redirectParam.startsWith('/user') && parsed.role === 'user')
@@ -58,7 +59,7 @@ function LoginContent() {
 
     if (redirectParam && redirectParam.startsWith('/')) {
       if (
-        (redirectParam.startsWith('/admin') && role === 'admin') ||
+        (redirectParam.startsWith('/admin') && isAnyAdmin(role)) ||
         (redirectParam.startsWith('/dosen') && role === 'dosen') ||
         (redirectParam.startsWith('/pj') && role === 'pj_kelas') ||
         (redirectParam.startsWith('/user') && role === 'user')

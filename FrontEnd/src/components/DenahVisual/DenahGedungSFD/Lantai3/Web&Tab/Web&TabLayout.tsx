@@ -64,11 +64,11 @@ export function Legenda({ className = '' }: { className?: string }) {
       </span>
       <span className="flex items-center gap-2">
         <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#FFEB3B]" />
-        Kelas dalam Pengajuan
+        Dalam Pengajuan
       </span>
       <span className="flex items-center gap-2">
         <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#E53935]" />
-        Kelas Dipakai
+        Terjadwal / Dipakai
       </span>
       <span className="flex items-center gap-2">
         <i className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#757575]" />
@@ -262,14 +262,14 @@ export function PetaInteraktif({
   // Cek apakah ada ruangan yang siap check-in pada lantai ini
   const pendingCheckinEntry = Object.entries(roomStatuses).find(([_, r]) =>
     r.bookings?.some((b: any) =>
-      ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+      ['dijadwalkan', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
     )
   );
 
   const readyRoomKode = pendingCheckinEntry ? pendingCheckinEntry[0] : null;
   const readyBooking = pendingCheckinEntry
     ? pendingCheckinEntry[1].bookings?.find((b: any) =>
-        ['disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+        ['dijadwalkan', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
       )
     : null;
 

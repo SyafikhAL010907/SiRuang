@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { getUserFromRequest } from '@/lib/authHelper';
+import { isAnyAdmin } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Admin ditolak (admin tidak menerima push notification)
-    if (user.role === 'admin') {
+    if (isAnyAdmin(user.role)) {
       return NextResponse.json({ error: 'Forbidden: Admin tidak memerlukan push notification' }, { status: 403 });
     }
 

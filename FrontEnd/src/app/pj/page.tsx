@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import MainPJ from '@/components/PJKelas/MainUser';
 import { UserDashboardSkeleton } from '@/components/Skeletons';
 
+import { getRoleDashboardPath } from '@/lib/roleNavigation';
+import { isAnyAdmin } from '@/lib/roles';
+
 export default function PjPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
@@ -22,8 +25,8 @@ export default function PjPage() {
       // Khusus role 'pj_kelas'
       if (parsed.role === 'pj_kelas') {
         setAuthorized(true);
-      } else if (parsed.role === 'admin') {
-        router.replace('/admin');
+      } else if (isAnyAdmin(parsed.role)) {
+        router.replace(getRoleDashboardPath(parsed.role));
       } else if (parsed.role === 'dosen') {
         router.replace('/dosen');
       } else {

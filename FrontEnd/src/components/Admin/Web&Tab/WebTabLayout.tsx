@@ -12,6 +12,7 @@ import { useAttachments } from '../Shared/hooks/useAttachments';
 import { useMessageSearch } from '../Shared/hooks/useMessageSearch';
 import AIConfirmModal from '../Shared/Modals/AIConfirmModal';
 import TemplatePopupModal from '../Shared/Modals/TemplatePopupModal';
+import SearchChatUserModal from '@/components/Shared/SearchChatUserModal';
 
 import AdminSidebar from './components/AdminSidebar';
 import AdminDashboardView from './components/AdminDashboardView';
@@ -26,12 +27,27 @@ import ChatMessagesArea from './components/ChatMessagesArea';
 import ChatInputArea from './components/ChatInputArea';
 
 const WebTabLayout = () => {
-  const [mainView, setMainView] = useState<'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'>('dashboard');
+  const [userRole, setUserRole] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          return JSON.parse(storedUser).role || '';
+        }
+      } catch {}
+    }
+    return '';
+  });
+
+  const [mainView, setMainView] = useState<
+    'dashboard' | 'profile' | 'role-access' | 'manajemen-akun' | 'relasi-mata-kuliah' | 'booking-management' | 'import-jadwal'
+  >('dashboard');
   const [activeFilter, setActiveFilter] = useState<'unreading' | 'reading'>('unreading');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isTemplatePopupOpen, setIsTemplatePopupOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Pendaftaran');
+  const [isSearchUserOpen, setIsSearchUserOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ show: boolean, type: 'alert' | 'confirm', message: string, title?: string, onConfirm?: () => void }>({ show: false, type: 'alert', message: '' });
   const showAlert = (message: string, title?: string) => setAlertConfig({ show: true, type: 'alert', message, title });
 
@@ -129,11 +145,13 @@ const WebTabLayout = () => {
       const parsed = JSON.parse(storedUser);
       setAdminName(parsed.username || parsed.Username || 'Admin');
       setAdminGmail(parsed.identifier || parsed.gmail || '');
+      setUserRole(parsed.role || '');
       fetchRooms(parsed.token);
-      fetchStats(parsed.token);
       fetchAllUsers(parsed.token);
-      // ⚠️  DISABLE: Comment baris fetchAIStatus di bawah jika tidak pakai AI
-      fetchAIStatus(parsed.token); // Ambil status AI saat pertama load
+
+      // Ambil stats & AI status untuk AdminDev
+      fetchStats(parsed.token);
+      fetchAIStatus(parsed.token);
 
       // Fallback polling santai sebagai safety net (60 detik) karena Realtime WebSocket sudah aktif 0ms
       const interval = setInterval(() => {
@@ -221,6 +239,43 @@ const WebTabLayout = () => {
     markAsRead(room.id);
   };
 
+  const handleStartChatWithUser = async (targetUser: any) => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      const token = storedUser ? JSON.parse(storedUser).token : '';
+      const res = await fetch('/api/chat/open-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          target_identifier: targetUser.identifier,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.room_id) {
+          await fetchRooms(token);
+          setSelectedChat({
+            id: data.room_id,
+            user_identifier: targetUser.identifier,
+            user_name: targetUser.full_name || targetUser.username,
+            avatar_url: targetUser.avatar_url,
+            role: targetUser.role,
+            room_type: targetUser.role?.startsWith('admin_') ? 'user_to_building_admin' : 'user_to_admin',
+          });
+        }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        showAlert(errJson.error || 'Gagal membuka room chat');
+      }
+    } catch {
+      showAlert('Terjadi kesalahan saat membuka room chat');
+    }
+  };
+
   const filteredRooms = rooms.filter(room => {
     const matchesSearch = roomSearchQuery.trim()
       ? (room.user_name || '').toLowerCase().includes(roomSearchQuery.toLowerCase()) || (room.user_gmail || '').toLowerCase().includes(roomSearchQuery.toLowerCase())
@@ -241,6 +296,10 @@ const WebTabLayout = () => {
       {/* Sidebar - Chat List */}
       <AdminSidebar
         adminName={adminName}
+        userRole={userRole}
+        currentView={mainView}
+        onSelectView={setMainView}
+        onDeselectChat={() => setSelectedChat(null)}
         rooms={rooms}
         filteredRooms={filteredRooms}
         selectedChat={selectedChat}
@@ -276,6 +335,7 @@ const WebTabLayout = () => {
         handleBlessChat={handleBlessChat}
         viewFile={viewFile}
         showAlert={showAlert}
+        onOpenSearchUser={() => setIsSearchUserOpen(true)}
       />
 
       {/* Main Chat Area */}
@@ -345,7 +405,10 @@ const WebTabLayout = () => {
         ) : mainView === 'relasi-mata-kuliah' ? (
           <RelasiMataKuliahView onBack={() => setMainView('dashboard')} />
         ) : mainView === 'booking-management' ? (
-          <BookingManagementView onBack={() => setMainView('dashboard')} />
+          <BookingManagementView
+            userRole={userRole}
+            onBack={() => setMainView('dashboard')}
+          />
         ) : mainView === 'import-jadwal' ? (
           <ImportJadwalResmiView onBack={() => setMainView('dashboard')} />
         ) : (
@@ -420,6 +483,13 @@ const WebTabLayout = () => {
         onClose={() => setSelectedExcelFile(null)}
         fileData={selectedExcelFile?.data || ''}
         fileName={selectedExcelFile?.name || ''}
+      />
+      <SearchChatUserModal
+        isOpen={isSearchUserOpen}
+        onClose={() => setIsSearchUserOpen(false)}
+        onSelectUser={handleStartChatWithUser}
+        title="Mulai Chat Baru"
+        subtitle="Cari PJ Kelas, Dosen, Mahasiswa, atau Admin Gedung"
       />
       {/* ──────────────────────────────────────────────────────────────────── */}
     </div>

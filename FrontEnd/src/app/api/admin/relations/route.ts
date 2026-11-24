@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
-import { getUserFromRequest } from '@/lib/authHelper';
+import { requireAdminDev } from '@/lib/authHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +13,8 @@ function getInitials(name?: string | null): string {
 
 export async function GET(request: Request) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     const { searchParams } = new URL(request.url);
     const includeOptions = searchParams.get('options') === 'true';
@@ -134,10 +132,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized: Akses khusus admin' }, { status: 403 });
-    }
+    const auth = await requireAdminDev(request);
+    if ('errorResponse' in auth) return auth.errorResponse;
 
     const body = await request.json();
     const mataKuliah = body.mata_kuliah?.trim();

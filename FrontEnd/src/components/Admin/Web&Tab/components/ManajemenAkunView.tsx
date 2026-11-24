@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Role, isAnyAdmin } from '@/lib/roles';
 
 interface ManajemenAkunViewProps {
   onBack: () => void;
@@ -59,7 +60,7 @@ interface UserProfileItem {
   username: string;
   identifier: string;
   identifier_type: 'nim' | 'nip';
-  role: 'admin' | 'dosen' | 'pj_kelas' | 'user';
+  role: Role;
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -296,7 +297,7 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
     form: {
       username: string;
       full_name: string;
-      role: 'admin' | 'dosen' | 'pj_kelas' | 'user';
+      role: Role;
       email: string;
       phone: string;
       faculty: string;
@@ -647,7 +648,7 @@ const ManajemenAkunView: React.FC<ManajemenAkunViewProps> = ({ onBack }) => {
 
       const matchRole =
         roleFilter === 'ALL' ||
-        (roleFilter === 'ADMIN' && u.role === 'admin') ||
+        (roleFilter === 'ADMIN' && isAnyAdmin(u.role)) ||
         (roleFilter === 'DOSEN' && u.role === 'dosen') ||
         (roleFilter === 'PJ_KELAS' && u.role === 'pj_kelas') ||
         (roleFilter === 'MAHASISWA' && u.role === 'user');

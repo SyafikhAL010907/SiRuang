@@ -18,13 +18,13 @@ export interface RoomStatusInfo {
 }
 
 interface UseRoomStatusesOptions {
-  gedung?: string;
+  gedung: string;
   lantai: number;
   tanggal?: string;
   jam?: string;
 }
 
-export function useRoomStatuses({ gedung = 'SFD', lantai, tanggal, jam }: UseRoomStatusesOptions) {
+export function useRoomStatuses({ gedung, lantai, tanggal, jam }: UseRoomStatusesOptions) {
   const [roomStatuses, setRoomStatuses] = useState<Record<string, RoomStatusInfo>>({});
   const [loading, setLoading] = useState(true);
 

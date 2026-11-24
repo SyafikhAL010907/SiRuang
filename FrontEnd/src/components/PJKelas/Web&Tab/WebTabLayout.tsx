@@ -17,6 +17,7 @@ import UserChatInput from './components/UserChatInput';
 import UserTemplatePopupModal from '../Shared/Modals/UserTemplatePopupModal';
 import CustomAlert from '@/components/Shared/CustomAlert';
 import FilePreviewModal from '@/components/Shared/FilePreviewModal';
+import SearchAdminGedungModal from '@/components/Shared/SearchAdminGedungModal';
 
 export const WebTabLayout = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -31,20 +32,31 @@ export const WebTabLayout = () => {
 
   const fetchPjStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/bookings');
+      let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token && typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            token = JSON.parse(storedUser).token;
+          } catch {}
+        }
+      }
+      const res = await fetch('/api/bookings', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           const todayDate = new Date().toISOString().split('T')[0];
           const active = json.data.filter((b: any) =>
-            ['menunggu_dosen', 'disetujui_dosen', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'].includes(b.status)
+            ['menunggu_approval', 'menunggu_dosen', 'disetujui_dosen', 'dijadwalkan', 'dijadwalkan_admin', 'menunggu_checkin', 'berlangsung'].includes(b.status)
           ).length;
           setActiveBookingCount(active);
 
           const todayCheckins = json.data.filter(
             (b: any) =>
               b.tanggal === todayDate &&
-              ['dijadwalkan_admin', 'menunggu_checkin'].includes(b.status)
+              ['dijadwalkan', 'dijadwalkan_admin', 'disetujui_dosen', 'menunggu_checkin', 'berlangsung'].includes(b.status)
           ).length;
           setTodayCheckinCount(todayCheckins);
         }
@@ -76,35 +88,89 @@ export const WebTabLayout = () => {
   });
 
   const [dosenRooms, setDosenRooms] = useState<any[]>([]);
-  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'dosen'>('admin');
+  const [buildingAdminRooms, setBuildingAdminRooms] = useState<any[]>([]);
+  const [isSearchBuildingAdminOpen, setIsSearchBuildingAdminOpen] = useState(false);
+  const [activeRoomType, setActiveRoomType] = useState<'admin' | 'dosen' | 'building_admin'>('admin');
   const [selectedDosenRoomId, setSelectedDosenRoomId] = useState<number | null>(null);
+  const [selectedBuildingAdminRoomId, setSelectedBuildingAdminRoomId] = useState<number | null>(null);
   const [chatPartner, setChatPartner] = useState<{
     name: string;
     role: string;
     avatar?: string;
   }>({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
   const [adminRoomId, setAdminRoomId] = useState<number | null>(null);
+  const [adminLastMessage, setAdminLastMessage] = useState<string>('');
+
+  const loadDosenRooms = useCallback(async () => {
+    try {
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!storedUser) return;
+      const { token } = JSON.parse(storedUser);
+      const res = await fetch('/api/chat/dosen-room', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.rooms && Array.isArray(json.rooms)) {
+          setDosenRooms(json.rooms);
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat room chat dosen:', err);
+    }
+  }, []);
+
+  const loadBuildingAdminRooms = useCallback(async () => {
+    try {
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!storedUser) return;
+      const { token } = JSON.parse(storedUser);
+      const res = await fetch('/api/chat/my-rooms', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.rooms && Array.isArray(json.rooms)) {
+          // Ambil hanya room_type user_to_building_admin
+          const bgRooms = json.rooms.filter((r: any) => r.room_type === 'user_to_building_admin');
+          setBuildingAdminRooms(bgRooms);
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat room admin gedung:', err);
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadDosenRooms() {
+    loadDosenRooms();
+    loadBuildingAdminRooms();
+  }, [loadDosenRooms, loadBuildingAdminRooms]);
+
+  // Muat preview last_message khusus room admin (agar terpisah dan tidak bocor ke room dosen)
+  useEffect(() => {
+    async function loadAdminRoomInfo() {
       try {
         const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         if (!storedUser) return;
         const { token } = JSON.parse(storedUser);
-        const res = await fetch('/api/chat/dosen-room', {
+        const res = await fetch('/api/chat/user-room', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.rooms && Array.isArray(json.rooms)) {
-            setDosenRooms(json.rooms);
+          const r = json.room || json;
+          if (r?.id) {
+            setAdminRoomId(r.id);
+            if (r.last_message) {
+              setAdminLastMessage(r.last_message);
+            }
           }
         }
       } catch (err) {
-        console.warn('Gagal memuat room chat dosen:', err);
+        console.warn('Gagal memuat room admin:', err);
       }
     }
-    loadDosenRooms();
+    loadAdminRoomInfo();
   }, []);
 
   useEffect(() => {
@@ -116,8 +182,19 @@ export const WebTabLayout = () => {
   const handleSelectAdminRoom = () => {
     setActiveRoomType('admin');
     setSelectedDosenRoomId(null);
+    setSelectedBuildingAdminRoomId(null);
     chat.setMessages([]);
-    if (adminRoomId) chat.setRoomId(adminRoomId);
+    const targetRoomId = adminRoomId || chat.roomId;
+    if (targetRoomId) {
+      chat.setRoomId(targetRoomId);
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (stored) {
+        try {
+          const { token } = JSON.parse(stored);
+          chat.fetchMessages(targetRoomId, token, chat.userGmail);
+        } catch {}
+      }
+    }
     setChatPartner({ name: 'Admin UNJ', role: 'Helpdesk SiRuang', avatar: '/LogoSiRuangPolos.png' });
     setIsChatOpen(true);
   };
@@ -125,14 +202,78 @@ export const WebTabLayout = () => {
   const handleSelectDosenRoom = (room: any) => {
     setActiveRoomType('dosen');
     setSelectedDosenRoomId(room.room_id);
+    setSelectedBuildingAdminRoomId(null);
     chat.setMessages([]);
     chat.setRoomId(room.room_id);
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (stored) {
+      try {
+        const { token } = JSON.parse(stored);
+        chat.fetchMessages(room.room_id, token, chat.userGmail);
+      } catch {}
+    }
     setChatPartner({
       name: room.dosen_name,
       role: `${room.mata_kuliah} ${room.kelas ? '(' + room.kelas + ')' : ''}`,
       avatar: room.dosen_avatar,
     });
     setIsChatOpen(true);
+  };
+
+  const handleSelectBuildingAdminRoom = (room: any) => {
+    setActiveRoomType('building_admin');
+    setSelectedBuildingAdminRoomId(room.room_id);
+    setSelectedDosenRoomId(null);
+    chat.setMessages([]);
+    chat.setRoomId(room.room_id);
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (stored) {
+      try {
+        const { token } = JSON.parse(stored);
+        chat.fetchMessages(room.room_id, token, chat.userGmail);
+      } catch {}
+    }
+    setChatPartner({
+      name: room.partner_name,
+      role: `Admin Gedung ${room.partner_role ? room.partner_role.replace('admin_', '').toUpperCase() : ''}`,
+      avatar: room.partner_avatar,
+    });
+    setIsChatOpen(true);
+  };
+
+  const handleStartChatWithBuildingAdmin = async (admin: any) => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      const token = storedUser ? JSON.parse(storedUser).token : '';
+      const res = await fetch('/api/chat/open-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          target_identifier: admin.identifier,
+          room_type: 'user_to_building_admin',
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.room_id) {
+          await loadBuildingAdminRooms();
+          handleSelectBuildingAdminRoom({
+            room_id: json.room_id,
+            partner_name: admin.full_name,
+            partner_role: admin.role,
+            partner_avatar: admin.avatar_url,
+          });
+        }
+      } else {
+        showAlert('Gagal membuka room chat dengan admin gedung');
+      }
+    } catch {
+      showAlert('Terjadi kesalahan saat membuka room');
+    }
   };
 
   // Deep link support: buka chat jika URL param openChat=1
@@ -230,7 +371,33 @@ export const WebTabLayout = () => {
     window.location.href = '/login';
   };
 
-  const lastMessage = chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
+  // Update preview secara reaktif saat ada pesan baru dikirim atau diterima
+  useEffect(() => {
+    if (chat.messages.length === 0) return;
+    const latest = chat.messages[chat.messages.length - 1];
+    if (!latest) return;
+
+    if (activeRoomType === 'admin') {
+      const previewText = latest.type === 'image' ? '🖼️ Gambar'
+        : latest.type === 'file' ? '📄 Dokumen'
+        : latest.type === 'multi_file' ? '📎 Lampiran File'
+        : latest.text || '';
+      setAdminLastMessage(previewText);
+    } else if (activeRoomType === 'dosen' && selectedDosenRoomId) {
+      const previewText = latest.type === 'image' ? '🖼️ Gambar'
+        : latest.type === 'file' ? '📄 Dokumen'
+        : latest.type === 'multi_file' ? '📎 Lampiran File'
+        : latest.text || '';
+      setDosenRooms((prev) =>
+        prev.map((r) =>
+          r.room_id === selectedDosenRoomId ? { ...r, last_message: previewText } : r
+        )
+      );
+    }
+  }, [chat.messages, activeRoomType, selectedDosenRoomId]);
+
+  // Preview untuk Admin UNJ diambil khusus dari adminLastMessage, BUKAN dari chat.messages global
+  const lastMessage = adminLastMessage || (activeRoomType === 'admin' && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null);
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
@@ -250,8 +417,11 @@ export const WebTabLayout = () => {
         activeRoom={activeRoomType}
         onSelectRoom={handleSelectAdminRoom}
         dosenRooms={dosenRooms}
-        selectedRoomId={selectedDosenRoomId}
+        selectedRoomId={activeRoomType === 'dosen' ? selectedDosenRoomId : selectedBuildingAdminRoomId}
         onSelectDosenRoom={handleSelectDosenRoom}
+        buildingAdminRooms={buildingAdminRooms}
+        onSelectBuildingAdminRoom={handleSelectBuildingAdminRoom}
+        onOpenSearchBuildingAdmin={() => setIsSearchBuildingAdminOpen(true)}
         onOpenChat={handleSelectAdminRoom}
         onOpenTemplate={() => setIsTemplatePopupOpen(true)}
         onLogout={handleLogout}
@@ -382,6 +552,11 @@ export const WebTabLayout = () => {
         onClose={() => setSelectedExcelFile(null)}
         fileData={selectedExcelFile?.data || ''}
         fileName={selectedExcelFile?.name || ''}
+      />
+      <SearchAdminGedungModal
+        isOpen={isSearchBuildingAdminOpen}
+        onClose={() => setIsSearchBuildingAdminOpen(false)}
+        onSelectAdmin={handleStartChatWithBuildingAdmin}
       />
     </div>
   );

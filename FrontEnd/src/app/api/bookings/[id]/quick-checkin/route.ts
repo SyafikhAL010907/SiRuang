@@ -189,17 +189,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    // Pastikan status saat ini memenuhi syarat check-in (sudah di-ACC dosen atau admin)
-    if (
-      booking.status !== 'disetujui_dosen' &&
-      booking.status !== 'dijadwalkan_admin' &&
-      booking.status !== 'menunggu_checkin'
-    ) {
+    // Pastikan status saat ini memenuhi syarat check-in (sudah di-ACC dosen dan admin gedung)
+    const isApproved =
+      booking.status === 'dijadwalkan' ||
+      booking.status === 'disetujui_dosen' ||
+      booking.status === 'dijadwalkan_admin' ||
+      booking.status === 'menunggu_checkin' ||
+      (booking.approval_dosen === 'disetujui' && booking.approval_admin_gedung === 'disetujui');
+
+    if (!isApproved) {
       return renderHtmlCard({
         title: 'Belum Dapat Check-In',
         isSuccess: false,
         heading: 'Belum Memenuhi Syarat',
-        message: `Peminjaman ini saat ini berstatus <strong>'${escapeHtml(booking.status)}'</strong>. Check-in hanya dapat dilakukan setelah permohonan disetujui (ACC) oleh dosen pengampu.`,
+        message: `Peminjaman ini saat ini berstatus <strong>'${escapeHtml(booking.status)}'</strong>. Check-in hanya dapat dilakukan setelah permohonan disetujui (ACC) oleh dosen pengampu dan Admin Gedung.`,
         appUrl,
       });
     }
