@@ -1,20 +1,20 @@
-import { Montserrat, Plus_Jakarta_Sans, Fasthand } from 'next/font/google';
+// Font configuration with safe CSS classes (prevents Turbopack internal font resolver crash)
+export const montserrat = {
+  className: 'font-montserrat',
+  variable: '--font-montserrat',
+  style: { fontFamily: "'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+};
 
-export const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-  display: 'swap',
-});
+export const jakarta = {
+  className: 'font-jakarta',
+  variable: '--font-jakarta',
+  style: { fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+};
 
-export const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  display: 'swap',
-});
+export const fasthand = {
+  className: 'font-fasthand',
+  variable: '--font-fasthand',
+  style: { fontFamily: "'Fasthand', cursive, sans-serif" },
+};
 
-export const fasthand = Fasthand({
-  subsets: ['latin'],
-  weight: '400',
-  display: 'swap',
-});
 
